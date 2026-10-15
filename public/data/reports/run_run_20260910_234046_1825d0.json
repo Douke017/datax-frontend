@@ -1,0 +1,55 @@
+{
+  "run_id": "run_20260910_234046_1825d0",
+  "started_at": "2026-09-10T23:40:46.605499",
+  "finished_at": "2026-09-10T23:48:35.380845",
+  "sources_selected": 2,
+  "sources_processed": 2,
+  "sources_skipped": 0,
+  "sources_failed": 0,
+  "sources_with_changes": 2,
+  "sources_without_changes": 0,
+  "source_results": [
+    {
+      "observation_id": "78b54f8b-029f-470e-88c6-ac17daff1a2f",
+      "source_id": "finrural",
+      "run_id": "run_20260910_234046_1825d0",
+      "workflow": "html",
+      "execution_status": "SUCCESS",
+      "content_status": "CHANGED",
+      "failure_code": null,
+      "skip_reason": null,
+      "robots_override_applied": false,
+      "robots_override_reason": null,
+      "coverage": {
+        "pages_visited": 30,
+        "urls_discovered": 160,
+        "resources_found": 130,
+        "urls_rejected": 0,
+        "urls_failed": 0
+      },
+      "next_eligible_at": null,
+      "observed_at": "2026-09-10T23:43:25.670388"
+    },
+    {
+      "observation_id": "bc0c1e9f-234d-4941-8304-6ab199a719c3",
+      "source_id": "bbv",
+      "run_id": "run_20260910_234046_1825d0",
+      "workflow": "commented_html",
+      "execution_status": "SUCCESS",
+      "content_status": "CHANGED",
+      "failure_code": null,
+      "skip_reason": null,
+      "robots_override_applied": false,
+      "robots_override_reason": null,
+      "coverage": {
+        "pages_visited": 30,
+        "urls_discovered": 265,
+        "resources_found": 235,
+        "urls_rejected": 0,
+        "urls_failed": 0
+      },
+      "next_eligible_at": null,
+      "observed_at": "2026-09-10T23:48:35.371518"
+    }
+  ]
+}

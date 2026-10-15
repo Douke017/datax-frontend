@@ -6,7 +6,10 @@ import {
   BridgeReconcileResponse,
   BridgeSyncRequest,
   BridgeSyncResponse,
-  BronzeArtifactEntry
+  BronzeArtifactEntry,
+  IngestionEvaluateRequest,
+  IngestionEvaluateResponse,
+  DomainCircuitStatus
 } from '../models/reconciliation.model';
 
 @Injectable({
@@ -14,7 +17,7 @@ import {
 })
 export class InternoService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8001';
+  private readonly baseUrl = 'http://localhost:8001'; // Puerto oficial de Prospector Interno & Sync Bridge
 
   reconcile(request: BridgeReconcileRequest): Observable<BridgeReconcileResponse> {
     return this.http.post<BridgeReconcileResponse>(`${this.baseUrl}/api/v1/bridge/reconcile`, request);
@@ -27,6 +30,16 @@ export class InternoService {
   getArtifacts(sourceId?: string): Observable<BronzeArtifactEntry[]> {
     const params = sourceId ? `?source_id=${encodeURIComponent(sourceId)}` : '';
     return this.http.get<BronzeArtifactEntry[]>(`${this.baseUrl}/api/v1/bridge/artifacts${params}`);
+  }
+
+  evaluateGatekeeper(request: IngestionEvaluateRequest): Observable<IngestionEvaluateResponse> {
+    return this.http.post<IngestionEvaluateResponse>(`${this.baseUrl}/api/v1/gatekeeper/evaluate`, request);
+  }
+
+  getCircuitBreaker(domain: string): Observable<DomainCircuitStatus> {
+    return this.http.get<DomainCircuitStatus>(
+      `${this.baseUrl}/api/v1/bridge/circuit-breaker/${encodeURIComponent(domain)}`
+    );
   }
 
   checkHealth(): Observable<{ status: string; service: string; version: string }> {

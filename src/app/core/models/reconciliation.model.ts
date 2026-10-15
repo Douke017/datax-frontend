@@ -54,3 +54,36 @@ export interface BronzeArtifactEntry {
   period?: string;
   is_rescued?: boolean;
 }
+
+export interface IngestionEvaluateRequest {
+  dataset_code: string;
+  domain?: string | null;
+  target_url?: string | null;
+  period?: string | null;
+  force_refresh?: boolean;
+  request_id?: string | null;
+  source_id?: string | null;
+}
+
+export interface IngestionEvaluateResponse {
+  verdict: 'PROCEED_DOWNLOAD' | 'CACHE_HIT_BRONZE' | 'CACHE_HIT_GOLD' | 'IN_FLIGHT_LOCKED' | 'REUSE_DERIVATION' | 'IN_PROGRESS';
+  idempotency_key: string;
+  reason: string;
+  lock_acquired: boolean;
+  cached_artifact_id?: string | null;
+  in_flight_task_id?: string | null;
+  task_id?: string | null;
+  status: string;
+  subscribers_count: number;
+  derivation_query?: string | null;
+  missing_periods?: string[] | null;
+}
+
+export interface DomainCircuitStatus {
+  domain: string;
+  status: 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+  failure_count: number;
+  cooldown_remaining_seconds: number;
+  opened_at?: string | null;
+  last_attempt_at?: string | null;
+}

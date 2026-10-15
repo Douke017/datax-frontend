@@ -80,9 +80,9 @@ export class SystemMonitorService {
           name: 'Prospector Externo',
           port: 8000,
           url: 'http://localhost:8000',
-          status: res.status === 'UP' ? 'UP' : 'DEGRADED',
+          status: res.status === 'UP' || res.status === 'healthy' || res.status === 'OFFLINE_CACHE' ? 'UP' : 'DEGRADED',
           latencyMs: latency,
-          details: res.service,
+          details: res.service || 'Catálogo indexado',
           lastChecked: new Date().toISOString()
         });
       },

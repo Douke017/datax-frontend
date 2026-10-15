@@ -1,0 +1,28 @@
+{
+  "finrural": {
+    "source_id": "finrural",
+    "name": "FINRURAL — Asociación de Instituciones Financieras de Desarrollo",
+    "entrypoint": "https://www.finrural.org.bo",
+    "workflow": "html",
+    "health_status": "ACTIVE",
+    "update_category": "MONTHLY",
+    "next_eligible_at": "2026-10-11T00:00:05.063844Z",
+    "last_run_id": "run_20260910_235927_5f954e",
+    "last_run_at": "2026-09-11T00:00:05.054333Z",
+    "created_at": "2026-09-10T23:30:24.997234",
+    "updated_at": "2026-09-11T00:00:05.063780Z"
+  },
+  "bbv": {
+    "source_id": "bbv",
+    "name": "Bolsa Boliviana de Valores (BBV)",
+    "entrypoint": "https://www.bbv.com.bo",
+    "workflow": "commented_html",
+    "health_status": "ACTIVE",
+    "update_category": "DAILY",
+    "next_eligible_at": "2026-09-12T00:01:03.909871Z",
+    "last_run_id": "run_20260910_235927_5f954e",
+    "last_run_at": "2026-09-11T00:01:03.893964Z",
+    "created_at": "2026-09-10T23:48:35.380214",
+    "updated_at": "2026-09-11T00:01:03.909814Z"
+  }
+}

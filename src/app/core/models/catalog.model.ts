@@ -33,6 +33,38 @@ export interface CatalogResource {
   anchor_text?: string | null;
   context_text?: string | null;
   http_status?: number | null;
-  resource_type: string;
+  resource_type?: string;
   api?: string | null;
+}
+
+export interface RunCoverage {
+  pages_visited: number;
+  urls_discovered: number;
+  resources_found: number;
+  urls_rejected: number;
+  urls_failed: number;
+}
+
+export interface SourceRunResult {
+  observation_id: string;
+  source_id: string;
+  run_id: string;
+  workflow: string;
+  execution_status: string;
+  content_status: string;
+  coverage: RunCoverage;
+  observed_at: string;
+}
+
+export interface RunReport {
+  run_id: string;
+  started_at: string;
+  finished_at: string;
+  sources_selected: number;
+  sources_processed: number;
+  sources_skipped: number;
+  sources_failed: number;
+  sources_with_changes: number;
+  sources_without_changes: number;
+  source_results: SourceRunResult[];
 }
