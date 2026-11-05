@@ -7,14 +7,14 @@ import { Component } from '@angular/core';
     <div class="lineage-container">
       <div class="lineage-header">
         <div>
-          <span class="lineage-tag mono">CADENA DE CUSTODIA Y PROCEDENCIA</span>
-          <h2 class="lineage-title">Linaje Criptográfico de la Información Institucional</h2>
+          <span class="lineage-tag mono">CADENA DE CUSTODIA Y PROCEDENCIA DE DATOS</span>
+          <h2 class="lineage-title">Linaje Técnico y Trazabilidad Criptográfica del Pipeline</h2>
           <p class="lineage-desc">
-            Trazabilidad integral desde la publicación en el portal emisor hasta los indicadores financieros consolidados.
-            Garantía inmutable para auditorías de cumplimiento normativo y fiscalizaciones ASFI.
+            Trazabilidad integral desde el descubrimiento en el portal web emisor hasta los Datamarts estructurados en Capa Gold.
+            Garantía inmutable de procedencia y no alteración binaria de los datos.
           </p>
         </div>
-        <span class="badge-audit">AUDITORÍA CERTIFICADA</span>
+        <span class="badge-audit">LINAJE VERIFICADO</span>
       </div>
 
       <!-- Flowchart Steps -->
@@ -27,11 +27,11 @@ import { Component } from '@angular/core';
           </div>
           <h3 class="step-title">Detección en Portal Oficial</h3>
           <p class="step-desc">
-            Rastreo periódico del portal institucional (BBV, FINRURAL, BCB). Se indexa la URL original, encabezados HTTP (ETag, Last-Modified) y tamaño reportado.
+            Rastreo periódico del portal institucional (BBV, FINRURAL, BCB). Se indexa la URL canónica, encabezados HTTP (ETag, Last-Modified) y tamaño reportado.
           </p>
           <div class="step-meta">
             <span class="meta-item mono">Entrada: Portal Web</span>
-            <span class="meta-item mono">Salida: URL Candidata</span>
+            <span class="meta-item mono">Salida: Recurso Candidato Indexado</span>
           </div>
         </div>
 
@@ -45,7 +45,7 @@ import { Component } from '@angular/core';
           </div>
           <h3 class="step-title">Evaluación Pre-Flight Gatekeeper</h3>
           <p class="step-desc">
-            Evaluación en menos de 20 ms. Verifica si el archivo ya existe en custodia o si está en tránsito por otro analista, asignando clave de idempotencia única.
+            Evaluación en menos de 20 ms. Verifica si el archivo ya existe en custodia Bronze o si está en tránsito por otro proceso, previniendo descargas redundantes.
           </p>
           <div class="step-meta">
             <span class="meta-item mono">Entrada: Solicitud de Ingesta</span>
@@ -59,15 +59,15 @@ import { Component } from '@angular/core';
         <div class="step-card">
           <div class="step-top">
             <span class="step-badge mono">ETAPA 03</span>
-            <span class="step-sub">CUSTODIA ORIGINAL</span>
+            <span class="step-sub">CUSTODIA BRONZE</span>
           </div>
           <h3 class="step-title">Resguardo Físico y Firma SHA-256</h3>
           <p class="step-desc">
-            Descarga respetuosa regulada por disyuntores. Cálculo de hash criptográfico SHA-256 en vuelo y renombrado atómico inmutable en disco.
+            Descarga respetuosa regulada por disyuntores de red. Cálculo de hash criptográfico SHA-256 en vuelo y renombrado atómico inmutable en disco.
           </p>
           <div class="step-meta">
             <span class="meta-item mono">Entrada: Flujo de Bytes</span>
-            <span class="meta-item mono">Salida: Archivo con Hash SHA-256</span>
+            <span class="meta-item mono">Salida: Archivo Bronze con Hash SHA-256</span>
           </div>
         </div>
 
@@ -77,15 +77,15 @@ import { Component } from '@angular/core';
         <div class="step-card highlight">
           <div class="step-top">
             <span class="step-badge mono">ETAPA 04</span>
-            <span class="step-sub">SUPERVISIÓN FINANCIERA</span>
+            <span class="step-sub">DATAMARTS CAPA GOLD</span>
           </div>
-          <h3 class="step-title">Consolidación de Indicadores</h3>
+          <h3 class="step-title">Consolidación en Datamarts Parquet</h3>
           <p class="step-desc">
-            Normalización contable y agregación en datamarts analíticos. Proyección de índices de mora, solvencia, cobertura de previsiones y cartera bruta.
+            Transformación estructurada y particionado físico en Apache Parquet. Disponibilización inmediata para consultas OLAP vectorizadas en DuckDB.
           </p>
           <div class="step-meta">
             <span class="meta-item mono">Entrada: Datos Normalizados</span>
-            <span class="meta-item mono">Salida: Ratios Contables Auditados</span>
+            <span class="meta-item mono">Salida: Datamarts Parquet Particionados</span>
           </div>
         </div>
       </div>

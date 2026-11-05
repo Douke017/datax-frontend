@@ -1,8 +1,8 @@
 import { inject } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, withHooks, patchState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { pipe, switchMap, tap, catchError, of } from 'rxjs';
-import { CatalogResource, CatalogSource, RunReport } from '../../core/models/catalog.model';
+import { pipe, switchMap, tap, catchError, of, forkJoin } from 'rxjs';
+import { CatalogResource, CatalogSource } from '../../core/models/catalog.model';
 import { ExternoService } from '../../core/services/externo.service';
 
 export interface ExternoState {
@@ -10,7 +10,6 @@ export interface ExternoState {
   selectedSourceId: string;
   resources: CatalogResource[];
   selectedResource: CatalogResource | null;
-  runs: RunReport[];
   searchQuery: string;
   extensionFilter: string;
   statusFilter: string;
@@ -26,7 +25,6 @@ const initialState: ExternoState = {
   selectedSourceId: 'ALL',
   resources: [],
   selectedResource: null,
-  runs: [],
   searchQuery: '',
   extensionFilter: 'ALL',
   statusFilter: 'ALL',
@@ -77,12 +75,14 @@ export const ExternoStore = signalStore(
       },
       totalDiscovered: () => resources().length,
       activeSourcesCount: () => sources().filter((s) => s.health_status === 'ACTIVE').length,
+      warningSourcesCount: () => sources().filter((s) => s.health_status === 'WARNING').length,
+      suspendedSourcesCount: () => sources().filter((s) => s.health_status === 'SUSPENDED').length,
       kpiSummary: () => {
         const all = resources();
         const pdfCount = all.filter((r) => r.file_extension?.toLowerCase() === '.pdf').length;
         const excelCount = all.filter((r) => {
           const e = r.file_extension?.toLowerCase();
-          return e === '.xlsx' || e === '.xls' || e === '.csv';
+          return e === '.xlsx' || e === '.xls' || e === '.csv' || e === '.ods' || e === '.zip';
         }).length;
         const otherCount = all.length - pdfCount - excelCount;
         const totalBytes = all.reduce((acc, curr) => acc + (curr.content_length_bytes || 0), 0);
@@ -121,19 +121,21 @@ export const ExternoStore = signalStore(
       pipe(
         tap(() => patchState(store, { loading: true, error: null })),
         switchMap(() => {
-          return service.checkHealth().pipe(
-            tap((health) => patchState(store, { serviceStatus: health.status })),
-            switchMap(() => service.getSources()),
-            tap((sources) => patchState(store, { sources })),
-            switchMap(() => service.getResources()),
-            tap((resources) => patchState(store, { resources, loading: false })),
-            switchMap(() => service.getRuns()),
-            tap((runs) => patchState(store, { runs })),
-            catchError((err) => {
+          return forkJoin({
+            health: service.checkHealth().pipe(catchError(() => of({ status: 'OFFLINE', service: 'catalog-api' }))),
+            sources: service.getSources().pipe(catchError(() => of([]))),
+            resources: service.getResources().pipe(catchError(() => of([])))
+          }).pipe(
+            tap(({ health, sources, resources }) => {
               patchState(store, {
-                loading: false,
-                error: 'Error al sincronizar con el catálogo de exploración.'
+                serviceStatus: health.status,
+                sources,
+                resources,
+                loading: false
               });
+            }),
+            catchError(() => {
+              patchState(store, { loading: false, error: 'Error al consultar catálogo externo.' });
               return of(null);
             })
           );

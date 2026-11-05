@@ -18,8 +18,8 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             <a routerLink="/externo" routerLinkActive="active" class="nav-item">
               <span class="nav-indicator"></span>
               <div class="nav-content">
-                <span class="nav-title">Explorador de Publicaciones</span>
-                <span class="nav-desc">Rastreo e inventario web indexado</span>
+                <span class="nav-title">Radar Web y Resiliencia</span>
+                <span class="nav-desc">Rastreo, contingencia y alertas DOM</span>
               </div>
             </a>
           </nav>
@@ -35,49 +35,25 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
             <a routerLink="/interno" routerLinkActive="active" class="nav-item">
               <span class="nav-indicator"></span>
               <div class="nav-content">
-                <span class="nav-title">Custodia y Admisión</span>
-                <span class="nav-desc">Repositorio original, Gatekeeper y SHA-256</span>
-              </div>
-            </a>
-
-            <a routerLink="/gold-analytics" routerLinkActive="active" class="nav-item">
-              <span class="nav-indicator"></span>
-              <div class="nav-content">
-                <span class="nav-title">Supervisión de Cartera</span>
-                <span class="nav-desc">Estados financieros consolidados</span>
+                <span class="nav-title">Gestión y Prospección Interna</span>
+                <span class="nav-desc">Gatekeeper, Curaduría, Custodia y Datamarts</span>
               </div>
             </a>
           </nav>
         </div>
 
-        <!-- SYSTEM 3: CONCILIACIÓN Y AUDITORÍA -->
+        <!-- SYSTEM 3: CONCILIACIÓN Y SYNC BRIDGE -->
         <div class="sidebar-section">
           <div class="section-badge-header">
             <span class="system-number mono">3</span>
-            <span class="section-heading">CONCILIACIÓN Y AUDITORÍA</span>
+            <span class="section-heading">CONCILIACIÓN Y SYNC BRIDGE</span>
           </div>
           <nav class="nav-menu">
-            <a routerLink="/dashboard" routerLinkActive="active" class="nav-item">
+            <a routerLink="/bridge" routerLinkActive="active" class="nav-item">
               <span class="nav-indicator"></span>
               <div class="nav-content">
-                <span class="nav-title">Panel General</span>
-                <span class="nav-desc">Indicadores y resumen ejecutivo</span>
-              </div>
-            </a>
-
-            <a routerLink="/audit-matrix" routerLinkActive="active" class="nav-item">
-              <span class="nav-indicator"></span>
-              <div class="nav-content">
-                <span class="nav-title">Auditoría de Publicaciones</span>
-                <span class="nav-desc">Cronograma y control de brechas</span>
-              </div>
-            </a>
-
-            <a routerLink="/rescue-console" routerLinkActive="active" class="nav-item">
-              <span class="nav-indicator"></span>
-              <div class="nav-content">
-                <span class="nav-title">Recuperación de Archivos</span>
-                <span class="nav-desc">Consola de rescate asistido</span>
+                <span class="nav-title">Puente de Conciliación</span>
+                <span class="nav-desc">Diff vectorial e ingesta masiva</span>
               </div>
             </a>
           </nav>
@@ -86,7 +62,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 
       <div class="sidebar-footer">
         <div class="footer-app-name">DATAX Intelligence Suite</div>
-        <div class="footer-version">Sistema Integral de Auditoría Financiera</div>
+        <div class="footer-version">Plataforma de Prospección y Gestión de Datos</div>
       </div>
     </aside>
   `,

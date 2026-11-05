@@ -4,6 +4,17 @@ export interface BridgeReconcileRequest {
   external_map_path?: string | null;
 }
 
+export interface ReconciliationDiffItem {
+  resource_key: string;
+  url: string;
+  source_id: string;
+  category: 'CONFIRMED' | 'NEW' | 'MODIFIED' | 'URL_CHANGED';
+  file_extension: string;
+  period_label?: string | null;
+  size_bytes?: number | null;
+  detail: string;
+}
+
 export interface BridgeReconcileResponse {
   source_id: string;
   run_id: string;
@@ -12,6 +23,7 @@ export interface BridgeReconcileResponse {
   total_new: number;
   total_modified: number;
   summary_message: string;
+  items?: ReconciliationDiffItem[];
 }
 
 export interface BridgeSyncRequest {

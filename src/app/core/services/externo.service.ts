@@ -14,8 +14,11 @@ export class ExternoService {
     return this.http.get<CatalogSource[]>(`${this.baseUrl}/catalog/sources`);
   }
 
-  getResources(sourceId?: string, search?: string, limit: number = 300): Observable<CatalogResource[]> {
-    let params = new HttpParams().set('limit', limit.toString());
+  getResources(sourceId?: string, search?: string, limit?: number): Observable<CatalogResource[]> {
+    let params = new HttpParams();
+    if (limit !== undefined && limit !== null) {
+      params = params.set('limit', limit.toString());
+    }
     if (sourceId && sourceId !== 'ALL') {
       params = params.set('source_id', sourceId);
     }

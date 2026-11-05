@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   BridgeReconcileRequest,
@@ -11,6 +11,12 @@ import {
   IngestionEvaluateResponse,
   DomainCircuitStatus
 } from '../models/reconciliation.model';
+import {
+  InventoryStatsResponse,
+  UpdateUrlInventoryRequest,
+  UrlInventoryItem,
+  UrlInventoryResponse
+} from '../models/inventory.model';
 
 @Injectable({
   providedIn: 'root'
@@ -39,6 +45,55 @@ export class InternoService {
   getCircuitBreaker(domain: string): Observable<DomainCircuitStatus> {
     return this.http.get<DomainCircuitStatus>(
       `${this.baseUrl}/api/v1/bridge/circuit-breaker/${encodeURIComponent(domain)}`
+    );
+  }
+
+  getInventoryStats(): Observable<InventoryStatsResponse> {
+    return this.http.get<InventoryStatsResponse>(`${this.baseUrl}/api/v1/inventory/stats`);
+  }
+
+  getInventoryUrls(filters: {
+    source_id?: string;
+    status_filter?: string;
+    is_downloaded?: boolean | null;
+    is_processed?: boolean | null;
+    search?: string;
+    page?: number;
+    limit?: number;
+  } = {}): Observable<UrlInventoryResponse> {
+    let params = new HttpParams();
+    if (filters.source_id && filters.source_id !== 'ALL') {
+      params = params.set('source_id', filters.source_id);
+    }
+    if (filters.status_filter && filters.status_filter !== 'ALL') {
+      params = params.set('status_filter', filters.status_filter);
+    }
+    if (filters.is_downloaded !== undefined && filters.is_downloaded !== null) {
+      params = params.set('is_downloaded', filters.is_downloaded.toString());
+    }
+    if (filters.is_processed !== undefined && filters.is_processed !== null) {
+      params = params.set('is_processed', filters.is_processed.toString());
+    }
+    if (filters.search && filters.search.trim()) {
+      params = params.set('search', filters.search.trim());
+    }
+    if (filters.page) {
+      params = params.set('page', filters.page.toString());
+    }
+    if (filters.limit) {
+      params = params.set('limit', filters.limit.toString());
+    }
+
+    return this.http.get<UrlInventoryResponse>(`${this.baseUrl}/api/v1/inventory/urls`, { params });
+  }
+
+  updateInventoryUrl(
+    idOrHash: string | number,
+    request: UpdateUrlInventoryRequest
+  ): Observable<UrlInventoryItem> {
+    return this.http.patch<UrlInventoryItem>(
+      `${this.baseUrl}/api/v1/inventory/urls/${encodeURIComponent(idOrHash.toString())}`,
+      request
     );
   }
 

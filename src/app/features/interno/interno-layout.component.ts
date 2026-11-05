@@ -1,20 +1,22 @@
 import { Component, inject, signal } from '@angular/core';
 import { InternoStore } from './interno.store';
+import { InternoCuraduriaComponent } from './components/interno-curaduria.component';
 import { InternoGatekeeperComponent } from './components/interno-gatekeeper.component';
 import { InternoCustodiaComponent } from './components/interno-custodia.component';
 import { InternoLineageComponent } from './components/interno-lineage.component';
-import { GoldAnalyticsComponent } from '../gold-analytics/gold-analytics.component';
+import { InternoActivosComponent } from './components/interno-activos.component';
 
-type InternoTab = 'gatekeeper' | 'custodia' | 'analytics' | 'lineage';
+type InternoTab = 'curaduria' | 'gatekeeper' | 'custodia' | 'activos' | 'lineage';
 
 @Component({
   selector: 'app-interno-layout',
   standalone: true,
   imports: [
+    InternoCuraduriaComponent,
     InternoGatekeeperComponent,
     InternoCustodiaComponent,
     InternoLineageComponent,
-    GoldAnalyticsComponent
+    InternoActivosComponent
   ],
   template: `
     <div class="interno-layout">
@@ -22,13 +24,12 @@ type InternoTab = 'gatekeeper' | 'custodia' | 'analytics' | 'lineage';
       <div class="module-header">
         <div class="module-title-box">
           <div class="system-badge-row">
-            <span class="system-tag">SISTEMA 2</span>
             <span class="system-name">PROSPECTOR INTERNO</span>
             <span class="status-live">OPERATIVO</span>
           </div>
-          <h1 class="module-title">Custodia Documental, Control de Admisión e Ingesta</h1>
+          <h1 class="module-title">Custodia Documental, Gatekeeper e Ingesta de Datos</h1>
           <p class="module-desc">
-            Prevención de descargas redundantes mediante Pre-Flight Gatekeeper, almacenamiento físico con firma criptográfica SHA-256 e información contable consolidada.
+            Prevención de descargas redundantes mediante Pre-Flight Gatekeeper, repositorio físico Bronze con firmas criptográficas SHA-256 e inventario técnico.
           </p>
         </div>
 
@@ -53,6 +54,16 @@ type InternoTab = 'gatekeeper' | 'custodia' | 'analytics' | 'lineage';
         <button
           type="button"
           class="sub-nav-tab"
+          [class.active]="activeTab() === 'curaduria'"
+          (click)="setTab('curaduria')"
+        >
+          <span class="tab-label">Curaduría de URLs e Ingesta</span>
+          <span class="tab-badge">3,574 URLs</span>
+        </button>
+
+        <button
+          type="button"
+          class="sub-nav-tab"
           [class.active]="activeTab() === 'gatekeeper'"
           (click)="setTab('gatekeeper')"
         >
@@ -73,11 +84,11 @@ type InternoTab = 'gatekeeper' | 'custodia' | 'analytics' | 'lineage';
         <button
           type="button"
           class="sub-nav-tab"
-          [class.active]="activeTab() === 'analytics'"
-          (click)="setTab('analytics')"
+          [class.active]="activeTab() === 'activos'"
+          (click)="setTab('activos')"
         >
-          <span class="tab-label">Supervisión Contable y Solvencia</span>
-          <span class="tab-badge">MORA & SOLVENCIA</span>
+          <span class="tab-label">Activos Técnicos y Autoservicio (Gold)</span>
+          <span class="tab-badge">DUCKDB OLAP</span>
         </button>
 
         <button
@@ -94,14 +105,17 @@ type InternoTab = 'gatekeeper' | 'custodia' | 'analytics' | 'lineage';
       <!-- Main Content Area -->
       <div class="tab-content-area">
         @switch (activeTab()) {
+          @case ('curaduria') {
+            <app-interno-curaduria />
+          }
           @case ('gatekeeper') {
             <app-interno-gatekeeper />
           }
           @case ('custodia') {
             <app-interno-custodia />
           }
-          @case ('analytics') {
-            <app-gold-analytics />
+          @case ('activos') {
+            <app-interno-activos />
           }
           @case ('lineage') {
             <app-interno-lineage />
@@ -252,7 +266,7 @@ type InternoTab = 'gatekeeper' | 'custodia' | 'analytics' | 'lineage';
 })
 export class InternoLayoutComponent {
   readonly store = inject(InternoStore);
-  readonly activeTab = signal<InternoTab>('custodia');
+  readonly activeTab = signal<InternoTab>('curaduria');
 
   setTab(tab: InternoTab): void {
     this.activeTab.set(tab);

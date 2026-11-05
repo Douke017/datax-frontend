@@ -1,7 +1,6 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { ExternoService } from './externo.service';
 import { InternoService } from './interno.service';
-import { ReportesService } from './reportes.service';
 import { ServiceHealth } from '../models/system.model';
 
 @Injectable({
@@ -10,7 +9,6 @@ import { ServiceHealth } from '../models/system.model';
 export class SystemMonitorService {
   private readonly externoService = inject(ExternoService);
   private readonly internoService = inject(InternoService);
-  private readonly reportesService = inject(ReportesService);
 
   readonly externoHealth = signal<ServiceHealth>({
     id: 'externo',
@@ -32,21 +30,10 @@ export class SystemMonitorService {
     lastChecked: new Date().toISOString()
   });
 
-  readonly reportesHealth = signal<ServiceHealth>({
-    id: 'reportes',
-    name: 'Reportes Perdidos',
-    port: 8002,
-    url: 'http://localhost:8002',
-    status: 'DOWN',
-    latencyMs: 0,
-    lastChecked: new Date().toISOString()
-  });
-
   readonly isAllOperational = computed(() => {
     return (
       this.externoHealth().status === 'UP' &&
-      this.internoHealth().status === 'UP' &&
-      this.reportesHealth().status === 'UP'
+      this.internoHealth().status === 'UP'
     );
   });
 
@@ -54,7 +41,6 @@ export class SystemMonitorService {
     let count = 0;
     if (this.externoHealth().status === 'UP') count++;
     if (this.internoHealth().status === 'UP') count++;
-    if (this.reportesHealth().status === 'UP') count++;
     return count;
   });
 
@@ -67,7 +53,6 @@ export class SystemMonitorService {
   refreshAll(): void {
     this.checkExterno();
     this.checkInterno();
-    this.checkReportes();
   }
 
   private checkExterno(): void {
@@ -127,38 +112,6 @@ export class SystemMonitorService {
           status: 'DOWN',
           latencyMs: 0,
           details: 'Sin conexion a puerto 8001',
-          lastChecked: new Date().toISOString()
-        });
-      }
-    });
-  }
-
-  private checkReportes(): void {
-    const start = performance.now();
-    this.reportesService.checkHealth().subscribe({
-      next: (res) => {
-        const latency = Math.round(performance.now() - start);
-        this.reportesHealth.set({
-          id: 'reportes',
-          name: 'Reportes Perdidos',
-          port: 8002,
-          url: 'http://localhost:8002',
-          status: res.status === 'healthy' ? 'UP' : 'DEGRADED',
-          latencyMs: latency,
-          version: res.version,
-          details: res.service,
-          lastChecked: new Date().toISOString()
-        });
-      },
-      error: () => {
-        this.reportesHealth.set({
-          id: 'reportes',
-          name: 'Reportes Perdidos',
-          port: 8002,
-          url: 'http://localhost:8002',
-          status: 'DOWN',
-          latencyMs: 0,
-          details: 'Sin conexion a puerto 8002',
           lastChecked: new Date().toISOString()
         });
       }

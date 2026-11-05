@@ -1,7 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { SystemMonitorService } from '../../core/services/system-monitor.service';
-import { InstitutionStateService, INSTITUTIONS } from '../../core/services/institution-state.service';
 
 @Component({
   selector: 'app-header',
@@ -13,19 +12,18 @@ import { InstitutionStateService, INSTITUTIONS } from '../../core/services/insti
       <div class="brand">
         <div class="brand-badge">DATAX</div>
         <div class="brand-info">
-          <span class="brand-title">Compliance & Financial Intelligence</span>
-          <span class="brand-subtitle">Plataforma de Auditoría Institucional y Custodia Digital</span>
+          <span class="brand-title">Plataforma de Ingeniería y Prospección de Datos</span>
+          <span class="brand-subtitle">Extracción Web, Custodia Criptográfica y Datamarts de Datos</span>
         </div>
       </div>
 
-      <!-- Center: Workspace Switcher (Los 3 Sistemas) -->
-      <nav class="system-switcher" aria-label="Selector de Sistemas">
+      <!-- Center: Workspace Switcher -->
+      <nav class="system-switcher" aria-label="Selector de Espacios de Trabajo">
         <a
           routerLink="/externo"
           routerLinkActive="active"
           class="switcher-tab"
         >
-          <span class="tab-step mono">1</span>
           <span class="tab-title">Exploración Web</span>
         </a>
 
@@ -34,36 +32,20 @@ import { InstitutionStateService, INSTITUTIONS } from '../../core/services/insti
           routerLinkActive="active"
           class="switcher-tab"
         >
-          <span class="tab-step mono">2</span>
           <span class="tab-title">Custodia e Ingesta</span>
         </a>
 
         <a
-          routerLink="/audit-matrix"
+          routerLink="/bridge"
           routerLinkActive="active"
           class="switcher-tab"
         >
-          <span class="tab-step mono">3</span>
-          <span class="tab-title">Conciliación y Auditoría</span>
+          <span class="tab-title">Conciliación y Sync Bridge</span>
         </a>
       </nav>
 
-      <!-- Right: Entity Selector & System Health -->
+      <!-- Right: System Health & Refresh -->
       <div class="header-right">
-        <div class="entity-selector-box">
-          <label class="entity-selector-label" for="header-entity-select">Entidad:</label>
-          <select
-            id="header-entity-select"
-            class="entity-select"
-            [value]="instState.currentInstitutionId()"
-            (change)="onEntityChange($event)"
-          >
-            @for (inst of institutions; track inst.id) {
-              <option [value]="inst.id">{{ inst.code }} — {{ inst.name }}</option>
-            }
-          </select>
-        </div>
-
         <div class="system-status" [class.online]="monitor.isAllOperational()" [class.warning]="!monitor.isAllOperational()">
           <span class="status-dot"></span>
           <span class="status-label">
@@ -186,32 +168,6 @@ import { InstitutionStateService, INSTITUTIONS } from '../../core/services/insti
       align-items: center;
       gap: 12px;
     }
-    .entity-selector-box {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .entity-selector-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text-subtle);
-      text-transform: uppercase;
-    }
-    .entity-select {
-      background: var(--bg-app);
-      border: 1px solid var(--border-medium);
-      color: var(--text-main);
-      padding: 4px 8px;
-      font-size: 11px;
-      font-weight: 500;
-      border-radius: var(--radius-sm);
-      max-width: 220px;
-      cursor: pointer;
-    }
-    .entity-select:focus {
-      outline: none;
-      border-color: var(--border-focus);
-    }
     .system-status {
       display: flex;
       align-items: center;
@@ -260,11 +216,4 @@ import { InstitutionStateService, INSTITUTIONS } from '../../core/services/insti
 })
 export class HeaderComponent {
   readonly monitor = inject(SystemMonitorService);
-  readonly instState = inject(InstitutionStateService);
-  readonly institutions = INSTITUTIONS;
-
-  onEntityChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.instState.setInstitution(val);
-  }
 }

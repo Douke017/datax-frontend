@@ -39,23 +39,25 @@ import { IngestionEvaluateRequest } from '../../../core/models/reconciliation.mo
           <div class="rule-item">
             <span class="rule-num mono">03</span>
             <div class="rule-content">
-              <span class="rule-name">Excepción Regulatoria</span>
-              <span class="rule-detail">Permite forzar la actualización únicamente ante auditorías expresas o requerimientos ASFI.</span>
+              <span class="rule-name">Forzado de Refresco (Bypass)</span>
+              <span class="rule-detail">Permite forzar la re-descarga de un recurso cuando se requiera explícitamente revalidar su contenido en disco.</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Interactive Playground -->
+      <!-- Interactive Gatekeeper Console -->
       <div class="playground-card">
         <div class="playground-header">
-          <h3 class="playground-title">Simulador de Evaluación de Admisión</h3>
+          <h3 class="playground-title">Consola de Control de Admisión (Pre-Flight Gatekeeper)</h3>
           <span class="playground-tag">EVALUACIÓN EN VIVO</span>
         </div>
 
         <!-- Presets Bar -->
         <div class="presets-bar">
-          <span class="presets-lbl">Casos Típicos de Prueba:</span>
+          <button type="button" class="btn-preset" (click)="applyPreset('bcb-cached')">
+            Boletín BCB Resguardado (Caché Hit)
+          </button>
           <button type="button" class="btn-preset" (click)="applyPreset('bbv-cached')">
             Publicación BBV Resguardada (Caché Hit)
           </button>
@@ -66,7 +68,7 @@ import { IngestionEvaluateRequest } from '../../../core/models/reconciliation.mo
             Nuevo Documento No Resguardado (Permiso)
           </button>
           <button type="button" class="btn-preset" (click)="applyPreset('force-audit')">
-            Actualización Forzada por Auditoría
+            Actualización Forzada (Bypass Caché)
           </button>
         </div>
 
@@ -520,8 +522,15 @@ export class InternoGatekeeperComponent {
   readonly period = signal<string>('LATEST');
   readonly forceRefresh = signal<boolean>(false);
 
-  applyPreset(preset: 'bbv-cached' | 'finrural-cached' | 'new-report' | 'force-audit'): void {
+  applyPreset(preset: 'bcb-cached' | 'bbv-cached' | 'finrural-cached' | 'new-report' | 'force-audit'): void {
     switch (preset) {
+      case 'bcb-cached':
+        this.datasetCode.set('DS_BO_BCB');
+        this.domain.set('www.bcb.gob.bo');
+        this.targetUrl.set('https://www.bcb.gob.bo/webdocs/publicacionesbcb/2025/12/31/01_01.xlsx');
+        this.period.set('2025');
+        this.forceRefresh.set(false);
+        break;
       case 'bbv-cached':
         this.datasetCode.set('DS_BO_BBV');
         this.domain.set('www.bbv.com.bo');

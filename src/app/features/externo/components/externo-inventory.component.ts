@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { SlicePipe } from '@angular/common';
 import { ExternoStore } from '../externo.store';
 import { CatalogResource } from '../../../core/models/catalog.model';
@@ -120,7 +120,9 @@ import { CatalogResource } from '../../../core/models/catalog.model';
                   <th class="th-title">Título del Documento</th>
                   <th class="th-period">Periodo</th>
                   <th class="th-format">Formato</th>
-                  <th class="th-status">Estado en Portal</th>
+                  <th class="th-status" title="Ciclo de vida web en el portal respecto a barridos anteriores">
+                    Estado en Portal <span class="th-info-icon" title="NUEVO: detectado en el último barrido. CONFIRMADO: sin cambios. MODIFICADO: alterado en origen.">ⓘ</span>
+                  </th>
                   <th class="th-actions">Acciones</th>
                 </tr>
               </thead>
@@ -308,14 +310,16 @@ import { CatalogResource } from '../../../core/models/catalog.model';
                 rel="noopener noreferrer"
                 class="btn-external"
               >
-                Abrir en Portal Oficial
+                Abrir en Portal Oficial ↗
               </a>
               <button
                 type="button"
-                class="btn-custody-action"
-                (click)="onSolicitarCustodia(selected)"
+                class="btn-copy-url"
+                [class.copied]="copiedUrl()"
+                (click)="copiarUrl(selected.url)"
+                [title]="selected.url"
               >
-                Transferir a Custodia (Ingesta)
+                {{ copiedUrl() ? '✓ Enlace Copiado' : 'Copiar URL Canónica' }}
               </button>
             </div>
           </div>
@@ -788,18 +792,31 @@ import { CatalogResource } from '../../../core/models/catalog.model';
       background: var(--bg-surface-hover);
       text-decoration: none;
     }
-    .btn-custody-action {
-      background: var(--primary);
-      border: 1px solid #1d4ed8;
-      color: #ffffff;
+    .btn-copy-url {
+      background: var(--bg-surface-elevated);
+      border: 1px solid var(--border-medium);
+      color: var(--text-main);
       padding: 8px 16px;
       border-radius: var(--radius-sm);
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
+      transition: all 0.15s ease;
     }
-    .btn-custody-action:hover {
-      background: var(--primary-hover);
+    .btn-copy-url:hover {
+      background: var(--bg-surface-hover);
+      border-color: var(--border-focus);
+    }
+    .btn-copy-url.copied {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: #34d399;
+    }
+    .th-info-icon {
+      font-size: 11px;
+      color: var(--text-subtle);
+      cursor: help;
+      margin-left: 2px;
     }
 
     @keyframes fadeIn {
@@ -863,7 +880,14 @@ export class ExternoInventoryComponent {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
-  onSolicitarCustodia(resource: CatalogResource): void {
-    alert(`Transferencia iniciada: Solicitud de resguardo para el documento '${resource.title || resource.url}' enviada al Control de Admisión (Pre-Flight Gatekeeper).`);
+  readonly copiedUrl = signal<boolean>(false);
+
+  copiarUrl(url: string): void {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        this.copiedUrl.set(true);
+        setTimeout(() => this.copiedUrl.set(false), 2000);
+      });
+    }
   }
 }

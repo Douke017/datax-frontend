@@ -2,10 +2,7 @@ import { Routes } from '@angular/router';
 import { LayoutComponent } from './layout/layout.component';
 import { ExternoLayoutComponent } from './features/externo/externo-layout.component';
 import { InternoLayoutComponent } from './features/interno/interno-layout.component';
-import { DashboardComponent } from './features/dashboard/dashboard.component';
-import { AuditMatrixComponent } from './features/audit-matrix/audit-matrix.component';
-import { RescueConsoleComponent } from './features/rescue-console/rescue-console.component';
-import { GoldAnalyticsComponent } from './features/gold-analytics/gold-analytics.component';
+import { BridgeViewComponent } from './features/bridge/bridge-view.component';
 
 export const routes: Routes = [
   {
@@ -13,20 +10,22 @@ export const routes: Routes = [
     component: LayoutComponent,
     children: [
       { path: '', redirectTo: 'externo', pathMatch: 'full' },
-      // SISTEMA 1: PROSPECTOR EXTERNO
+      // Prospector Externo (Rastreo e inventario web indexado)
       { path: 'externo', component: ExternoLayoutComponent },
       { path: 'catalog-radar', redirectTo: 'externo', pathMatch: 'full' },
 
-      // SISTEMA 2: PROSPECTOR INTERNO
+      // Prospector Interno (Custodia, Gatekeeper, Curaduría de URLs, Activos Gold)
       { path: 'interno', component: InternoLayoutComponent },
       { path: 'bronze-lake', redirectTo: 'interno', pathMatch: 'full' },
-      { path: 'gold-analytics', component: GoldAnalyticsComponent },
+      { path: 'curaduria', redirectTo: 'interno', pathMatch: 'full' },
+      { path: 'gold-analytics', redirectTo: 'interno', pathMatch: 'full' },
 
-      // SISTEMA 3: CONCILIACIÓN Y AUDITORÍA
-      { path: 'conciliacion', redirectTo: 'audit-matrix', pathMatch: 'full' },
-      { path: 'dashboard', component: DashboardComponent },
-      { path: 'audit-matrix', component: AuditMatrixComponent },
-      { path: 'rescue-console', component: RescueConsoleComponent }
+      // Conciliación y Sync Bridge (Diff DuckDB y Sincronización)
+      { path: 'bridge', component: BridgeViewComponent },
+      { path: 'conciliacion', redirectTo: 'bridge', pathMatch: 'full' },
+      { path: 'audit-matrix', redirectTo: 'bridge', pathMatch: 'full' },
+      { path: 'dashboard', redirectTo: 'externo', pathMatch: 'full' },
+      { path: 'rescue-console', redirectTo: 'bridge', pathMatch: 'full' }
     ]
   },
   { path: '**', redirectTo: 'externo' }

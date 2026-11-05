@@ -2,17 +2,15 @@ import { Component, inject, signal } from '@angular/core';
 import { ExternoStore } from './externo.store';
 import { ExternoOverviewComponent } from './components/externo-overview.component';
 import { ExternoInventoryComponent } from './components/externo-inventory.component';
-import { ExternoRunsComponent } from './components/externo-runs.component';
 
-type ExternoTab = 'overview' | 'inventory' | 'runs';
+type ExternoTab = 'overview' | 'inventory';
 
 @Component({
   selector: 'app-externo-layout',
   standalone: true,
   imports: [
     ExternoOverviewComponent,
-    ExternoInventoryComponent,
-    ExternoRunsComponent
+    ExternoInventoryComponent
   ],
   template: `
     <div class="externo-layout">
@@ -20,15 +18,14 @@ type ExternoTab = 'overview' | 'inventory' | 'runs';
       <div class="module-header">
         <div class="module-title-box">
           <div class="system-badge-row">
-            <span class="system-tag">SISTEMA 1</span>
             <span class="system-name">PROSPECTOR EXTERNO</span>
             <span class="status-live" [class.status-live-ok]="store.serviceStatus() === 'UP' || store.serviceStatus() === 'healthy'">
               {{ store.serviceStatus() }}
             </span>
           </div>
-          <h1 class="module-title">Exploración y Descubrimiento Web</h1>
+          <h1 class="module-title">Rastreo y Extracción de Portales Web</h1>
           <p class="module-desc">
-            Vigilancia sistemática, indexación y detección de cambios en los portales oficiales de instituciones financieras y regulatorias.
+            Exploración automatizada de fuentes oficiales, catálogo de recursos descubiertos e inventario de archivos documentales.
           </p>
         </div>
 
@@ -69,29 +66,16 @@ type ExternoTab = 'overview' | 'inventory' | 'runs';
           <span class="tab-label">Inventario Web Indexado</span>
           <span class="tab-badge">{{ store.totalDiscovered() }}</span>
         </button>
-
-        <button
-          type="button"
-          class="sub-nav-tab"
-          [class.active]="activeTab() === 'runs'"
-          (click)="setTab('runs')"
-        >
-          <span class="tab-label">Historial de Barridos</span>
-          <span class="tab-badge">{{ store.runs().length }}</span>
-        </button>
       </nav>
 
       <!-- Main Content Area -->
       <div class="tab-content-area">
         @switch (activeTab()) {
           @case ('overview') {
-            <app-externo-overview />
+            <app-externo-overview (exploreSource)="onExploreSource($event)" />
           }
           @case ('inventory') {
             <app-externo-inventory />
-          }
-          @case ('runs') {
-            <app-externo-runs />
           }
         }
       </div>
@@ -122,17 +106,6 @@ type ExternoTab = 'overview' | 'inventory' | 'runs';
       display: flex;
       align-items: center;
       gap: 8px;
-    }
-    .system-tag {
-      font-size: 10px;
-      font-weight: 700;
-      color: #60a5fa;
-      background: rgba(37, 99, 235, 0.15);
-      border: 1px solid rgba(37, 99, 235, 0.3);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: var(--font-mono);
-      letter-spacing: 0.05em;
     }
     .system-name {
       font-size: 11px;
@@ -239,9 +212,14 @@ type ExternoTab = 'overview' | 'inventory' | 'runs';
 })
 export class ExternoLayoutComponent {
   readonly store = inject(ExternoStore);
-  readonly activeTab = signal<ExternoTab>('inventory');
+  readonly activeTab = signal<ExternoTab>('overview');
 
   setTab(tab: ExternoTab): void {
     this.activeTab.set(tab);
+  }
+
+  onExploreSource(sourceId: string): void {
+    this.store.setSourceFilter(sourceId);
+    this.activeTab.set('inventory');
   }
 }

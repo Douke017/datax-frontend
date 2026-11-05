@@ -3,8 +3,13 @@ export interface CatalogSource {
   name: string;
   entrypoint: string;
   workflow: string;
-  health_status: 'ACTIVE' | 'DEGRADED' | 'FAILED' | 'UNKNOWN';
+  health_status: 'ACTIVE' | 'WARNING' | 'SUSPENDED' | 'DEGRADED' | 'FAILED' | 'UNKNOWN';
   update_category: string;
+  audit_code?: string;
+  audit_note?: string;
+  seeds?: string[];
+  allowed_extensions?: string[];
+  rate_limit_seconds?: number;
   next_eligible_at?: string;
   last_run_id?: string;
   last_run_at?: string;
