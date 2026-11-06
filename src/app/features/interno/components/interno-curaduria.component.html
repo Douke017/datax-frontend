@@ -1,0 +1,211 @@
+<div class="curaduria-container">
+  <!-- KPIs Cuantitativos Reales -->
+  <div class="kpi-row">
+    <div class="kpi-mini">
+      <span class="kpi-mini-label">TOTAL URLS</span>
+      <span class="kpi-mini-value mono">{{ store.totalUrls() }}</span>
+    </div>
+    <div class="kpi-mini">
+      <span class="kpi-mini-label">DESCARGADAS (BRONZE)</span>
+      <span class="kpi-mini-value mono text-emerald">{{ store.totalDownloaded() }}</span>
+      <span class="kpi-mini-sub mono">{{ store.downloadRate() }}%</span>
+    </div>
+    <div class="kpi-mini">
+      <span class="kpi-mini-label">PROCESADAS (GOLD)</span>
+      <span class="kpi-mini-value mono text-cyan">{{ store.totalProcessed() }}</span>
+      <span class="kpi-mini-sub mono">{{ store.processingRate() }}%</span>
+    </div>
+    <div class="kpi-mini">
+      <span class="kpi-mini-label">PENDIENTES</span>
+      <span class="kpi-mini-value mono text-amber">{{ store.totalUrls() - store.totalDownloaded() }}</span>
+    </div>
+  </div>
+
+  <!-- Barra de Filtros Operativos -->
+  <div class="filter-bar">
+    <div class="filter-item">
+      <label for="curaduria-src" class="filter-label">Institución:</label>
+      <select
+        id="curaduria-src"
+        class="select-control"
+        [value]="store.selectedSource()"
+        (change)="onSourceChange($event)"
+      >
+        <option value="ALL">Todas las fuentes</option>
+        @for (src of store.sourcesList(); track src) {
+          <option [value]="src">{{ src }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="curaduria-status" class="filter-label">Estado:</label>
+      <select
+        id="curaduria-status"
+        class="select-control"
+        [value]="store.selectedStatus()"
+        (change)="onStatusChange($event)"
+      >
+        <option value="ALL">Todos los estados</option>
+        <option value="DISPONIBLE_WEB_NUEVO">DISPONIBLE_WEB_NUEVO</option>
+        <option value="CATALOGADO_BDD">CATALOGADO_BDD</option>
+        <option value="DESCARGA_HISTORICA_LEGACY">DESCARGA_HISTORICA_LEGACY</option>
+        <option value="DESCARGADO_BRONZE">DESCARGADO_BRONZE</option>
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="curaduria-dl" class="filter-label">Descarga:</label>
+      <select
+        id="curaduria-dl"
+        class="select-control"
+        (change)="onDownloadFilterChange($event)"
+      >
+        <option value="ALL">Todas</option>
+        <option value="YES">Solo Descargadas</option>
+        <option value="NO">Pendientes Descarga</option>
+      </select>
+    </div>
+
+    <div class="filter-item">
+      <label for="curaduria-pr" class="filter-label">Procesamiento:</label>
+      <select
+        id="curaduria-pr"
+        class="select-control"
+        (change)="onProcessedFilterChange($event)"
+      >
+        <option value="ALL">Todas</option>
+        <option value="YES">Solo Procesadas</option>
+        <option value="NO">Pendientes Proceso</option>
+      </select>
+    </div>
+
+    <div class="filter-item search-item">
+      <label for="curaduria-search" class="filter-label">Búsqueda:</label>
+      <input
+        id="curaduria-search"
+        type="text"
+        class="input-control mono"
+        placeholder="Buscar por URL, archivo o código..."
+        [value]="store.searchQuery()"
+        (input)="onSearchInput($event)"
+      />
+    </div>
+  </div>
+
+  <!-- Tabla de URLs e Ingesta -->
+  <div class="table-card">
+    @if (store.loading()) {
+      <div class="loading-state">
+        <span class="loading-spinner"></span>
+        <span>Consultando inventario de URLs...</span>
+      </div>
+    } @else {
+      <div class="table-responsive">
+        <table class="inventory-table">
+          <thead>
+            <tr>
+              <th class="th-src">Institución</th>
+              <th class="th-code">Código</th>
+              <th class="th-name">Archivo / Título</th>
+              <th class="th-url">URL Canónica</th>
+              <th class="th-switch">Descargado (Bronze)</th>
+              <th class="th-switch">Procesado (Gold)</th>
+              <th class="th-status">Estado</th>
+              <th class="th-updated">Actualizado</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of store.items(); track item.id) {
+              <tr class="item-row" [class.row-downloaded]="item.is_downloaded" [class.row-processed]="item.is_processed">
+                <td class="td-src">
+                  <span class="source-tag mono">{{ item.source_id }}</span>
+                </td>
+                <td class="td-code mono">{{ item.file_code || ('#' + item.id) }}</td>
+                <td class="td-name">
+                  <div class="file-name" [title]="item.file_name || 'Sin título'">
+                    {{ item.file_name || 'Sin título asignado' }}
+                  </div>
+                </td>
+                <td class="td-url">
+                  <a
+                    [href]="item.canonical_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="url-link mono"
+                    [title]="item.canonical_url"
+                  >
+                    {{ item.canonical_url }}
+                  </a>
+                </td>
+                <td class="td-switch">
+                  <button
+                    type="button"
+                    class="toggle-btn toggle-download"
+                    [class.active]="item.is_downloaded"
+                    [disabled]="store.updatingId() === item.id"
+                    (click)="store.toggleDownloaded(item)"
+                    title="Conmutar si el archivo físico se encuentra en custodia (Capa Bronze)"
+                  >
+                    <span class="toggle-dot"></span>
+                    <span class="toggle-text">{{ item.is_downloaded ? 'DESCARGADO' : 'PENDIENTE' }}</span>
+                  </button>
+                </td>
+                <td class="td-switch">
+                  <button
+                    type="button"
+                    class="toggle-btn toggle-process"
+                    [class.active]="item.is_processed"
+                    [disabled]="store.updatingId() === item.id"
+                    (click)="store.toggleProcessed(item)"
+                    title="Conmutar si el dataset fue procesado hacia Datamarts (Capa Gold)"
+                  >
+                    <span class="toggle-dot"></span>
+                    <span class="toggle-text">{{ item.is_processed ? 'PROCESADO' : 'PENDIENTE' }}</span>
+                  </button>
+                </td>
+                <td class="td-status">
+                  <span class="status-pill mono" [class.status-bronze]="item.status === 'DESCARGADO_BRONZE'" [class.status-new]="item.status === 'DISPONIBLE_WEB_NUEVO'">
+                    {{ item.status }}
+                  </span>
+                </td>
+                <td class="td-updated mono">{{ item.updated_at || '-' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="empty-state">
+                  No se encontraron URLs con los filtros seleccionados.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Paginación Directa -->
+      <div class="pagination-bar">
+        <span class="pagination-info mono">
+          Mostrando página {{ store.currentPage() }} de {{ store.totalPages() }} ({{ store.totalItems() }} URLs encontradas)
+        </span>
+        <div class="pagination-actions">
+          <button
+            type="button"
+            class="btn-page"
+            [disabled]="store.currentPage() <= 1"
+            (click)="store.setPage(store.currentPage() - 1)"
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            class="btn-page"
+            [disabled]="store.currentPage() >= store.totalPages()"
+            (click)="store.setPage(store.currentPage() + 1)"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+</div>

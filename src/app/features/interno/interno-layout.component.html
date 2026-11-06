@@ -1,0 +1,104 @@
+<div class="interno-layout">
+  <!-- Top Module Bar -->
+  <div class="module-header">
+    <div class="module-title-box">
+      <div class="system-badge-row">
+        <span class="system-name">PROSPECTOR INTERNO</span>
+        <span class="status-live">OPERATIVO</span>
+      </div>
+      <h1 class="module-title">Custodia Documental, Gatekeeper e Ingesta de Datos</h1>
+      <p class="module-desc">
+        Prevención de descargas redundantes mediante Pre-Flight Gatekeeper, repositorio físico Bronze con firmas criptográficas SHA-256 e inventario técnico.
+      </p>
+    </div>
+
+    <div class="module-actions">
+      <button
+        type="button"
+        class="btn-sync"
+        [disabled]="store.loading()"
+        (click)="store.loadAll()"
+      >
+        @if (store.loading()) {
+          <span>Verificando...</span>
+        } @else {
+          <span>Actualizar Repositorio</span>
+        }
+      </button>
+    </div>
+  </div>
+
+  <!-- Module Navigation Sub-Tabs -->
+  <nav class="sub-nav-tabs">
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'curaduria'"
+      (click)="setTab('curaduria')"
+    >
+      <span class="tab-label">Curaduría de URLs e Ingesta</span>
+      <span class="tab-badge">3,574 URLs</span>
+    </button>
+
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'gatekeeper'"
+      (click)="setTab('gatekeeper')"
+    >
+      <span class="tab-label">Control de Admisión (Gatekeeper)</span>
+      <span class="tab-badge mono">&lt;20ms</span>
+    </button>
+
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'custodia'"
+      (click)="setTab('custodia')"
+    >
+      <span class="tab-label">Custodia de Archivos (Repositorio Original)</span>
+      <span class="tab-badge">{{ store.totalArtifactsCount() }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'activos'"
+      (click)="setTab('activos')"
+    >
+      <span class="tab-label">Activos Técnicos y Autoservicio (Gold)</span>
+      <span class="tab-badge">DUCKDB OLAP</span>
+    </button>
+
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'lineage'"
+      (click)="setTab('lineage')"
+    >
+      <span class="tab-label">Cadena de Custodia y Linaje</span>
+      <span class="tab-badge">SHA-256</span>
+    </button>
+  </nav>
+
+  <!-- Main Content Area -->
+  <div class="tab-content-area">
+    @switch (activeTab()) {
+      @case ('curaduria') {
+        <app-interno-curaduria />
+      }
+      @case ('gatekeeper') {
+        <app-interno-gatekeeper />
+      }
+      @case ('custodia') {
+        <app-interno-custodia />
+      }
+      @case ('activos') {
+        <app-interno-activos />
+      }
+      @case ('lineage') {
+        <app-interno-lineage />
+      }
+    }
+  </div>
+</div>

@@ -1,0 +1,105 @@
+<div class="lineage-container">
+  <div class="lineage-header">
+    <div>
+      <span class="lineage-tag mono">CADENA DE CUSTODIA Y PROCEDENCIA DE DATOS</span>
+      <h2 class="lineage-title">Linaje Técnico y Trazabilidad Criptográfica del Pipeline</h2>
+      <p class="lineage-desc">
+        Trazabilidad integral desde el descubrimiento en el portal web emisor hasta los Datamarts estructurados en Capa Gold.
+        Garantía inmutable de procedencia y no alteración binaria de los datos.
+      </p>
+    </div>
+    <span class="badge-audit">LINAJE VERIFICADO</span>
+  </div>
+
+  <!-- Flowchart Steps -->
+  <div class="flow-steps">
+    <!-- Step 1 -->
+    <div class="step-card">
+      <div class="step-top">
+        <span class="step-badge mono">ETAPA 01</span>
+        <span class="step-sub">PROSPECTOR EXTERNO</span>
+      </div>
+      <h3 class="step-title">Detección en Portal Oficial</h3>
+      <p class="step-desc">
+        Rastreo periódico del portal institucional (BBV, FINRURAL, BCB). Se indexa la URL canónica, encabezados HTTP (ETag, Last-Modified) y tamaño reportado.
+      </p>
+      <div class="step-meta">
+        <span class="meta-item mono">Entrada: Portal Web</span>
+        <span class="meta-item mono">Salida: Recurso Candidato Indexado</span>
+      </div>
+    </div>
+
+    <div class="step-arrow">→</div>
+
+    <!-- Step 2 -->
+    <div class="step-card">
+      <div class="step-top">
+        <span class="step-badge mono">ETAPA 02</span>
+        <span class="step-sub">CONTROL DE ADMISIÓN</span>
+      </div>
+      <h3 class="step-title">Evaluación Pre-Flight Gatekeeper</h3>
+      <p class="step-desc">
+        Evaluación en menos de 20 ms. Verifica si el archivo ya existe en custodia Bronze o si está en tránsito por otro proceso, previniendo descargas redundantes.
+      </p>
+      <div class="step-meta">
+        <span class="meta-item mono">Entrada: Solicitud de Ingesta</span>
+        <span class="meta-item mono">Salida: Veredicto de Admisión</span>
+      </div>
+    </div>
+
+    <div class="step-arrow">→</div>
+
+    <!-- Step 3 -->
+    <div class="step-card">
+      <div class="step-top">
+        <span class="step-badge mono">ETAPA 03</span>
+        <span class="step-sub">CUSTODIA BRONZE</span>
+      </div>
+      <h3 class="step-title">Resguardo Físico y Firma SHA-256</h3>
+      <p class="step-desc">
+        Descarga respetuosa regulada por disyuntores de red. Cálculo de hash criptográfico SHA-256 en vuelo y renombrado atómico inmutable en disco.
+      </p>
+      <div class="step-meta">
+        <span class="meta-item mono">Entrada: Flujo de Bytes</span>
+        <span class="meta-item mono">Salida: Archivo Bronze con Hash SHA-256</span>
+      </div>
+    </div>
+
+    <div class="step-arrow">→</div>
+
+    <!-- Step 4 -->
+    <div class="step-card highlight">
+      <div class="step-top">
+        <span class="step-badge mono">ETAPA 04</span>
+        <span class="step-sub">DATAMARTS CAPA GOLD</span>
+      </div>
+      <h3 class="step-title">Consolidación en Datamarts Parquet</h3>
+      <p class="step-desc">
+        Transformación estructurada y particionado físico en Apache Parquet. Disponibilización inmediata para consultas OLAP vectorizadas en DuckDB.
+      </p>
+      <div class="step-meta">
+        <span class="meta-item mono">Entrada: Datos Normalizados</span>
+        <span class="meta-item mono">Salida: Datamarts Parquet Particionados</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Compliance Principles Table -->
+  <div class="compliance-card">
+    <h3 class="compliance-title">Garantías de Seguridad y Transparencia Operativa</h3>
+    <div class="guarantees-grid">
+      <div class="guarantee-item">
+        <span class="guarantee-name">Inmutabilidad en Almacenamiento</span>
+        <span class="guarantee-desc">Ningún archivo resguardado puede ser sobreescrito. Toda actualización genera un nuevo registro con fecha y hash único.</span>
+      </div>
+      <div class="guarantee-item">
+        <span class="guarantee-name">Verificación Criptográfica Continua</span>
+        <span class="guarantee-desc">La integridad de los archivos se audita recalculando el hash contra el contenido físico en disco, impidiendo alteraciones silenciosas.</span>
+      </div>
+      <div class="guarantee-item">
+        <span class="guarantee-name">Protección de Infraestructura Externa</span>
+        <span class="guarantee-desc">El uso de disyuntores de red (Circuit Breakers) y control de tasa (Token Bucket) evita penalizaciones por denegación de servicio.</span>
+      </div>
+    </div>
+  </div>
+</div>

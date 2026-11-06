@@ -154,6 +154,33 @@ export const InventoryStore = signalStore(
             });
           }
         });
+      },
+      toggleDownloaded: (item: UrlInventoryItem) => {
+        const nextVal = !item.is_downloaded;
+        patchState(store, { updatingId: item.id });
+
+        // Optimistic update
+        const currentItems = store.items();
+        patchState(store, {
+          items: currentItems.map((i) => (i.id === item.id ? { ...i, is_downloaded: nextVal } : i))
+        });
+
+        service.updateInventoryUrl(item.id, { is_downloaded: nextVal }).subscribe({
+          next: (updated) => {
+            patchState(store, {
+              updatingId: null,
+              items: store.items().map((i) => (i.id === item.id ? updated : i))
+            });
+            loadStatsMethod();
+          },
+          error: () => {
+            // Rollback on error
+            patchState(store, {
+              updatingId: null,
+              items: currentItems
+            });
+          }
+        });
       }
     };
   }),

@@ -1,0 +1,197 @@
+<div class="gatekeeper-container">
+  <!-- Context & Business Rules Banner -->
+  <div class="rules-card">
+    <div class="rules-header">
+      <span class="rules-badge">CONTROL DE ADMISIÓN PREVENTIVO</span>
+      <h2 class="rules-title">Pre-Flight Gatekeeper: Prevención de Redundancia y Tráfico Inútil</h2>
+    </div>
+    <p class="rules-desc">
+      Mecanismo de control que intercepta toda solicitud de descarga antes de tocar la red externa.
+      Evalúa en menos de 20 milisegundos si el documento ya se encuentra resguardado en el repositorio de custodia
+      o si ya fue procesado en la información consolidada, garantizando cero saturación de los portales emisores.
+    </p>
+
+    <div class="rules-grid">
+      <div class="rule-item">
+        <span class="rule-num mono">01</span>
+        <div class="rule-content">
+          <span class="rule-name">Deduplicación Inmediata</span>
+          <span class="rule-detail">Detecta si la firma del archivo ya existe en custodia física y devuelve el recurso al instante.</span>
+        </div>
+      </div>
+
+      <div class="rule-item">
+        <span class="rule-num mono">02</span>
+        <div class="rule-content">
+          <span class="rule-name">Protección de Concurrencia</span>
+          <span class="rule-detail">Si dos analistas solicitan la misma publicación simultáneamente, se fusionan en una sola tarea en vuelo.</span>
+        </div>
+      </div>
+
+      <div class="rule-item">
+        <span class="rule-num mono">03</span>
+        <div class="rule-content">
+          <span class="rule-name">Forzado de Refresco (Bypass)</span>
+          <span class="rule-detail">Permite forzar la re-descarga de un recurso cuando se requiera explícitamente revalidar su contenido en disco.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Gatekeeper Console -->
+  <div class="playground-card">
+    <div class="playground-header">
+      <h3 class="playground-title">Consola de Control de Admisión (Pre-Flight Gatekeeper)</h3>
+      <span class="playground-tag">EVALUACIÓN EN VIVO</span>
+    </div>
+
+    <!-- Presets Bar -->
+    <div class="presets-bar">
+      <button type="button" class="btn-preset" (click)="applyPreset('bcb-cached')">
+        Boletín BCB Resguardado (Caché Hit)
+      </button>
+      <button type="button" class="btn-preset" (click)="applyPreset('bbv-cached')">
+        Publicación BBV Resguardada (Caché Hit)
+      </button>
+      <button type="button" class="btn-preset" (click)="applyPreset('finrural-cached')">
+        Estados Financieros FINRURAL (Caché Hit)
+      </button>
+      <button type="button" class="btn-preset" (click)="applyPreset('new-report')">
+        Nuevo Documento No Resguardado (Permiso)
+      </button>
+      <button type="button" class="btn-preset" (click)="applyPreset('force-audit')">
+        Actualización Forzada (Bypass Caché)
+      </button>
+    </div>
+
+    <!-- Evaluation Form -->
+    <div class="eval-form-grid">
+      <div class="form-group">
+        <label class="form-lbl" for="ds-code">Código de Publicación:</label>
+        <input
+          id="ds-code"
+          type="text"
+          class="form-input mono"
+          [value]="datasetCode()"
+          (input)="datasetCode.set($any($event.target).value)"
+          placeholder="Ej: DS_BO_BBV"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-lbl" for="domain">Portal / Dominio:</label>
+        <input
+          id="domain"
+          type="text"
+          class="form-input mono"
+          [value]="domain()"
+          (input)="domain.set($any($event.target).value)"
+          placeholder="Ej: www.bbv.com.bo"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-lbl" for="period">Periodo Contable:</label>
+        <input
+          id="period"
+          type="text"
+          class="form-input mono"
+          [value]="period()"
+          (input)="period.set($any($event.target).value)"
+          placeholder="Ej: 2026-08"
+        />
+      </div>
+
+      <div class="form-group full-width">
+        <label class="form-lbl" for="url">URL Objetivo:</label>
+        <input
+          id="url"
+          type="text"
+          class="form-input mono"
+          [value]="targetUrl()"
+          (input)="targetUrl.set($any($event.target).value)"
+          placeholder="https://..."
+        />
+      </div>
+
+      <div class="form-group full-width checkbox-row">
+        <label class="checkbox-lbl">
+          <input
+            type="checkbox"
+            [checked]="forceRefresh()"
+            (change)="forceRefresh.set($any($event.target).checked)"
+          />
+          <span>Forzar Actualización (Omitir validación de caché para auditoría)</span>
+        </label>
+
+        <button
+          type="button"
+          class="btn-evaluate"
+          [disabled]="store.isEvaluating()"
+          (click)="onEvaluate()"
+        >
+          @if (store.isEvaluating()) {
+            <span>Evaluando en Gatekeeper...</span>
+          } @else {
+            <span>Evaluar Solicitud de Admisión</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- Verdict Display -->
+    @if (store.lastEvaluation(); as evalResult) {
+      <div
+        class="verdict-card"
+        [class.verdict-hit]="evalResult.verdict === 'CACHE_HIT_BRONZE' || evalResult.verdict === 'CACHE_HIT_GOLD'"
+        [class.verdict-permit]="evalResult.verdict === 'PROCEED_DOWNLOAD'"
+        [class.verdict-lock]="evalResult.verdict === 'IN_FLIGHT_LOCKED' || evalResult.verdict === 'IN_PROGRESS'"
+      >
+        <div class="verdict-top">
+          <div class="verdict-heading">
+            <span class="verdict-tag mono">VEREDICTO EMITIDO</span>
+            <span
+              class="verdict-badge"
+              [class.badge-hit]="evalResult.verdict === 'CACHE_HIT_BRONZE' || evalResult.verdict === 'CACHE_HIT_GOLD'"
+              [class.badge-permit]="evalResult.verdict === 'PROCEED_DOWNLOAD'"
+            >
+              {{ getVerdictTitle(evalResult.verdict) }}
+            </span>
+          </div>
+          <div class="verdict-latency mono">
+            <span>Tiempo de Evaluación:</span>
+            <strong>&lt; 15 ms</strong>
+          </div>
+        </div>
+
+        <p class="verdict-reason">{{ evalResult.reason }}</p>
+
+        <div class="verdict-metrics-grid">
+          <div class="metric-item">
+            <span class="metric-lbl">Clave de Idempotencia:</span>
+            <span class="metric-val mono snippet">{{ evalResult.idempotency_key }}</span>
+          </div>
+
+          <div class="metric-item">
+            <span class="metric-lbl">Bloqueo Adquirido:</span>
+            <span class="metric-val mono">{{ evalResult.lock_acquired ? 'SÍ (RECURSO EN INGESTA)' : 'NO (RECUPERADO DE CUSTODIA)' }}</span>
+          </div>
+
+          @if (evalResult.cached_artifact_id) {
+            <div class="metric-item">
+              <span class="metric-lbl">ID de Archivo en Custodia:</span>
+              <span class="metric-val mono text-highlight">{{ evalResult.cached_artifact_id }}</span>
+            </div>
+          }
+
+          @if (evalResult.in_flight_task_id) {
+            <div class="metric-item">
+              <span class="metric-lbl">Tarea en Vuelo Asignada:</span>
+              <span class="metric-val mono text-highlight">{{ evalResult.in_flight_task_id }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+</div>

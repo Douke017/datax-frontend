@@ -1,0 +1,215 @@
+<div class="custodia-container">
+  <!-- KPI Stats Grid -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">ARCHIVOS RESGUARDADOS</span>
+        <span class="kpi-badge badge-success">INMUTABLES</span>
+      </div>
+      <div class="kpi-value">{{ store.totalArtifactsCount() }}</div>
+      <div class="kpi-caption">Documentos originales en custodia física</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">ESPACIO EN CUSTODIA</span>
+        <span class="kpi-badge badge-info">REPOSITORIO LOCAL</span>
+      </div>
+      <div class="kpi-value">{{ store.totalBytesCustodyFormatted() }}</div>
+      <div class="kpi-caption">Almacenamiento total verificado en disco</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">INTEGRIDAD CRIPTOGRÁFICA</span>
+        <span class="kpi-badge badge-purple">SHA-256</span>
+      </div>
+      <div class="kpi-value">{{ store.integrityRate() }}</div>
+      <div class="kpi-caption">Firmas validadas contra alteración o corrupción</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">PROTECCIÓN DE RED</span>
+        <span class="kpi-badge badge-success">DISYUNTORES</span>
+      </div>
+      <div class="kpi-value">{{ store.allCircuitsOperational() ? 'OPERATIVO' : 'EN ENFRIAMIENTO' }}</div>
+      <div class="kpi-caption">Tráfico respetuoso y rate limit regulado</div>
+    </div>
+  </div>
+
+  <!-- Circuit Breakers Status Banner -->
+  <div class="circuit-banner">
+    <div class="circuit-header">
+      <span class="circuit-title">Estado de Conexión y Disyuntores de Red (Circuit Breakers):</span>
+      <span class="circuit-sub">Protección contra saturación de portales emisores</span>
+    </div>
+    <div class="circuits-list">
+      @for (cb of store.circuitBreakers(); track cb.domain) {
+        <div class="circuit-chip" [class.circuit-closed]="cb.status === 'CLOSED'">
+          <span class="circuit-dot"></span>
+          <span class="circuit-domain mono">{{ cb.domain }}</span>
+          <span class="circuit-state mono">{{ cb.status === 'CLOSED' ? 'OPERATIVO (0 Fallas)' : 'EN ENFRIAMIENTO' }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar-card">
+    <div class="search-box">
+      <label class="toolbar-label" for="artifact-search">Búsqueda de archivos en custodia:</label>
+      <input
+        id="artifact-search"
+        type="text"
+        class="search-input mono"
+        placeholder="Buscar por nombre, código de publicación o hash SHA-256..."
+        [value]="store.searchQuery()"
+        (input)="onSearchInput($event)"
+      />
+    </div>
+
+    <div class="filter-group">
+      <div class="filter-item">
+        <label class="toolbar-label" for="source-filter">Entidad:</label>
+        <select
+          id="source-filter"
+          class="select-input"
+          [value]="store.sourceFilter()"
+          (change)="onSourceChange($event)"
+        >
+          <option value="ALL">Todas las Entidades</option>
+          @for (src of store.uniqueSources(); track src) {
+            <option [value]="src">{{ src }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label class="toolbar-label" for="period-filter">Periodo:</label>
+        <select
+          id="period-filter"
+          class="select-input"
+          [value]="store.periodFilter()"
+          (change)="onPeriodChange($event)"
+        >
+          <option value="ALL">Todos los Periodos</option>
+          @for (p of store.uniquePeriods(); track p) {
+            <option [value]="p">{{ p }}</option>
+          }
+        </select>
+      </div>
+
+      <button
+        type="button"
+        class="btn-sync-action"
+        [disabled]="store.syncing()"
+        (click)="store.runSyncBatch('bbv')"
+      >
+        @if (store.syncing()) {
+          <span>Descargando Lote...</span>
+        } @else {
+          <span>Ejecutar Resguardo Asistido</span>
+        }
+      </button>
+    </div>
+  </div>
+
+  <!-- Sync Result Banner -->
+  @if (store.lastSyncResult(); as syncRes) {
+    <div class="sync-banner">
+      <div class="sync-heading">
+        <span class="sync-tag mono">PLAN DE RESGUARDO COMPLETADO</span>
+        <span class="sync-summary">{{ syncRes.summary }}</span>
+      </div>
+      <div class="sync-stats mono">
+        <span>Tareas Exitosas: <strong>{{ syncRes.completed_tasks }}</strong> / {{ syncRes.total_tasks }}</span>
+      </div>
+    </div>
+  }
+
+  <!-- Artifacts Table -->
+  <div class="table-card">
+    <div class="table-scroll-container">
+      <table class="custodia-table">
+        <thead>
+          <tr>
+            <th>Código de Publicación</th>
+            <th>Periodo</th>
+            <th>Portal Emisor</th>
+            <th>Tamaño</th>
+            <th>Firma Criptográfica SHA-256</th>
+            <th>Fecha de Resguardo</th>
+            <th>Auditoría de Integridad</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (art of store.pagedArtifacts(); track art.artifact_id) {
+            <tr class="table-row">
+              <td class="mono font-bold">{{ art.dataset_code }}</td>
+              <td class="mono">{{ art.period || 'Periódico' }}</td>
+              <td class="mono text-muted-subtle">{{ art.domain }}</td>
+              <td class="mono">{{ formatBytes(art.size_bytes) }}</td>
+              <td class="mono sha-cell">
+                <span class="sha-snippet" [title]="art.sha256_hash">
+                  {{ art.sha256_hash | slice:0:16 }}...
+                </span>
+                <button
+                  type="button"
+                  class="btn-copy-hash"
+                  (click)="copyHash(art.sha256_hash)"
+                  title="Copiar firma SHA-256 completa"
+                >
+                  Copiar
+                </button>
+              </td>
+              <td class="mono">{{ art.downloaded_at | slice:0:19 }}</td>
+              <td>
+                @if (store.verifiedArtifacts()[art.artifact_id]) {
+                  <span class="badge-integrity-ok">
+                    INTEGRIDAD CERTIFICADA
+                  </span>
+                } @else {
+                  <button
+                    type="button"
+                    class="btn-verify"
+                    (click)="store.verifyArtifactIntegrity(art.artifact_id)"
+                  >
+                    Auditar Hash
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination Bar -->
+    <div class="pagination-bar">
+      <div class="pagination-info">
+        Mostrando <span class="mono">{{ store.paginationRange().start }} – {{ store.paginationRange().end }}</span> de
+        <span class="mono">{{ store.totalFiltered() }}</span> archivos en custodia
+      </div>
+
+      <div class="pagination-controls">
+        <button
+          type="button"
+          class="btn-page"
+          [disabled]="store.currentPage() <= 1"
+          (click)="store.setPage(store.currentPage() - 1)"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          class="btn-page"
+          [disabled]="store.currentPage() >= store.totalPages()"
+          (click)="store.setPage(store.currentPage() + 1)"
+        >
+          Siguiente
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

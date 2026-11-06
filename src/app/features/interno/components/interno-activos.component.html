@@ -1,0 +1,343 @@
+<div class="activos-container">
+  <!-- Context Header -->
+  <div class="activos-header-card">
+    <div class="header-main">
+      <div class="header-titles">
+        <div class="badge-row">
+          <span class="badge-gold">CAPA GOLD / DATAMARTS PARQUET</span>
+          <span class="badge-olap">DUCKDB VECTORIZADO</span>
+        </div>
+        <h1 class="header-title">Catálogo Técnico de Activos de Datos y Autoservicio</h1>
+        <p class="header-desc">
+          Inventario técnico de datamarts consolidados en Apache Parquet, documentación de metadatos,
+          diccionarios de esquemas y disponibilización de consultas vectorizadas con extracción autónoma en CSV/JSON.
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="materializeDatamart()"
+          [disabled]="materializing() || loadingData()"
+          title="Materializa y consolida las transformaciones hacia los archivos Parquet en Capa Gold"
+        >
+          @if (materializing()) {
+            <span>Consolidando Datamarts...</span>
+          } @else {
+            <span>Materializar Capa Gold</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="refreshCurrentView()"
+          [disabled]="loadingData() || materializing()"
+        >
+          @if (loadingData()) {
+            <span>Consultando DuckDB...</span>
+          } @else {
+            <span>Ejecutar Consulta Vectorizada</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="activos-nav-tabs">
+      <button
+        type="button"
+        class="nav-tab"
+        [class.active]="activeSubTab() === 'explorer'"
+        (click)="activeSubTab.set('explorer')"
+      >
+        <span class="tab-title">Consola de Autoservicio y Consultas OLAP</span>
+        <span class="tab-badge">DUCKDB OLAP</span>
+      </button>
+      <button
+        type="button"
+        class="nav-tab"
+        [class.active]="activeSubTab() === 'dictionary'"
+        (click)="activeSubTab.set('dictionary')"
+      >
+        <span class="tab-title">Inventario Técnico y Diccionario de Datos</span>
+        <span class="tab-badge">{{ dictionaryColumns.length }} Campos</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB 1: CONSOLA DE AUTOSERVICIO Y DISPONIBILIZACIÓN -->
+  @if (activeSubTab() === 'explorer') {
+    <!-- Technical Query Controls -->
+    <div class="controls-card">
+      <div class="controls-grid">
+        <div class="control-item">
+          <label class="control-lbl" for="sel-inst">Entidad Emisora:</label>
+          <select
+            id="sel-inst"
+            class="select-control"
+            [value]="selectedInstitution()"
+            (change)="onInstitutionChange($event)"
+          >
+            <option value="">Todas las Entidades (Sin filtro)</option>
+            @for (inst of (dimensions()?.instituciones || dimensions()?.institutions || []); track inst) {
+              <option [value]="inst">{{ inst }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="control-item">
+          <label class="control-lbl" for="sel-gestion">Gestión (Partición):</label>
+          <select
+            id="sel-gestion"
+            class="select-control"
+            [value]="selectedGestion() ?? ''"
+            (change)="onGestionChange($event)"
+          >
+            <option value="">Todas las Gestiones</option>
+            @for (g of dimensions()?.gestiones || []; track g) {
+              <option [value]="g">{{ g }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="control-item">
+          <label class="control-lbl" for="sel-mes">Mes (Partición):</label>
+          <select
+            id="sel-mes"
+            class="select-control"
+            [value]="selectedMes() ?? ''"
+            (change)="onMesChange($event)"
+          >
+            <option value="">Todos los Meses</option>
+            @for (m of dimensions()?.meses || []; track m) {
+              <option [value]="m">Mes {{ m }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="control-item">
+          <label class="control-lbl" for="sel-limit">Límite de Filas:</label>
+          <select
+            id="sel-limit"
+            class="select-control"
+            [value]="resultLimit()"
+            (change)="onLimitChange($event)"
+          >
+            <option [value]="25">25 Registros</option>
+            <option [value]="50">50 Registros</option>
+            <option [value]="100">100 Registros</option>
+          </select>
+        </div>
+
+        <div class="control-item filter-btn-col">
+          <button
+            type="button"
+            class="btn-query"
+            (click)="refreshCurrentView()"
+            [disabled]="loadingData()"
+          >
+            Filtrar Datamart
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Engineering Performance KPIs -->
+    <div class="kpi-grid">
+      <app-kpi-card
+        title="Latencia DuckDB"
+        [value]="viewResult()?.execution_time_ms ? (viewResult()!.execution_time_ms.toFixed(1) + ' ms') : '0.0 ms'"
+        subtitle="Tiempo de ejecución analítica en memoria"
+        tone="success"
+        badgeText="OLAP SPEED"
+      />
+      <app-kpi-card
+        title="Registros Extraídos"
+        [value]="viewResult()?.total_records || 0"
+        subtitle="Filas estructuradas recuperadas"
+        tone="info"
+        badgeText="VOLUMEN"
+      />
+      <app-kpi-card
+        title="Columnas del Esquema"
+        [value]="(viewResult()?.columns?.length || 0) + ' campos'"
+        subtitle="Ancho de proyección tabular"
+        tone="purple"
+        badgeText="ESQUEMA"
+      />
+      <app-kpi-card
+        title="Almacenamiento Físico"
+        value="Apache Parquet"
+        subtitle="Capa Gold particionada (Snappy)"
+        tone="default"
+        badgeText="FORMATO"
+      />
+    </div>
+
+    <!-- Structured Data Matrix with Autonomous Extraction -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Matriz de Datos Procesados (Datamart Capa Gold)</h2>
+          <p class="section-desc">
+            Data columnar limpia consultada directamente desde archivos Parquet mediante motor DuckDB en memoria.
+          </p>
+        </div>
+
+        <div class="export-actions">
+          <button
+            type="button"
+            class="btn-export"
+            (click)="exportToCsv()"
+            [disabled]="!viewResult()?.records?.length"
+            title="Descargar dataset en formato CSV para herramientas de análisis (Pandas, R, Jupyter)"
+          >
+            Exportar CSV
+          </button>
+          <button
+            type="button"
+            class="btn-export"
+            (click)="exportToJson()"
+            [disabled]="!viewResult()?.records?.length"
+            title="Descargar dataset en formato JSON estructurado"
+          >
+            Exportar JSON
+          </button>
+          <div class="records-badge mono">
+            {{ viewResult()?.records?.length || 0 }} filas
+          </div>
+        </div>
+      </div>
+
+      <!-- Clean Neutral Data Table -->
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              @for (col of viewResult()?.columns || []; track col) {
+                <th [class.th-num]="isNumericCol(col)">{{ col }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of viewResult()?.records || []; track $index) {
+              <tr>
+                @for (col of viewResult()?.columns || []; track col) {
+                  <td [class.td-num]="isNumericCol(col)">
+                    @if (col === 'source_file_sha256') {
+                      <span class="hash-tag mono" [title]="row[col]">{{ row[col] | slice:0:16 }}...</span>
+                    } @else if (col === 'institucion_id') {
+                      <span class="id-tag mono">{{ row[col] }}</span>
+                    } @else if (col === 'gestion' || col === 'mes') {
+                      <span class="mono">{{ row[col] }}</span>
+                    } @else if (isNumericCol(col)) {
+                      <span class="mono num-text">{{ formatNumber(row[col]) }}</span>
+                    } @else {
+                      <span>{{ row[col] ?? '-' }}</span>
+                    }
+                  </td>
+                }
+              </tr>
+            } @empty {
+              <tr>
+                <td [attr.colspan]="viewResult()?.columns?.length || 5" class="empty-state">
+                  @if (loadingData()) {
+                    <span>Consultando datamart en memoria con DuckDB...</span>
+                  } @else {
+                    <span>No se encontraron registros para los filtros seleccionados.</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- TAB 2: INVENTARIO TÉCNICO Y DICCIONARIO DE DATOS -->
+  @if (activeSubTab() === 'dictionary') {
+    <!-- Datamart Metadata Overview Card -->
+    <div class="metadata-card">
+      <div class="meta-header">
+        <span class="meta-tag mono">METADATOS DE CAPA GOLD</span>
+        <h2 class="meta-title">Inventario Técnico del Datamart: mart_cartera</h2>
+        <p class="meta-desc">
+          Especificación técnica, almacenamiento optimizado y linaje criptográfico con los archivos fuente de Capa Bronze.
+        </p>
+      </div>
+
+      <div class="meta-specs-grid">
+        <div class="spec-box">
+          <span class="spec-label">Formato de Archivo</span>
+          <span class="spec-val mono">Apache Parquet (.parquet)</span>
+          <span class="spec-sub">Almacenamiento columnar de alto rendimiento</span>
+        </div>
+        <div class="spec-box">
+          <span class="spec-label">Motor de Consulta OLAP</span>
+          <span class="spec-val mono">DuckDB en memoria</span>
+          <span class="spec-sub">Ejecución vectorizada en &lt;20ms</span>
+        </div>
+        <div class="spec-box">
+          <span class="spec-label">Claves de Partición Física</span>
+          <span class="spec-val mono">gestion / mes</span>
+          <span class="spec-sub">Particionado jerárquico en disco</span>
+        </div>
+        <div class="spec-box">
+          <span class="spec-label">Linaje Criptográfico</span>
+          <span class="spec-val mono">source_file_sha256</span>
+          <span class="spec-sub">Firma SHA-256 única por archivo original</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Column Dictionary Table -->
+    <div class="section-card">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Diccionario Técnico de Campos y Esquema de Datos</h2>
+          <p class="section-desc">
+            Definición formal de columnas, tipos primitivos, roles analíticos y nulabilidad para integración de datos.
+          </p>
+        </div>
+        <div class="records-badge mono">
+          {{ dictionaryColumns.length }} campos documentados
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="dict-table">
+          <thead>
+            <tr>
+              <th>Nombre de Campo</th>
+              <th>Tipo de Dato</th>
+              <th>Rol en Esquema</th>
+              <th>Descripción Técnica</th>
+              <th>Nulable</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of dictionaryColumns; track c.name) {
+              <tr>
+                <td class="td-col-name">
+                  <span class="col-name mono">{{ c.name }}</span>
+                </td>
+                <td>
+                  <span class="type-badge mono">{{ c.dataType }}</span>
+                </td>
+                <td>
+                  <span class="role-badge" [class]="'role-' + c.role.toLowerCase().replace(' ', '-')">
+                    {{ c.role }}
+                  </span>
+                </td>
+                <td class="td-col-desc">{{ c.description }}</td>
+                <td class="td-col-null mono">{{ c.isNullable ? 'SÍ' : 'NO' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>
