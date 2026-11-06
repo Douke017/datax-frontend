@@ -1,0 +1,258 @@
+<div class="overview-layout">
+  <!-- KPIs de Estado de Portales -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">LISTA BLANCA — FUENTES OPERATIVAS</span>
+        <span class="badge-whitelist">OPERATIVAS</span>
+      </div>
+      <div class="kpi-value text-green">{{ store.activeSourcesCount() }} <span class="kpi-total">/ {{ store.sources().length }}</span></div>
+      <p class="kpi-desc">Portales accesibles sin restricciones técnicas bajo rastreo continuo.</p>
+    </div>
+
+    <div class="kpi-card highlight-blacklist">
+      <div class="kpi-header">
+        <span class="kpi-title">LISTA NEGRA — FUENTES OBSERVADAS</span>
+        <span class="badge-blacklist">CON INCIDENCIAS</span>
+      </div>
+      <div class="kpi-value text-amber">{{ incidentSourcesCount() }} <span class="kpi-total">/ {{ store.sources().length }}</span></div>
+      <p class="kpi-desc">Portales con bloqueos TLS/WAF, límites de cuota o suspensión operativa.</p>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">RECURSOS TOTALES INDEXADOS</span>
+        <span class="badge-info">CATÁLOGO</span>
+      </div>
+      <div class="kpi-value">{{ store.totalDiscovered() }}</div>
+      <p class="kpi-desc">Archivos de datos extraídos e inventariados en el sistema.</p>
+    </div>
+  </section>
+
+  <!-- Sección de Control y Auditoría de Fuentes -->
+  <section class="main-card">
+    <header class="card-header-bar">
+      <div>
+        <h2 class="card-heading">Auditoría de Portales & Estado de Acceso</h2>
+        <p class="card-subheading">
+          Monitoreo técnico de los 52 portales oficiales: verificación de disponibilidad, clasificación de errores y contingencias.
+        </p>
+      </div>
+      <span class="total-badge">52 Fuentes Registradas</span>
+    </header>
+
+    <!-- Barra de Filtros y Búsqueda -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Buscar por portal, sigla o código de error (ej. BCB, ASFI, TLS_HOLD)..."
+          [value]="searchPortal()"
+          (input)="onSearchInput($event)"
+        />
+        @if (searchPortal()) {
+          <button type="button" class="btn-clear" (click)="clearSearch()">✕</button>
+        }
+      </div>
+
+      <div class="filter-pills">
+        <button
+          type="button"
+          class="pill"
+          [class.active]="portalFilter() === 'ALL'"
+          (click)="setPortalFilter('ALL')"
+        >
+          Todas ({{ store.sources().length }})
+        </button>
+        <button
+          type="button"
+          class="pill pill-white"
+          [class.active]="portalFilter() === 'WHITELIST'"
+          (click)="setPortalFilter('WHITELIST')"
+        >
+          Lista Blanca: Operativas ({{ store.activeSourcesCount() }})
+        </button>
+        <button
+          type="button"
+          class="pill pill-black"
+          [class.active]="portalFilter() === 'BLACKLIST'"
+          (click)="setPortalFilter('BLACKLIST')"
+        >
+          Lista Negra: Con Incidencias ({{ incidentSourcesCount() }})
+        </button>
+      </div>
+    </div>
+
+    <!-- TABLA DE AUDITORÍA DE LISTA NEGRA (CUANDO SE FILTRA POR LISTA NEGRA) -->
+    @if (portalFilter() === 'BLACKLIST') {
+      <div class="blacklist-report">
+        <div class="report-header">
+          <span class="report-title">INFORME DE FUENTES CON INCIDENCIA TÉCNICA (LISTA NEGRA)</span>
+          <span class="report-sub">Registro de causas técnicas de bloqueo, fallas de protocolo y límites para revisión del analista</span>
+        </div>
+
+        <div class="table-scroll">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Denominación Oficial</th>
+                <th>Tipo de Incidencia / Error</th>
+                <th>Diagnóstico y Causa Técnica</th>
+                <th>Estado Operativo</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (source of filteredSources(); track source.source_id) {
+                <tr>
+                  <td class="font-mono font-bold text-main">
+                    {{ source.source_id.toUpperCase() }}
+                  </td>
+                  <td>
+                    <div class="source-name-cell">
+                      <span class="name-text">{{ source.name }}</span>
+                      <a [href]="source.entrypoint" target="_blank" rel="noopener noreferrer" class="link-url font-mono" [title]="source.entrypoint">
+                        {{ source.entrypoint }} ↗
+                      </a>
+                    </div>
+                  </td>
+                  <td>
+                    <span
+                      class="error-badge font-mono"
+                      [class.error-suspended]="source.health_status === 'SUSPENDED'"
+                      [class.error-warning]="source.health_status === 'WARNING'"
+                    >
+                      {{ source.audit_code || 'SIN_CODIGO' }}
+                    </span>
+                  </td>
+                  <td class="audit-note-cell">
+                    {{ source.audit_note || 'Pendiente de auditoría técnica detallada.' }}
+                  </td>
+                  <td>
+                    <span
+                      class="health-tag"
+                      [class.tag-warning]="source.health_status === 'WARNING'"
+                      [class.tag-suspended]="source.health_status === 'SUSPENDED'"
+                    >
+                      {{ source.health_status === 'SUSPENDED' ? 'Suspendido' : 'En Advertencia' }}
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn-action-config"
+                      (click)="onConfigureSource(source.source_id)"
+                    >
+                      Configurar Reglas ⚙
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6" class="empty-table-cell">
+                    No se encontraron fuentes con incidencias según los criterios de búsqueda.
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    } @else {
+      <!-- CUADRÍCULA DE TARJETAS (TODAS O LISTA BLANCA) -->
+      <div class="sources-grid">
+        @for (source of filteredSources(); track source.source_id) {
+          <div class="portal-card" [class.is-incident]="source.health_status !== 'ACTIVE'">
+            <div class="card-top">
+              <div class="portal-ident">
+                <span class="portal-id font-mono">{{ source.source_id.toUpperCase() }}</span>
+                <span class="portal-name">{{ source.name }}</span>
+              </div>
+              <span
+                class="status-indicator font-mono"
+                [class.status-active]="source.health_status === 'ACTIVE'"
+                [class.status-warning]="source.health_status === 'WARNING'"
+                [class.status-suspended]="source.health_status === 'SUSPENDED'"
+              >
+                {{ source.health_status === 'ACTIVE' ? 'OPERATIVO' : (source.health_status === 'WARNING' ? 'ADVERTENCIA' : 'SUSPENDIDO') }}
+              </span>
+            </div>
+
+            <!-- Banner de Incidencia si está en Lista Negra -->
+            @if (source.health_status !== 'ACTIVE' && source.audit_code) {
+              <div class="incident-callout" [class.incident-suspended]="source.health_status === 'SUSPENDED'">
+                <div class="incident-code-row">
+                  <span class="incident-icon">{{ source.health_status === 'SUSPENDED' ? '⛔' : '⚠️' }}</span>
+                  <span class="incident-code font-mono">[{{ source.audit_code }}]</span>
+                </div>
+                <p class="incident-text">{{ source.audit_note }}</p>
+              </div>
+            }
+
+            <div class="portal-meta">
+              <div class="meta-row">
+                <span class="meta-label">Punto de entrada:</span>
+                <a [href]="source.entrypoint" target="_blank" rel="noopener noreferrer" class="meta-link font-mono" [title]="source.entrypoint">
+                  {{ source.entrypoint }} ↗
+                </a>
+              </div>
+
+              @if (source.contingency_url || (source.contingency_urls && source.contingency_urls.length > 0)) {
+                <div class="meta-row">
+                  <span class="meta-label text-blue">Contingencia:</span>
+                  <span class="meta-val font-mono text-blue">
+                    {{ source.contingency_urls && source.contingency_urls.length > 1 ? (source.contingency_urls.length + ' URLs de respaldo') : (source.contingency_url || source.contingency_urls?.[0]) }}
+                  </span>
+                </div>
+              }
+
+              <div class="meta-row">
+                <span class="meta-label">Motor & Frecuencia:</span>
+                <span class="meta-val font-mono">{{ source.workflow }} · {{ source.update_category === 'DAILY' ? 'Diario' : (source.update_category === 'WEEKLY' ? 'Semanal' : 'Mensual') }}</span>
+              </div>
+
+              <div class="meta-row">
+                <span class="meta-label">Recursos detectados:</span>
+                <span class="meta-val font-bold">
+                  {{ getSourceResourceCount(source.source_id) }} archivos
+                </span>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              @if (getSourceResourceCount(source.source_id) > 0) {
+                <button
+                  type="button"
+                  class="btn-view-resources"
+                  (click)="filterBySource(source.source_id)"
+                  title="Ver inventario de archivos"
+                >
+                  Ver Recursos ({{ getSourceResourceCount(source.source_id) }}) &rarr;
+                </button>
+              } @else {
+                <span class="pending-pill">En Espera de Rastreo</span>
+              }
+
+              <button
+                type="button"
+                class="btn-configure"
+                (click)="onConfigureSource(source.source_id)"
+                title="Configurar parámetros y contingencia"
+              >
+                Configurar Reglas ⚙
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <div class="empty-state">
+            <span class="empty-icon">🔍</span>
+            <p>No se encontraron portales que coincidan con la búsqueda.</p>
+            <button type="button" class="btn-reset" (click)="resetFilters()">Restablecer Filtros</button>
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>

@@ -10,6 +10,15 @@ export interface CatalogSource {
   seeds?: string[];
   allowed_extensions?: string[];
   rate_limit_seconds?: number;
+  max_urls?: number;
+  max_resources?: number;
+  ignore_robots_txt?: boolean;
+  contingency_url?: string;
+  contingency_urls?: string[];
+  excluded_path_keywords?: string[];
+  allowed_hosts?: string[];
+  consecutive_failures?: number;
+  first_failure_at?: string;
   next_eligible_at?: string;
   last_run_id?: string;
   last_run_at?: string;
@@ -48,6 +57,9 @@ export interface RunCoverage {
   resources_found: number;
   urls_rejected: number;
   urls_failed: number;
+  requests_total?: number;
+  stop_reason?: string;
+  [key: string]: any;
 }
 
 export interface SourceRunResult {
@@ -73,3 +85,52 @@ export interface RunReport {
   sources_without_changes: number;
   source_results: SourceRunResult[];
 }
+
+export interface SourcePolicyUpdate {
+  entrypoint?: string;
+  seeds?: string[];
+  update_category?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  next_eligible_at?: string;
+  allowed_extensions?: string[];
+  rate_limit_seconds?: number;
+  max_urls?: number;
+  max_resources?: number;
+  ignore_robots_txt?: boolean;
+  health_status?: 'ACTIVE' | 'WARNING' | 'SUSPENDED';
+  audit_code?: string;
+  audit_note?: string;
+  contingency_url?: string;
+  contingency_urls?: string[];
+  excluded_path_keywords?: string[];
+  allowed_hosts?: string[];
+}
+
+export interface StorageStatus {
+  status: 'HEALTHY' | 'DEGRADED' | 'OFFLINE';
+  database_type: string;
+  mongo_connected: boolean;
+  mongo_database: string;
+  collections: {
+    sources: number;
+    discovered_urls: number;
+    resource_candidates: number;
+    runs: number;
+    snapshots: number;
+  };
+  local_state_healthy: boolean;
+  local_sources_count: number;
+  local_resources_count: number;
+  local_state_path: string;
+  last_backup_at?: string | null;
+  backups_count: number;
+}
+
+export interface BackupSyncResult {
+  status: 'SUCCESS' | 'FAILED';
+  backup_id: string;
+  backup_path: string;
+  sources_backed_up: number;
+  resources_backed_up: number;
+  timestamp: string;
+}
+

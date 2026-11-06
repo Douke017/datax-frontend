@@ -1,0 +1,96 @@
+<div class="externo-layout">
+      <!-- Top Module Bar -->
+      <div class="module-header">
+        <div class="module-title-box">
+          <div class="system-badge-row">
+            <span class="system-name">PROSPECTOR EXTERNO</span>
+            <span class="status-live" [class.status-live-ok]="store.serviceStatus() === 'UP' || store.serviceStatus() === 'healthy'">
+              {{ store.serviceStatus() }}
+            </span>
+          </div>
+          <h1 class="module-title">Rastreo y Extracción de Portales Web</h1>
+          <p class="module-desc">
+            Exploración automatizada de fuentes oficiales, catálogo de recursos descubiertos e inventario de archivos documentales.
+          </p>
+        </div>
+
+        <div class="module-actions">
+          <button
+            type="button"
+            class="btn-sync"
+            [disabled]="store.loading()"
+            (click)="store.loadAll()"
+          >
+            @if (store.loading()) {
+              <span>Sincronizando...</span>
+            } @else {
+              <span>Actualizar Rastreo</span>
+            }
+          </button>
+        </div>
+      </div>
+
+      <!-- Module Navigation Sub-Tabs -->
+      <nav class="sub-nav-tabs">
+        <button
+          type="button"
+          class="sub-nav-tab"
+          [class.active]="activeTab() === 'overview'"
+          (click)="setTab('overview')"
+        >
+          <span class="tab-label">Portales & Salud</span>
+          <span class="tab-badge">{{ store.sources().length }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="sub-nav-tab"
+          [class.active]="activeTab() === 'inventory'"
+          (click)="setTab('inventory')"
+        >
+          <span class="tab-label">Inventario de Archivos</span>
+          <span class="tab-badge">{{ store.totalDiscovered() }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="sub-nav-tab"
+          [class.active]="activeTab() === 'config'"
+          (click)="setTab('config')"
+        >
+          <span class="tab-label">Control de Rastreo & Listas</span>
+          <span class="tab-badge">Políticas</span>
+        </button>
+
+        <button
+          type="button"
+          class="sub-nav-tab"
+          [class.active]="activeTab() === 'runs'"
+          (click)="setTab('runs')"
+        >
+          <span class="tab-label">Corridas & Infraestructura</span>
+          <span class="tab-badge">{{ store.runs().length }}</span>
+        </button>
+      </nav>
+
+      <!-- Main Content Area -->
+      <div class="tab-content-area">
+        @switch (activeTab()) {
+          @case ('overview') {
+            <app-externo-overview
+              (exploreSource)="onExploreSource($event)"
+              (configureSource)="onConfigureSource($event)"
+            />
+          }
+          @case ('inventory') {
+            <app-externo-inventory />
+          }
+          @case ('config') {
+            <app-externo-config />
+          }
+          @case ('runs') {
+            <app-externo-runs />
+          }
+        }
+      </div>
+    </div>

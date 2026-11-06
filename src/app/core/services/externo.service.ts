@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { CatalogResource, CatalogSource, RunReport } from '../models/catalog.model';
+import { CatalogResource, CatalogSource, RunReport, SourcePolicyUpdate, StorageStatus, BackupSyncResult } from '../models/catalog.model';
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +12,18 @@ export class ExternoService {
 
   getSources(): Observable<CatalogSource[]> {
     return this.http.get<CatalogSource[]>(`${this.baseUrl}/catalog/sources`);
+  }
+
+  updateSourcePolicy(sourceId: string, update: SourcePolicyUpdate): Observable<CatalogSource> {
+    return this.http.patch<CatalogSource>(`${this.baseUrl}/catalog/sources/${sourceId}`, update);
+  }
+
+  getStorageStatus(): Observable<StorageStatus> {
+    return this.http.get<StorageStatus>(`${this.baseUrl}/catalog/storage/status`);
+  }
+
+  triggerStorageBackup(): Observable<BackupSyncResult> {
+    return this.http.post<BackupSyncResult>(`${this.baseUrl}/catalog/storage/sync-backup`, {});
   }
 
   getResources(sourceId?: string, search?: string, limit?: number): Observable<CatalogResource[]> {

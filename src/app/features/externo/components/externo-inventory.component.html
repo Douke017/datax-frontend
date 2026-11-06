@@ -1,0 +1,318 @@
+<div class="inventory-container">
+      <!-- Filter and Search Toolbar -->
+      <div class="toolbar-card">
+        <div class="search-box">
+          <label class="toolbar-label" for="doc-search">Búsqueda de publicaciones:</label>
+          <div class="input-wrapper">
+            <input
+              id="doc-search"
+              type="text"
+              class="search-input"
+              placeholder="Buscar por título, palabra clave o URL..."
+              [value]="store.searchQuery()"
+              (input)="onSearchInput($event)"
+            />
+            @if (store.searchQuery()) {
+              <button type="button" class="btn-clear" (click)="clearSearch()" title="Limpiar búsqueda">
+                Limpiar
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <div class="filter-item">
+            <label class="toolbar-label" for="source-filter">Entidad:</label>
+            <select
+              id="source-filter"
+              class="select-input"
+              [value]="store.selectedSourceId()"
+              (change)="onSourceChange($event)"
+            >
+              <option value="ALL">Todas las Entidades</option>
+              @for (src of store.sources(); track src.source_id) {
+                <option [value]="src.source_id">{{ src.source_id.toUpperCase() }} — {{ src.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label class="toolbar-label" for="format-filter">Formato:</label>
+            <select
+              id="format-filter"
+              class="select-input"
+              [value]="store.extensionFilter()"
+              (change)="onExtensionChange($event)"
+            >
+              <option value="ALL">Todos los Formatos</option>
+              <option value=".pdf">PDF (.pdf)</option>
+              <option value=".xlsx">Excel (.xlsx)</option>
+              <option value=".csv">CSV (.csv)</option>
+              <option value=".zip">Comprimido (.zip)</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label class="toolbar-label" for="status-filter">Estado en Portal:</label>
+            <select
+              id="status-filter"
+              class="select-input"
+              [value]="store.statusFilter()"
+              (change)="onStatusChange($event)"
+            >
+              <option value="ALL">Todos los Estados</option>
+              <option value="UNCHANGED">Confirmado / Sin Cambios</option>
+              <option value="NEW">Nuevo Hallazgo</option>
+              <option value="MODIFIED">Modificado en Origen</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Summary Bar -->
+      <div class="results-bar">
+        <div class="results-count">
+          Mostrando <strong class="mono">{{ store.paginationRange().start }} – {{ store.paginationRange().end }}</strong> de
+          <strong class="mono">{{ store.totalFiltered() }}</strong> documentos detectados
+          @if (store.totalFiltered() !== store.totalDiscovered()) {
+            <span class="sub-count">(filtrados de {{ store.totalDiscovered() }} en total)</span>
+          }
+        </div>
+
+        <div class="page-size-selector">
+          <label class="size-lbl" for="page-size">Filas:</label>
+          <select id="page-size" class="size-select" [value]="store.pageSize()" (change)="onPageSizeChange($event)">
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="table-card">
+        @if (store.loading()) {
+          <div class="table-state-msg">
+            <span class="state-title">Consultando inventario web...</span>
+            <span class="state-desc">Indexando publicaciones y metadatos de los portales</span>
+          </div>
+        } @else if (store.pagedResources().length === 0) {
+          <div class="table-state-msg">
+            <span class="state-title">No se localizaron documentos</span>
+            <span class="state-desc">Verifique los filtros seleccionados o el término de búsqueda</span>
+          </div>
+        } @else {
+          <div class="table-scroll-container">
+            <table class="inventory-table">
+              <thead>
+                <tr>
+                  <th class="th-entity">Entidad</th>
+                  <th class="th-title">Título del Documento</th>
+                  <th class="th-period">Periodo</th>
+                  <th class="th-format">Formato</th>
+                  <th class="th-status" title="Ciclo de vida web en el portal respecto a barridos anteriores">
+                    Estado en Portal <span class="th-info-icon" title="NUEVO: detectado en el último barrido. CONFIRMADO: sin cambios. MODIFICADO: alterado en origen.">ⓘ</span>
+                  </th>
+                  <th class="th-actions">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (res of store.pagedResources(); track res.resource_key) {
+                  <tr
+                    class="table-row"
+                    [class.row-selected]="store.selectedResource()?.resource_key === res.resource_key"
+                    (click)="store.selectResource(res)"
+                  >
+                    <td class="td-entity">
+                      <span class="badge-source">{{ res.source_id.toUpperCase() }}</span>
+                    </td>
+                    <td class="td-title">
+                      <div class="doc-title-cell">
+                        <span class="doc-title" [title]="res.title || 'Documento sin título formal'">
+                          {{ res.title || 'Documento sin título formal' }}
+                        </span>
+                        <span class="doc-url mono" [title]="res.url">{{ res.url }}</span>
+                      </div>
+                    </td>
+                    <td class="td-period mono">
+                      {{ res.period_label || 'Periódico' }}
+                    </td>
+                    <td class="td-format">
+                      <span
+                        class="badge-ext"
+                        [class.ext-pdf]="res.file_extension?.toLowerCase() === '.pdf'"
+                        [class.ext-excel]="res.file_extension?.toLowerCase() === '.xlsx' || res.file_extension?.toLowerCase() === '.csv'"
+                        [class.ext-zip]="res.file_extension?.toLowerCase() === '.zip'"
+                      >
+                        {{ (res.file_extension || '.DAT').toUpperCase() }}
+                      </span>
+                    </td>
+                    <td class="td-status">
+                      <span
+                        class="status-chip"
+                        [class.status-new]="res.change_status === 'NEW'"
+                        [class.status-unchanged]="res.change_status === 'UNCHANGED'"
+                        [class.status-modified]="res.change_status === 'MODIFIED'"
+                      >
+                        {{ getStatusLabel(res.change_status) }}
+                      </span>
+                    </td>
+                    <td class="td-actions" (click)="$event.stopPropagation()">
+                      <button
+                        type="button"
+                        class="btn-detail"
+                        (click)="store.selectResource(res)"
+                        title="Ver ficha técnica"
+                      >
+                        Detalle
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="pagination-bar">
+            <div class="pagination-info">
+              Página <span class="mono">{{ store.currentPage() }}</span> de <span class="mono">{{ store.totalPages() }}</span>
+            </div>
+
+            <div class="pagination-controls">
+              <button
+                type="button"
+                class="btn-page"
+                [disabled]="store.currentPage() <= 1"
+                (click)="store.setPage(store.currentPage() - 1)"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                class="btn-page"
+                [disabled]="store.currentPage() >= store.totalPages()"
+                (click)="store.setPage(store.currentPage() + 1)"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Detail Drawer (Slide-over panel) -->
+      @if (store.selectedResource(); as selected) {
+        <div class="drawer-backdrop" (click)="store.selectResource(null)">
+          <div class="drawer-panel" (click)="$event.stopPropagation()">
+            <div class="drawer-header">
+              <div class="drawer-heading">
+                <span class="drawer-tag">FICHA TÉCNICA DE PUBLICACIÓN</span>
+                <h3 class="drawer-title">{{ selected.title || 'Documento Oficial' }}</h3>
+              </div>
+              <button type="button" class="btn-close-drawer" (click)="store.selectResource(null)">
+                Cerrar
+              </button>
+            </div>
+
+            <div class="drawer-content">
+              <div class="drawer-section">
+                <span class="drawer-section-title">METADATOS DE PROCEDENCIA</span>
+                <div class="drawer-field">
+                  <span class="field-lbl">Entidad Emisora:</span>
+                  <span class="field-val highlight">{{ selected.source_id.toUpperCase() }}</span>
+                </div>
+                <div class="drawer-field">
+                  <span class="field-lbl">Estado en el Portal:</span>
+                  <span class="field-val">
+                    <span
+                      class="status-chip"
+                      [class.status-new]="selected.change_status === 'NEW'"
+                      [class.status-unchanged]="selected.change_status === 'UNCHANGED'"
+                    >
+                      {{ getStatusLabel(selected.change_status) }}
+                    </span>
+                  </span>
+                </div>
+                <div class="drawer-field">
+                  <span class="field-lbl">Periodo Asociado:</span>
+                  <span class="field-val mono">{{ selected.period_label || 'No especificado en cabecera' }}</span>
+                </div>
+                <div class="drawer-field">
+                  <span class="field-lbl">Formato / Tipo MIME:</span>
+                  <span class="field-val mono">{{ selected.file_extension }} ({{ selected.content_type || 'application/octet-stream' }})</span>
+                </div>
+                <div class="drawer-field">
+                  <span class="field-lbl">Tamaño Reportado:</span>
+                  <span class="field-val mono">
+                    {{ selected.content_length_bytes ? formatBytes(selected.content_length_bytes) : 'Disponible en servidor de origen' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="drawer-section">
+                <span class="drawer-section-title">LOCALIZACIÓN Y ENLACE OFICIAL</span>
+                <div class="url-block">
+                  <span class="field-lbl">URL Canónica de Descarga:</span>
+                  <a [href]="selected.url" target="_blank" rel="noopener noreferrer" class="link-url mono">
+                    {{ selected.url }}
+                  </a>
+                </div>
+                @if (selected.discovered_from_url) {
+                  <div class="url-block">
+                    <span class="field-lbl">Página Origen de Detección:</span>
+                    <a [href]="selected.discovered_from_url" target="_blank" rel="noopener noreferrer" class="link-url mono">
+                      {{ selected.discovered_from_url }}
+                    </a>
+                  </div>
+                }
+              </div>
+
+              <div class="drawer-section">
+                <span class="drawer-section-title">FIRMAS TÉCNICAS Y ENCABEZADOS</span>
+                <div class="drawer-field">
+                  <span class="field-lbl">Identificador Clave:</span>
+                  <span class="field-val mono snippet">{{ selected.resource_key }}</span>
+                </div>
+                @if (selected.etag) {
+                  <div class="drawer-field">
+                    <span class="field-lbl">Encabezado ETag:</span>
+                    <span class="field-val mono">{{ selected.etag }}</span>
+                  </div>
+                }
+                @if (selected.last_modified_header) {
+                  <div class="drawer-field">
+                    <span class="field-lbl">Fecha Última Modificación (HTTP):</span>
+                    <span class="field-val mono">{{ selected.last_modified_header }}</span>
+                  </div>
+                }
+                <div class="drawer-field">
+                  <span class="field-lbl">Fecha de Detección:</span>
+                  <span class="field-val mono">{{ selected.discovered_at | slice:0:19 }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="drawer-footer">
+              <a
+                [href]="selected.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn-external"
+              >
+                Abrir en Portal Oficial ↗
+              </a>
+              <button
+                type="button"
+                class="btn-copy-url"
+                [class.copied]="copiedUrl()"
+                (click)="copiarUrl(selected.url)"
+                [title]="selected.url"
+              >
+                {{ copiedUrl() ? '✓ Enlace Copiado' : 'Copiar URL Canónica' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>

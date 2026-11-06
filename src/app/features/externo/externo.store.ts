@@ -1,8 +1,8 @@
 import { inject } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, withHooks, patchState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { pipe, switchMap, tap, catchError, of, forkJoin } from 'rxjs';
-import { CatalogResource, CatalogSource } from '../../core/models/catalog.model';
+import { pipe, switchMap, tap, catchError, of, forkJoin, Observable } from 'rxjs';
+import { CatalogResource, CatalogSource, RunReport, SourcePolicyUpdate, StorageStatus, BackupSyncResult } from '../../core/models/catalog.model';
 import { ExternoService } from '../../core/services/externo.service';
 
 export interface ExternoState {
@@ -10,6 +10,8 @@ export interface ExternoState {
   selectedSourceId: string;
   resources: CatalogResource[];
   selectedResource: CatalogResource | null;
+  runs: RunReport[];
+  selectedRun: RunReport | null;
   searchQuery: string;
   extensionFilter: string;
   statusFilter: string;
@@ -18,6 +20,9 @@ export interface ExternoState {
   loading: boolean;
   error: string | null;
   serviceStatus: string;
+  storageStatus: StorageStatus | null;
+  storageLoading: boolean;
+  storageMessage: string | null;
 }
 
 const initialState: ExternoState = {
@@ -25,6 +30,8 @@ const initialState: ExternoState = {
   selectedSourceId: 'ALL',
   resources: [],
   selectedResource: null,
+  runs: [],
+  selectedRun: null,
   searchQuery: '',
   extensionFilter: 'ALL',
   statusFilter: 'ALL',
@@ -32,7 +39,10 @@ const initialState: ExternoState = {
   pageSize: 20,
   loading: false,
   error: null,
-  serviceStatus: 'VERIFICANDO'
+  serviceStatus: 'VERIFICANDO',
+  storageStatus: null,
+  storageLoading: false,
+  storageMessage: null
 };
 
 export const ExternoStore = signalStore(
@@ -124,13 +134,15 @@ export const ExternoStore = signalStore(
           return forkJoin({
             health: service.checkHealth().pipe(catchError(() => of({ status: 'OFFLINE', service: 'catalog-api' }))),
             sources: service.getSources().pipe(catchError(() => of([]))),
-            resources: service.getResources().pipe(catchError(() => of([])))
+            resources: service.getResources().pipe(catchError(() => of([]))),
+            runs: service.getRuns().pipe(catchError(() => of([])))
           }).pipe(
-            tap(({ health, sources, resources }) => {
+            tap(({ health, sources, resources, runs }) => {
               patchState(store, {
                 serviceStatus: health.status,
                 sources,
                 resources,
+                runs,
                 loading: false
               });
             }),
@@ -168,12 +180,66 @@ export const ExternoStore = signalStore(
       },
       selectResource: (resource: CatalogResource | null) => {
         patchState(store, { selectedResource: resource });
+      },
+      selectRun: (run: RunReport | null) => {
+        patchState(store, { selectedRun: run });
+      },
+      loadStorageStatus: () => {
+        patchState(store, { storageLoading: true });
+        service.getStorageStatus().pipe(
+          tap((status) => {
+            patchState(store, { storageStatus: status, storageLoading: false });
+          }),
+          catchError(() => {
+            patchState(store, { storageLoading: false, storageMessage: 'No se pudo obtener estado del almacenamiento.' });
+            return of(null);
+          })
+        ).subscribe();
+      },
+      triggerBackup: (): Observable<BackupSyncResult> => {
+        patchState(store, { storageLoading: true, storageMessage: 'Generando respaldo del catálogo...' });
+        return service.triggerStorageBackup().pipe(
+          tap((res) => {
+            patchState(store, {
+              storageLoading: false,
+              storageMessage: `Respaldo exitoso: ${res.backup_id} (${res.sources_backed_up} fuentes, ${res.resources_backed_up} recursos)`
+            });
+            service.getStorageStatus().subscribe((status) => {
+              patchState(store, { storageStatus: status });
+            });
+          }),
+          catchError((err) => {
+            patchState(store, { storageLoading: false, storageMessage: 'Fallo al generar respaldo.' });
+            throw err;
+          })
+        );
+      },
+      saveSourcePolicy: (sourceId: string, update: SourcePolicyUpdate): Observable<CatalogSource> => {
+        patchState(store, { loading: true, error: null });
+        return service.updateSourcePolicy(sourceId, update).pipe(
+          tap((updatedSource) => {
+            const currentSources = store.sources();
+            const idx = currentSources.findIndex((s) => s.source_id === sourceId);
+            let newSources = [...currentSources];
+            if (idx >= 0) {
+              newSources[idx] = updatedSource;
+            } else {
+              newSources.push(updatedSource);
+            }
+            patchState(store, { sources: newSources, loading: false });
+          }),
+          catchError((err) => {
+            patchState(store, { loading: false, error: 'Error al actualizar política de la fuente.' });
+            throw err;
+          })
+        );
       }
     };
   }),
   withHooks({
     onInit(store) {
       store.loadAll();
+      store.loadStorageStatus();
     }
   })
 );

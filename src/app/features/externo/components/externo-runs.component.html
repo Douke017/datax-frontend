@@ -1,0 +1,280 @@
+<div class="runs-container">
+  <!-- 1. Infraestructura de Persistencia y Respaldos -->
+  <section class="storage-card">
+    <div class="storage-card-header">
+      <div class="title-with-badge">
+        <h2 class="card-title">Infraestructura de Almacenamiento & Respaldos</h2>
+        @if (store.storageStatus(); as st) {
+          <span
+            class="badge"
+            [class.badge-ok]="st.status === 'HEALTHY'"
+            [class.badge-warn]="st.status !== 'HEALTHY'"
+          >
+            {{ st.status === 'HEALTHY' ? 'OPERATIVO' : 'DEGRADADO' }}
+          </span>
+        } @else {
+          <span class="badge badge-neutral">CONSULTANDO</span>
+        }
+      </div>
+
+      <div class="header-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          [disabled]="store.storageLoading()"
+          (click)="store.loadStorageStatus()"
+        >
+          Refrescar Telemetría
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="store.storageLoading()"
+          (click)="onTriggerBackup()"
+        >
+          @if (store.storageLoading()) {
+            <span>Procesando...</span>
+          } @else {
+            <span>Generar Respaldo Inmediato</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    @if (store.storageMessage()) {
+      <div class="notice-banner">
+        <span class="notice-icon">ℹ</span>
+        <span class="notice-text">{{ store.storageMessage() }}</span>
+      </div>
+    }
+
+    @if (store.storageStatus(); as st) {
+      <div class="storage-grid">
+        <div class="storage-box">
+          <span class="storage-label">MOTOR PRINCIPAL (MONGODB 7)</span>
+          <div class="storage-status-row">
+            <span class="dot" [class.dot-green]="st.mongo_connected" [class.dot-red]="!st.mongo_connected"></span>
+            <span class="storage-value">{{ st.mongo_connected ? 'CONECTADO (127.0.0.1:27018)' : 'DESCONECTADO' }}</span>
+          </div>
+          <span class="storage-sub">Base de Datos: {{ st.mongo_database }}</span>
+          <div class="collection-pills">
+            <span class="col-pill">URLs Exploradas: {{ st.collections.discovered_urls }}</span>
+            <span class="col-pill">Recursos Indexados: {{ st.collections.resource_candidates }}</span>
+            <span class="col-pill">Fuentes Registradas: {{ st.collections.sources }}</span>
+            <span class="col-pill">Corridas Auditadas: {{ st.collections.runs }}</span>
+          </div>
+        </div>
+
+        <div class="storage-box">
+          <span class="storage-label">RESPALDO LOCAL CONSOLIDADO (JSON)</span>
+          <div class="storage-status-row">
+            <span class="dot" [class.dot-green]="st.local_state_healthy" [class.dot-red]="!st.local_state_healthy"></span>
+            <span class="storage-value">{{ st.local_state_healthy ? 'CATÁLOGO ÍNTEGRO Y SINCRONIZADO' : 'INACCESIBLE' }}</span>
+          </div>
+          <span class="storage-sub">52 Fuentes Registradas | 2,516 Recursos Reales</span>
+          <div class="collection-pills">
+            <span class="col-pill">Respaldos Generados: {{ st.backups_count }}</span>
+            <span class="col-pill">Último Respaldo: {{ st.last_backup_at ? (st.last_backup_at | date:'dd/MM/yyyy HH:mm') : 'Sin historial' }}</span>
+          </div>
+        </div>
+      </div>
+    }
+  </section>
+
+  <!-- 2. Historial de Corridas de Rastreo -->
+  <section class="runs-section">
+    <div class="section-top">
+      <div>
+        <h2 class="card-title">Historial de Corridas de Rastreo</h2>
+        <p class="section-desc">
+          Trazabilidad operativa de ciclos de exploración automatizada, métricas de cobertura y resultados por portal.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="btn-secondary"
+        (click)="store.loadAll()"
+        [disabled]="store.loading()"
+      >
+        Actualizar Corridas
+      </button>
+    </div>
+
+    @if (store.runs().length === 0) {
+      <div class="empty-runs">
+        <span class="empty-icon">📋</span>
+        <p class="empty-title">Sin registros de corridas recientes</p>
+        <p class="empty-sub">Las ejecuciones programadas y manuales del crawler se registrarán aquí automáticamente.</p>
+      </div>
+    } @else {
+      <div class="runs-layout">
+        <!-- Tabla de Corridas -->
+        <div class="runs-list-panel">
+          <div class="runs-table-wrapper">
+            <table class="runs-table">
+              <thead>
+                <tr>
+                  <th>Identificador de Corrida</th>
+                  <th>Fecha de Inicio</th>
+                  <th>Duración</th>
+                  <th>Portales</th>
+                  <th>Estado</th>
+                  <th>Detalle</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (run of store.runs(); track run.run_id) {
+                  <tr
+                    class="run-row"
+                    [class.selected]="selectedRunId() === run.run_id"
+                    (click)="selectRun(run)"
+                  >
+                    <td class="font-mono text-primary font-semibold">
+                      {{ run.run_id }}
+                    </td>
+                    <td class="text-subtle font-mono">
+                      {{ run.started_at | date:'dd/MM/yyyy HH:mm:ss' }}
+                    </td>
+                    <td class="font-mono">
+                      {{ calculateDuration(run.started_at, run.finished_at) }}
+                    </td>
+                    <td>
+                      <span class="badge-portals">
+                        {{ run.sources_processed }} / {{ run.sources_selected }} procesados
+                      </span>
+                    </td>
+                    <td>
+                      <span
+                        class="status-chip"
+                        [class.chip-success]="run.sources_failed === 0"
+                        [class.chip-warn]="run.sources_failed > 0"
+                      >
+                        {{ run.sources_failed === 0 ? 'Completado' : 'Con Fallos' }}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        class="btn-inspect"
+                        [class.active]="selectedRunId() === run.run_id"
+                        (click)="selectRun(run); $event.stopPropagation()"
+                      >
+                        Inspeccionar &rarr;
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Panel de Detalle y Métricas de Cobertura de la Corrida Seleccionada -->
+        @if (activeRun(); as run) {
+          <div class="run-detail-card">
+            <div class="detail-header">
+              <div>
+                <span class="sub-heading">DETALLE DE EJECUCIÓN</span>
+                <h3 class="detail-title font-mono">{{ run.run_id }}</h3>
+              </div>
+              <div class="time-range-box font-mono">
+                <span>Inicio: <strong>{{ run.started_at | date:'dd/MM/yyyy HH:mm:ss' }}</strong></span>
+                <span>Fin: <strong>{{ run.finished_at | date:'dd/MM/yyyy HH:mm:ss' }}</strong></span>
+              </div>
+            </div>
+
+            <!-- Resumen de Cobertura Global de la Corrida -->
+            @if (aggregateCoverage(run); as cov) {
+              <div class="coverage-grid">
+                <div class="cov-item">
+                  <span class="cov-label">PÁGINAS NAVEGADAS</span>
+                  <span class="cov-val text-blue font-mono">{{ cov.pages_visited }}</span>
+                  <span class="cov-sub">Páginas HTML inspeccionadas</span>
+                </div>
+
+                <div class="cov-item">
+                  <span class="cov-label">ENLACES DESCUBIERTOS</span>
+                  <span class="cov-val font-mono">{{ cov.urls_discovered }}</span>
+                  <span class="cov-sub">URLs totales extraídas</span>
+                </div>
+
+                <div class="cov-item">
+                  <span class="cov-label">RECURSOS INDEXADOS</span>
+                  <span class="cov-val text-green font-mono">{{ cov.resources_found }}</span>
+                  <span class="cov-sub">Archivos de datos identificados</span>
+                </div>
+
+                <div class="cov-item highlight-item">
+                  <span class="cov-label">PETICIONES HTTP TOTALES</span>
+                  <span class="cov-val text-amber font-mono">{{ cov.requests_total }}</span>
+                  <span class="cov-sub">Con control estricto de cortesía</span>
+                </div>
+
+                <div class="cov-item">
+                  <span class="cov-label">FALLOS DE CONEXIÓN</span>
+                  <span class="cov-val font-mono" [class.text-red]="cov.urls_failed > 0">{{ cov.urls_failed }}</span>
+                  <span class="cov-sub">Timeouts o caídas de red</span>
+                </div>
+              </div>
+            }
+
+            <!-- Resultados por Portal en esta corrida -->
+            <div class="source-results-section">
+              <h4 class="sub-title">Resultados por Portal Evaluado ({{ run.source_results.length }})</h4>
+              <div class="results-table-wrapper">
+                <table class="inner-table">
+                  <thead>
+                    <tr>
+                      <th>Portal</th>
+                      <th>Workflow</th>
+                      <th>Estado Ejecución</th>
+                      <th>Contenido</th>
+                      <th>Páginas</th>
+                      <th>Recursos Hallados</th>
+                      <th>Motivo Conclusión</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (sr of run.source_results; track sr.observation_id) {
+                      <tr>
+                        <td class="font-bold text-main font-mono">
+                          {{ sr.source_id.toUpperCase() }}
+                        </td>
+                        <td>
+                          <span class="badge-wf font-mono">{{ sr.workflow }}</span>
+                        </td>
+                        <td>
+                          <span
+                            class="status-chip"
+                            [class.chip-success]="sr.execution_status === 'SUCCESS' || sr.execution_status === 'PARTIAL_SUCCESS'"
+                            [class.chip-warn]="sr.execution_status === 'FAILED'"
+                          >
+                            {{ sr.execution_status === 'PARTIAL_SUCCESS' ? 'Parcialmente Exitoso' : (sr.execution_status === 'SUCCESS' ? 'Exitoso' : 'Fallido') }}
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            class="chip-content"
+                            [class.content-changed]="sr.content_status === 'CHANGED'"
+                            [class.content-unchanged]="sr.content_status === 'UNCHANGED'"
+                          >
+                            {{ sr.content_status === 'CHANGED' ? 'Nuevos Recursos' : 'Sin Novedades' }}
+                          </span>
+                        </td>
+                        <td class="font-mono text-center">{{ sr.coverage.pages_visited }}</td>
+                        <td class="font-mono text-center font-bold text-green">{{ sr.coverage.resources_found }}</td>
+                        <td class="text-subtle font-mono text-xs">
+                          {{ formatStopReason(sr.coverage.stop_reason) }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>
