@@ -39,6 +39,11 @@ testem.log
 /typings
 __screenshots__/
 
+# Data maps and crawler runtime dumps
+public/data/mapa_*.json
+public/data/**/mapa_*.json
+public/data/backups/
+
 # System files
 .DS_Store
 Thumbs.db
