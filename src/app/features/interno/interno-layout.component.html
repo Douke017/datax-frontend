@@ -69,16 +69,6 @@
       <span class="tab-label">Activos Analíticos y Datamarts</span>
       <span class="tab-badge">Capa Gold</span>
     </button>
-
-    <button
-      type="button"
-      class="sub-nav-tab"
-      [class.active]="activeTab() === 'lineage'"
-      (click)="setTab('lineage')"
-    >
-      <span class="tab-label">Trazabilidad y Linaje</span>
-      <span class="tab-badge">Auditoría</span>
-    </button>
   </nav>
 
   <!-- Main Content Area -->
@@ -95,9 +85,6 @@
       }
       @case ('activos') {
         <app-interno-activos />
-      }
-      @case ('lineage') {
-        <app-interno-lineage />
       }
     }
   </div>

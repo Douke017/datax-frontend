@@ -48,20 +48,20 @@
       <button
         type="button"
         class="nav-tab"
-        [class.active]="activeSubTab() === 'explorer'"
-        (click)="activeSubTab.set('explorer')"
-      >
-        <span class="tab-title">Consola de Autoservicio y Consultas OLAP</span>
-        <span class="tab-badge">DUCKDB OLAP</span>
-      </button>
-      <button
-        type="button"
-        class="nav-tab"
         [class.active]="activeSubTab() === 'dictionary'"
         (click)="activeSubTab.set('dictionary')"
       >
         <span class="tab-title">Inventario Técnico y Diccionario de Datos</span>
-        <span class="tab-badge">{{ dictionaryColumns.length }} Campos</span>
+        <span class="tab-badge">{{ dictionaryColumns.length }} Campos Documentados</span>
+      </button>
+      <button
+        type="button"
+        class="nav-tab"
+        [class.active]="activeSubTab() === 'explorer'"
+        (click)="activeSubTab.set('explorer')"
+      >
+        <span class="tab-title">Vistas y Endpoints de Autoservicio para Analistas</span>
+        <span class="tab-badge">APIs Disponibilizadas</span>
       </button>
     </div>
   </div>
@@ -277,7 +277,7 @@
         <div class="spec-box">
           <span class="spec-label">Motor de Consulta OLAP</span>
           <span class="spec-val mono">DuckDB en memoria</span>
-          <span class="spec-sub">Ejecución vectorizada en &lt;20ms</span>
+          <span class="spec-sub">Ejecución analítica vectorizada</span>
         </div>
         <div class="spec-box">
           <span class="spec-label">Claves de Partición Física</span>

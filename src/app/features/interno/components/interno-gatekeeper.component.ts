@@ -1,17 +1,8 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { InternoStore } from '../interno.store';
+import { InventoryStore } from '../inventory.store';
 import { IngestionEvaluateRequest } from '../../../core/models/reconciliation.model';
-
-export interface SampleDoc {
-  id: string;
-  label: string;
-  entity: string;
-  code: string;
-  domain: string;
-  url: string;
-  period: string;
-}
 
 @Component({
   selector: 'app-interno-gatekeeper',
@@ -22,64 +13,30 @@ export interface SampleDoc {
 })
 export class InternoGatekeeperComponent {
   readonly store = inject(InternoStore);
+  readonly inventoryStore = inject(InventoryStore);
 
-  readonly sampleDocuments: SampleDoc[] = [
-    {
-      id: 'bbv-tarifario',
-      label: 'Tarifario Oficial y Registro de Emisiones',
-      entity: 'Bolsa Boliviana de Valores (BBV)',
-      code: 'DS_BO_BBV',
-      domain: 'www.bbv.com.bo',
-      url: 'https://www.bbv.com.bo/wp-content/uploads/2024/10/137-tarifario-oficial-bbv.pdf',
-      period: '2024'
-    },
-    {
-      id: 'bcb-boletin',
-      label: 'Boletín Estadístico de Liquidez del Sistema Financiero',
-      entity: 'Banco Central de Bolivia (BCB)',
-      code: 'DS_BO_BCB',
-      domain: 'www.bcb.gob.bo',
-      url: 'https://www.bcb.gob.bo/webdocs/publicacionesbcb/2025/12/31/01_01.xlsx',
-      period: '2025'
-    },
-    {
-      id: 'finrural-cartera',
-      label: 'Estados Financieros y Cartera Institucional',
-      entity: 'FINRURAL',
-      code: 'DS_BO_FINRURAL',
-      domain: 'www.finrural.org.bo',
-      url: 'https://www.finrural.org.bo/descargas/cartera_2026_01.pdf',
-      period: '2026-01'
-    },
-    {
-      id: 'asfi-nuevo',
-      label: 'Boletín Mensual de Entidades Financieras',
-      entity: 'Autoridad de Supervisión del Sistema Financiero (ASFI)',
-      code: 'DS_BO_ASFI',
-      domain: 'www.asfi.gob.bo',
-      url: 'https://www.asfi.gob.bo/publicaciones/boletin_cierre_2026.pdf',
-      period: '2026-12'
-    }
-  ];
+  readonly selectedSource = signal<string>('bbv');
+  readonly searchQuery = signal<string>('');
+  readonly forceRefresh = signal<boolean>(false);
 
   readonly datasetCode = signal<string>('DS_BO_BBV');
   readonly domain = signal<string>('www.bbv.com.bo');
   readonly targetUrl = signal<string>('https://www.bbv.com.bo/wp-content/uploads/2024/10/137-tarifario-oficial-bbv.pdf');
   readonly period = signal<string>('2024');
-  readonly forceRefresh = signal<boolean>(false);
-  readonly selectedSampleId = signal<string>('bbv-tarifario');
 
-  selectSample(docId: string): void {
-    this.selectedSampleId.set(docId);
-    const doc = this.sampleDocuments.find((d) => d.id === docId);
-    if (doc) {
-      this.datasetCode.set(doc.code);
-      this.domain.set(doc.domain);
-      this.targetUrl.set(doc.url);
-      this.period.set(doc.period);
-      this.forceRefresh.set(false);
-      this.onEvaluate();
-    }
+  readonly sources = computed(() => {
+    const list = this.inventoryStore.sourcesList();
+    if (list.length > 0) return list;
+    return ['bbv', 'bcb', 'finrural', 'asfi', 'bmsc', 'bnb', 'bisa', 'ganadero'];
+  });
+
+  onSourceSelect(event: Event): void {
+    const src = (event.target as HTMLSelectElement).value;
+    this.selectedSource.set(src);
+    this.datasetCode.set(`DS_BO_${src.toUpperCase()}`);
+    this.domain.set(`www.${src.toLowerCase()}.com.bo`);
+    this.targetUrl.set(`https://www.${src.toLowerCase()}.com.bo/data/reporte_${this.period()}.pdf`);
+    this.onEvaluate();
   }
 
   getVerdictTitle(verdict: string): string {
@@ -108,7 +65,7 @@ export class InternoGatekeeperComponent {
         return 'El archivo original ya está en el repositorio de custodia física en el servidor. Puede consultarse de inmediato sin tráfico de red.';
       case 'IN_PROGRESS':
       case 'IN_FLIGHT_LOCKED':
-        return 'Actualmente otro analista o tarea automatizada está adquiriendo este documento. El sistema enlazará su solicitud al archivo en cuanto finalice.';
+        return 'Actualmente otro proceso o analista está adquiriendo este documento. El sistema enlazará su solicitud al archivo en cuanto finalice.';
       case 'PROCEED_DOWNLOAD':
         return 'El documento aún no forma parte del inventario local. Puede proceder al resguardo asistido desde la pestaña de Custodia de Archivos.';
       default:

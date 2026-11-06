@@ -101,12 +101,6 @@
         <span>Consultando inventario de URLs...</span>
       </div>
     } @else {
-      <div class="curation-hint-banner">
-        <span class="hint-icon">ℹ</span>
-        <span class="hint-text">
-          <strong>Curaduría Operativa:</strong> Los selectores de <em>Custodia</em> y <em>Consolidado</em> registran el estado de disponibilidad del documento en el catálogo maestro para que el Control Previo prevenga descargas o procesamientos redundantes.
-        </span>
-      </div>
       <div class="table-responsive">
         <table class="inventory-table">
           <thead>
@@ -115,9 +109,18 @@
               <th class="th-code">Código</th>
               <th class="th-name">Archivo / Título</th>
               <th class="th-url">URL Canónica</th>
-              <th class="th-switch" title="Indica si el documento original ya está resguardado en la Capa Bronze">Custodia (Bronze)</th>
-              <th class="th-switch" title="Indica si los datos tabulares del documento ya fueron consolidados en Datamarts Gold">Consolidado (Gold)</th>
-              <th class="th-status">Estado Operativo</th>
+              <th class="th-switch">
+                <span>Custodia (Bronze)</span>
+                <span class="help-tip" title="Control de Curaduría: Al marcar como En Custodia, se actualiza el catálogo maestro indicando que el archivo físico ya está en custodia en el servidor.">?</span>
+              </th>
+              <th class="th-switch">
+                <span>Consolidado (Gold)</span>
+                <span class="help-tip" title="Control de Curaduría: Indica si los datos tabulares del documento ya fueron consolidados en Datamarts Gold para consultas analíticas.">?</span>
+              </th>
+              <th class="th-status">
+                <span>Estado Operativo</span>
+                <span class="help-tip" title="Ciclo de vida del recurso en el sistema: Nuevo en Portal, Registrado en Catálogo, En Custodia Bronze o Histórico Previo.">?</span>
+              </th>
               <th class="th-updated">Actualizado</th>
             </tr>
           </thead>

@@ -216,9 +216,95 @@
   font-size: 12px;
 }
 
-.form-input:focus {
+.form-select {
+  background: var(--bg-app);
+  border: 1px solid var(--border-medium);
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.form-select:focus, .form-input:focus {
   outline: none;
   border-color: var(--border-focus);
+}
+
+.help-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+
+.help-tip:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+.eval-criteria-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.criteria-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.criteria-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(37, 99, 235, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.criteria-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.criteria-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-subtle);
+}
+
+.criteria-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.text-emerald {
+  color: #34d399 !important;
+}
+
+.text-amber {
+  color: #fbbf24 !important;
 }
 
 .checkbox-row {

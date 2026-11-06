@@ -408,3 +408,27 @@
 .text-muted-subtle {
   color: var(--text-muted);
 }
+
+.help-tip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  cursor: help;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+
+.help-tip:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}

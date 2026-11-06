@@ -130,7 +130,7 @@ const DATA_DICTIONARY_COLUMNS: DataColumnDefinition[] = [
 export class InternoActivosComponent implements OnInit {
   private readonly analyticsService = inject(AnalyticsService);
 
-  readonly activeSubTab = signal<'explorer' | 'dictionary'>('explorer');
+  readonly activeSubTab = signal<'dictionary' | 'explorer'>('dictionary');
   readonly dimensions = signal<GoldDimensions | null>(null);
   readonly selectedInstitution = signal<string>('');
   readonly selectedGestion = signal<number | null>(null);

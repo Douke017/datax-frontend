@@ -3,10 +3,9 @@ import { InternoStore } from './interno.store';
 import { InternoCuraduriaComponent } from './components/interno-curaduria.component';
 import { InternoGatekeeperComponent } from './components/interno-gatekeeper.component';
 import { InternoCustodiaComponent } from './components/interno-custodia.component';
-import { InternoLineageComponent } from './components/interno-lineage.component';
 import { InternoActivosComponent } from './components/interno-activos.component';
 
-type InternoTab = 'curaduria' | 'gatekeeper' | 'custodia' | 'activos' | 'lineage';
+type InternoTab = 'curaduria' | 'gatekeeper' | 'custodia' | 'activos';
 
 @Component({
   selector: 'app-interno-layout',
@@ -15,7 +14,6 @@ type InternoTab = 'curaduria' | 'gatekeeper' | 'custodia' | 'activos' | 'lineage
     InternoCuraduriaComponent,
     InternoGatekeeperComponent,
     InternoCustodiaComponent,
-    InternoLineageComponent,
     InternoActivosComponent
   ],
   templateUrl: './interno-layout.component.html',

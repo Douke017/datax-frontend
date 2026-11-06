@@ -21,7 +21,10 @@
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">INTEGRIDAD CRIPTOGRÁFICA</span>
+        <span class="kpi-title">
+          <span>INTEGRIDAD CRIPTOGRÁFICA</span>
+          <span class="help-tip" title="Auditoría de Inmutabilidad: Recalcula en disco la firma SHA-256 de cada archivo físico resguardado y la contrasta contra el catálogo de la BDD.">?</span>
+        </span>
         <span class="kpi-badge badge-purple">SHA-256</span>
       </div>
       <div class="kpi-value">{{ store.integrityRate() }}</div>
@@ -30,7 +33,10 @@
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">PROTECCIÓN DE RED</span>
+        <span class="kpi-title">
+          <span>PROTECCIÓN DE RED</span>
+          <span class="help-tip" title="Disyuntores de Red (Circuit Breakers): Pausan temporalmente las descargas hacia un portal bancario ante fallas consecutivas para evitar baneos de IP.">?</span>
+        </span>
         <span class="kpi-badge badge-success">DISYUNTORES</span>
       </div>
       <div class="kpi-value">{{ store.allCircuitsOperational() ? 'OPERATIVO' : 'EN ENFRIAMIENTO' }}</div>
@@ -154,7 +160,10 @@
             <th>Portal Emisor</th>
             <th>Tamaño</th>
             <th>Fecha de Resguardo</th>
-            <th>Integridad Normativa (ASFI/BCB)</th>
+            <th>
+              <span>Integridad Normativa (ASFI/BCB)</span>
+              <span class="help-tip" title="Garantía de inmutabilidad: Demuestra ante auditorías regulatorias que el documento físico no sufrió alteración binaria desde su captura.">?</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -167,7 +176,7 @@
               <td class="mono">{{ art.downloaded_at | slice:0:19 }}</td>
               <td class="integrity-cell">
                 <span class="badge-integrity-ok">
-                  ✓ Original Certificado
+                  [Original Certificado]
                 </span>
                 <button
                   type="button"
@@ -176,7 +185,7 @@
                   title="Firma SHA-256: {{ art.sha256_hash }}"
                 >
                   @if (copiedHashId() === art.artifact_id) {
-                    <span>¡Copiada!</span>
+                    <span>Copiada</span>
                   } @else {
                     <span>Copiar Firma</span>
                   }

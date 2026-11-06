@@ -2,72 +2,49 @@
   <!-- Encabezado de Control Previo -->
   <div class="rules-card">
     <div class="rules-header">
-      <span class="rules-badge">CONTROL PREVIO DE ADMISIÓN</span>
-      <h2 class="rules-title">Verificación de Disponibilidad y Prevención de Redundancia</h2>
+      <span class="rules-badge">CONTROL PREVIO DE ADMISIÓN (GATEKEEPER)</span>
+      <h2 class="rules-title">Validación Previa de Solicitudes y Prevención de Redundancia</h2>
     </div>
     <p class="rules-desc">
-      Mecanismo de control que intercepta las consultas de analistas y solicitudes de descarga antes de emitir peticiones externas.
-      Verifica si el documento ya se encuentra resguardado en el repositorio de custodia local o si sus datos ya fueron
-      estructurados en los Datamarts analíticos, garantizando cero reprocesamiento y protección a los portales de origen.
+      Control previo obligatorio antes de cualquier descarga o procesamiento (Objetivos Específicos 1, 5, 6 y 7).
+      Verifica si la información solicitada ya existe en los Datamarts analíticos (Gold), si el archivo original
+      ya está en custodia (Bronze), o si se encuentra en proceso de adquisición por otra tarea.
     </p>
   </div>
 
-  <!-- Consola Interactiva de Consulta Previa -->
+  <!-- Consola de Validación -->
   <div class="playground-card">
     <div class="playground-header">
-      <h3 class="playground-title">Consola de Control Previo</h3>
-      <span class="playground-tag">CONSULTA EN TIEMPO REAL</span>
+      <h3 class="playground-title">Consulta Previa por Entidad y Conjunto de Datos</h3>
+      <span class="playground-tag">MOTOR DE ADMISIÓN ACTIVO</span>
     </div>
 
-    <!-- Selector de Documentos de Referencia -->
-    <div class="sample-selection-section">
-      <span class="section-label">Seleccionar publicación frecuente para verificación rápida:</span>
-      <div class="samples-grid">
-        @for (doc of sampleDocuments; track doc.id) {
-          <button
-            type="button"
-            class="sample-btn"
-            [class.active]="selectedSampleId() === doc.id"
-            (click)="selectSample(doc.id)"
-          >
-            <span class="sample-entity">{{ doc.entity }}</span>
-            <span class="sample-title">{{ doc.label }}</span>
-            <span class="sample-period mono">{{ doc.period }}</span>
-          </button>
-        }
-      </div>
-    </div>
-
-    <!-- Formulario de Consulta Previa -->
+    <!-- Controles de Consulta por Catálogo -->
     <div class="eval-form-grid">
       <div class="form-group">
-        <label class="form-lbl" for="ds-code">Código del Documento / Conjunto:</label>
-        <input
-          id="ds-code"
-          type="text"
-          class="form-input mono"
-          [value]="datasetCode()"
-          (input)="datasetCode.set($any($event.target).value)"
-          placeholder="Ej: DS_BO_BBV"
-        />
+        <label class="form-lbl" for="gk-source">
+          <span>Entidad Emisora:</span>
+          <span class="help-tip" title="Seleccione cualquiera de las entidades financieras o supervisoras registradas en el catálogo de DATAX.">?</span>
+        </label>
+        <select
+          id="gk-source"
+          class="form-select mono"
+          [value]="selectedSource()"
+          (change)="onSourceSelect($event)"
+        >
+          @for (src of sources(); track src) {
+            <option [value]="src">{{ src.toUpperCase() }}</option>
+          }
+        </select>
       </div>
 
       <div class="form-group">
-        <label class="form-lbl" for="domain">Portal Emisor / Dominio:</label>
+        <label class="form-lbl" for="gk-period">
+          <span>Periodo / Gestión:</span>
+          <span class="help-tip" title="Gestión o periodo contable que se desea consultar para verificar duplicidad o reutilización.">?</span>
+        </label>
         <input
-          id="domain"
-          type="text"
-          class="form-input mono"
-          [value]="domain()"
-          (input)="domain.set($any($event.target).value)"
-          placeholder="Ej: www.bbv.com.bo"
-        />
-      </div>
-
-      <div class="form-group">
-        <label class="form-lbl" for="period">Periodo Contable:</label>
-        <input
-          id="period"
+          id="gk-period"
           type="text"
           class="form-input mono"
           [value]="period()"
@@ -76,15 +53,17 @@
         />
       </div>
 
-      <div class="form-group full-width">
-        <label class="form-lbl" for="url">URL Oficial de Descarga:</label>
+      <div class="form-group">
+        <label class="form-lbl" for="gk-dataset">
+          <span>Código de Conjunto:</span>
+          <span class="help-tip" title="Identificador técnico del conjunto de datos o serie documental.">?</span>
+        </label>
         <input
-          id="url"
+          id="gk-dataset"
           type="text"
           class="form-input mono"
-          [value]="targetUrl()"
-          (input)="targetUrl.set($any($event.target).value)"
-          placeholder="https://..."
+          [value]="datasetCode()"
+          (input)="datasetCode.set($any($event.target).value)"
         />
       </div>
 
@@ -105,15 +84,15 @@
           (click)="onEvaluate()"
         >
           @if (store.isEvaluating()) {
-            <span>Consultando Disponibilidad...</span>
+            <span>Consultando Admisión...</span>
           } @else {
-            <span>Consultar Disponibilidad de Información</span>
+            <span>Verificar Solicitud en Control Previo</span>
           }
         </button>
       </div>
     </div>
 
-    <!-- Diagnóstico y Veredicto Emitido -->
+    <!-- Diagnóstico Detallado de Admisión -->
     @if (store.lastEvaluation(); as evalResult) {
       <div
         class="verdict-card"
@@ -123,7 +102,7 @@
       >
         <div class="verdict-top">
           <div class="verdict-heading">
-            <span class="verdict-tag mono">DIAGNÓSTICO EMITIDO</span>
+            <span class="verdict-tag mono">VEREDICTO DE ADMISIÓN</span>
             <span
               class="verdict-badge"
               [class.badge-hit]="evalResult.verdict === 'CACHE_HIT_BRONZE' || evalResult.verdict === 'CACHE_HIT_GOLD' || evalResult.verdict === 'REUSE_DERIVATION'"
@@ -134,40 +113,44 @@
           </div>
         </div>
 
+        <!-- 3 Criterios de Evaluación Obligatorios (Objetivos 1, 5, 6 y 7) -->
+        <div class="eval-criteria-grid">
+          <div class="criteria-card">
+            <span class="criteria-num mono">1</span>
+            <div class="criteria-body">
+              <span class="criteria-title">Detección de Duplicidad y Reutilización (Gold)</span>
+              <span class="criteria-status mono" [class.text-emerald]="evalResult.verdict === 'CACHE_HIT_GOLD' || evalResult.verdict === 'REUSE_DERIVATION'">
+                {{ (evalResult.verdict === 'CACHE_HIT_GOLD' || evalResult.verdict === 'REUSE_DERIVATION') ? '[Disponible en Datamarts]' : '[No consolidado en Gold]' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="criteria-card">
+            <span class="criteria-num mono">2</span>
+            <div class="criteria-body">
+              <span class="criteria-title">Estado de Archivo Fuente en Custodia (Bronze)</span>
+              <span class="criteria-status mono" [class.text-emerald]="evalResult.verdict === 'CACHE_HIT_BRONZE'">
+                {{ evalResult.verdict === 'CACHE_HIT_BRONZE' ? '[En Custodia Local]' : '[Pendiente de Descarga]' }}
+              </span>
+            </div>
+          </div>
+
+          <div class="criteria-card">
+            <span class="criteria-num mono">3</span>
+            <div class="criteria-body">
+              <span class="criteria-title">Concurrencia y Tráfico en Vuelo</span>
+              <span class="criteria-status mono" [class.text-amber]="evalResult.verdict === 'IN_PROGRESS' || evalResult.verdict === 'IN_FLIGHT_LOCKED'">
+                {{ (evalResult.verdict === 'IN_PROGRESS' || evalResult.verdict === 'IN_FLIGHT_LOCKED') ? '[Descarga en Tránsito]' : '[Canal Libre]' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
         <p class="verdict-reason">{{ evalResult.reason }}</p>
 
         <div class="verdict-recommendation">
           <span class="rec-title">Orientación para el Analista:</span>
           <p class="rec-body">{{ getVerdictRecommendation(evalResult.verdict) }}</p>
-        </div>
-
-        <div class="verdict-metrics-grid">
-          <div class="metric-item">
-            <span class="metric-lbl">Estado de Disponibilidad:</span>
-            <span class="metric-val mono">
-              @if (evalResult.verdict === 'CACHE_HIT_BRONZE') {
-                En Repositorio Local (Capa Bronze)
-              } @else if (evalResult.verdict === 'CACHE_HIT_GOLD' || evalResult.verdict === 'REUSE_DERIVATION') {
-                En Datamart Analítico (Capa Gold)
-              } @else if (evalResult.verdict === 'IN_PROGRESS') {
-                Descarga en Tránsito
-              } @else {
-                Requiere Adquisición de Red
-              }
-            </span>
-          </div>
-
-          <div class="metric-item">
-            <span class="metric-lbl">Condición de Descarga:</span>
-            <span class="metric-val mono">{{ evalResult.lock_acquired ? 'Autorizado (Sin conflicto)' : 'Bloqueada por existencia previa' }}</span>
-          </div>
-
-          @if (evalResult.cached_artifact_id) {
-            <div class="metric-item">
-              <span class="metric-lbl">Código de Archivo en Custodia:</span>
-              <span class="metric-val mono text-highlight">{{ evalResult.cached_artifact_id }}</span>
-            </div>
-          }
         </div>
       </div>
     }
