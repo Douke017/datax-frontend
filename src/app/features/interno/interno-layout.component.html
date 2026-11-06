@@ -6,9 +6,9 @@
         <span class="system-name">PROSPECTOR INTERNO</span>
         <span class="status-live">OPERATIVO</span>
       </div>
-      <h1 class="module-title">Custodia Documental, Gatekeeper e Ingesta de Datos</h1>
+      <h1 class="module-title">Custodia Documental, Control Previo y Catálogo de Datos</h1>
       <p class="module-desc">
-        Prevención de descargas redundantes mediante Pre-Flight Gatekeeper, repositorio físico Bronze con firmas criptográficas SHA-256 e inventario técnico.
+        Control de admisión para prevención de descargas redundantes, repositorio físico de custodia original con verificación de integridad y catálogo analítico de activos de datos.
       </p>
     </div>
 
@@ -22,7 +22,7 @@
         @if (store.loading()) {
           <span>Verificando...</span>
         } @else {
-          <span>Actualizar Repositorio</span>
+          <span>Actualizar Catálogo</span>
         }
       </button>
     </div>
@@ -46,8 +46,8 @@
       [class.active]="activeTab() === 'gatekeeper'"
       (click)="setTab('gatekeeper')"
     >
-      <span class="tab-label">Control de Admisión (Gatekeeper)</span>
-      <span class="tab-badge mono">&lt;20ms</span>
+      <span class="tab-label">Control Previo (Gatekeeper)</span>
+      <span class="tab-badge">Validación</span>
     </button>
 
     <button
@@ -56,7 +56,7 @@
       [class.active]="activeTab() === 'custodia'"
       (click)="setTab('custodia')"
     >
-      <span class="tab-label">Custodia de Archivos (Repositorio Original)</span>
+      <span class="tab-label">Custodia de Archivos Originales</span>
       <span class="tab-badge">{{ store.totalArtifactsCount() }}</span>
     </button>
 
@@ -66,8 +66,8 @@
       [class.active]="activeTab() === 'activos'"
       (click)="setTab('activos')"
     >
-      <span class="tab-label">Activos Técnicos y Autoservicio (Gold)</span>
-      <span class="tab-badge">DUCKDB OLAP</span>
+      <span class="tab-label">Activos Analíticos y Datamarts</span>
+      <span class="tab-badge">Capa Gold</span>
     </button>
 
     <button
@@ -76,8 +76,8 @@
       [class.active]="activeTab() === 'lineage'"
       (click)="setTab('lineage')"
     >
-      <span class="tab-label">Cadena de Custodia y Linaje</span>
-      <span class="tab-badge">SHA-256</span>
+      <span class="tab-label">Trazabilidad y Linaje</span>
+      <span class="tab-badge">Auditoría</span>
     </button>
   </nav>
 

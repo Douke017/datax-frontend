@@ -38,4 +38,20 @@ export class InternoCuraduriaComponent {
     const target = event.target as HTMLInputElement;
     this.store.setSearchQuery(target.value);
   }
+
+  formatStatus(status: string): string {
+    switch (status) {
+      case 'DISPONIBLE_WEB_NUEVO':
+        return 'Nuevo en Portal';
+      case 'CATALOGADO_BDD':
+        return 'Registrado en Catálogo';
+      case 'DESCARGA_HISTORICA_LEGACY':
+        return 'Histórico Previo';
+      case 'DESCARGADO_BRONZE':
+      case 'COMPLETED':
+        return 'En Custodia Bronze';
+      default:
+        return status;
+    }
+  }
 }

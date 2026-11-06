@@ -1,16 +1,19 @@
-import { Component, inject } from '@angular/core';
-import { SlicePipe } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
+import { SlicePipe, CommonModule } from '@angular/common';
 import { InternoStore } from '../interno.store';
 
 @Component({
   selector: 'app-interno-custodia',
   standalone: true,
-  imports: [SlicePipe],
+  imports: [SlicePipe, CommonModule],
   templateUrl: './interno-custodia.component.html',
   styleUrl: './interno-custodia.component.css'
 })
 export class InternoCustodiaComponent {
   readonly store = inject(InternoStore);
+
+  readonly selectedSourceForSync = signal<string>('bbv');
+  readonly copiedHashId = signal<string | null>(null);
 
   onSearchInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
@@ -34,7 +37,37 @@ export class InternoCustodiaComponent {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
-  copyHash(hash: string): void {
+  copyHash(hash: string, artifactId: string): void {
     navigator.clipboard.writeText(hash);
+    this.copiedHashId.set(artifactId);
+    setTimeout(() => {
+      if (this.copiedHashId() === artifactId) {
+        this.copiedHashId.set(null);
+      }
+    }, 2500);
+  }
+
+  onExecuteSync(): void {
+    this.store.runSyncBatch(this.selectedSourceForSync());
+  }
+
+  getEntityDisplayName(sourceId: string): string {
+    switch (sourceId.toLowerCase()) {
+      case 'bbv':
+        return 'la Bolsa Boliviana de Valores (BBV)';
+      case 'bcb':
+        return 'el Banco Central de Bolivia (BCB)';
+      case 'finrural':
+        return 'FINRURAL';
+      case 'asfi':
+        return 'la Autoridad de Supervisión del Sistema Financiero (ASFI)';
+      default:
+        return sourceId.toUpperCase();
+    }
+  }
+
+  formatSyncSummary(syncRes: any): string {
+    const entity = this.getEntityDisplayName(syncRes.source_id);
+    return `Se resguardaron exitosamente ${syncRes.completed_tasks} publicaciones oficiales de ${entity} en el repositorio físico de custodia.`;
   }
 }

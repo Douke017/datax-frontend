@@ -1,73 +1,47 @@
 <div class="gatekeeper-container">
-  <!-- Context & Business Rules Banner -->
+  <!-- Encabezado de Control Previo -->
   <div class="rules-card">
     <div class="rules-header">
-      <span class="rules-badge">CONTROL DE ADMISIÓN PREVENTIVO</span>
-      <h2 class="rules-title">Pre-Flight Gatekeeper: Prevención de Redundancia y Tráfico Inútil</h2>
+      <span class="rules-badge">CONTROL PREVIO DE ADMISIÓN</span>
+      <h2 class="rules-title">Verificación de Disponibilidad y Prevención de Redundancia</h2>
     </div>
     <p class="rules-desc">
-      Mecanismo de control que intercepta toda solicitud de descarga antes de tocar la red externa.
-      Evalúa en menos de 20 milisegundos si el documento ya se encuentra resguardado en el repositorio de custodia
-      o si ya fue procesado en la información consolidada, garantizando cero saturación de los portales emisores.
+      Mecanismo de control que intercepta las consultas de analistas y solicitudes de descarga antes de emitir peticiones externas.
+      Verifica si el documento ya se encuentra resguardado en el repositorio de custodia local o si sus datos ya fueron
+      estructurados en los Datamarts analíticos, garantizando cero reprocesamiento y protección a los portales de origen.
     </p>
-
-    <div class="rules-grid">
-      <div class="rule-item">
-        <span class="rule-num mono">01</span>
-        <div class="rule-content">
-          <span class="rule-name">Deduplicación Inmediata</span>
-          <span class="rule-detail">Detecta si la firma del archivo ya existe en custodia física y devuelve el recurso al instante.</span>
-        </div>
-      </div>
-
-      <div class="rule-item">
-        <span class="rule-num mono">02</span>
-        <div class="rule-content">
-          <span class="rule-name">Protección de Concurrencia</span>
-          <span class="rule-detail">Si dos analistas solicitan la misma publicación simultáneamente, se fusionan en una sola tarea en vuelo.</span>
-        </div>
-      </div>
-
-      <div class="rule-item">
-        <span class="rule-num mono">03</span>
-        <div class="rule-content">
-          <span class="rule-name">Forzado de Refresco (Bypass)</span>
-          <span class="rule-detail">Permite forzar la re-descarga de un recurso cuando se requiera explícitamente revalidar su contenido en disco.</span>
-        </div>
-      </div>
-    </div>
   </div>
 
-  <!-- Interactive Gatekeeper Console -->
+  <!-- Consola Interactiva de Consulta Previa -->
   <div class="playground-card">
     <div class="playground-header">
-      <h3 class="playground-title">Consola de Control de Admisión (Pre-Flight Gatekeeper)</h3>
-      <span class="playground-tag">EVALUACIÓN EN VIVO</span>
+      <h3 class="playground-title">Consola de Control Previo</h3>
+      <span class="playground-tag">CONSULTA EN TIEMPO REAL</span>
     </div>
 
-    <!-- Presets Bar -->
-    <div class="presets-bar">
-      <button type="button" class="btn-preset" (click)="applyPreset('bcb-cached')">
-        Boletín BCB Resguardado (Caché Hit)
-      </button>
-      <button type="button" class="btn-preset" (click)="applyPreset('bbv-cached')">
-        Publicación BBV Resguardada (Caché Hit)
-      </button>
-      <button type="button" class="btn-preset" (click)="applyPreset('finrural-cached')">
-        Estados Financieros FINRURAL (Caché Hit)
-      </button>
-      <button type="button" class="btn-preset" (click)="applyPreset('new-report')">
-        Nuevo Documento No Resguardado (Permiso)
-      </button>
-      <button type="button" class="btn-preset" (click)="applyPreset('force-audit')">
-        Actualización Forzada (Bypass Caché)
-      </button>
+    <!-- Selector de Documentos de Referencia -->
+    <div class="sample-selection-section">
+      <span class="section-label">Seleccionar publicación frecuente para verificación rápida:</span>
+      <div class="samples-grid">
+        @for (doc of sampleDocuments; track doc.id) {
+          <button
+            type="button"
+            class="sample-btn"
+            [class.active]="selectedSampleId() === doc.id"
+            (click)="selectSample(doc.id)"
+          >
+            <span class="sample-entity">{{ doc.entity }}</span>
+            <span class="sample-title">{{ doc.label }}</span>
+            <span class="sample-period mono">{{ doc.period }}</span>
+          </button>
+        }
+      </div>
     </div>
 
-    <!-- Evaluation Form -->
+    <!-- Formulario de Consulta Previa -->
     <div class="eval-form-grid">
       <div class="form-group">
-        <label class="form-lbl" for="ds-code">Código de Publicación:</label>
+        <label class="form-lbl" for="ds-code">Código del Documento / Conjunto:</label>
         <input
           id="ds-code"
           type="text"
@@ -79,7 +53,7 @@
       </div>
 
       <div class="form-group">
-        <label class="form-lbl" for="domain">Portal / Dominio:</label>
+        <label class="form-lbl" for="domain">Portal Emisor / Dominio:</label>
         <input
           id="domain"
           type="text"
@@ -98,12 +72,12 @@
           class="form-input mono"
           [value]="period()"
           (input)="period.set($any($event.target).value)"
-          placeholder="Ej: 2026-08"
+          placeholder="Ej: 2025"
         />
       </div>
 
       <div class="form-group full-width">
-        <label class="form-lbl" for="url">URL Objetivo:</label>
+        <label class="form-lbl" for="url">URL Oficial de Descarga:</label>
         <input
           id="url"
           type="text"
@@ -121,7 +95,7 @@
             [checked]="forceRefresh()"
             (change)="forceRefresh.set($any($event.target).checked)"
           />
-          <span>Forzar Actualización (Omitir validación de caché para auditoría)</span>
+          <span>Revalidación forzada (omitir repositorios locales para auditoría de origen)</span>
         </label>
 
         <button
@@ -131,63 +105,67 @@
           (click)="onEvaluate()"
         >
           @if (store.isEvaluating()) {
-            <span>Evaluando en Gatekeeper...</span>
+            <span>Consultando Disponibilidad...</span>
           } @else {
-            <span>Evaluar Solicitud de Admisión</span>
+            <span>Consultar Disponibilidad de Información</span>
           }
         </button>
       </div>
     </div>
 
-    <!-- Verdict Display -->
+    <!-- Diagnóstico y Veredicto Emitido -->
     @if (store.lastEvaluation(); as evalResult) {
       <div
         class="verdict-card"
-        [class.verdict-hit]="evalResult.verdict === 'CACHE_HIT_BRONZE' || evalResult.verdict === 'CACHE_HIT_GOLD'"
+        [class.verdict-hit]="evalResult.verdict === 'CACHE_HIT_BRONZE' || evalResult.verdict === 'CACHE_HIT_GOLD' || evalResult.verdict === 'REUSE_DERIVATION'"
         [class.verdict-permit]="evalResult.verdict === 'PROCEED_DOWNLOAD'"
         [class.verdict-lock]="evalResult.verdict === 'IN_FLIGHT_LOCKED' || evalResult.verdict === 'IN_PROGRESS'"
       >
         <div class="verdict-top">
           <div class="verdict-heading">
-            <span class="verdict-tag mono">VEREDICTO EMITIDO</span>
+            <span class="verdict-tag mono">DIAGNÓSTICO EMITIDO</span>
             <span
               class="verdict-badge"
-              [class.badge-hit]="evalResult.verdict === 'CACHE_HIT_BRONZE' || evalResult.verdict === 'CACHE_HIT_GOLD'"
+              [class.badge-hit]="evalResult.verdict === 'CACHE_HIT_BRONZE' || evalResult.verdict === 'CACHE_HIT_GOLD' || evalResult.verdict === 'REUSE_DERIVATION'"
               [class.badge-permit]="evalResult.verdict === 'PROCEED_DOWNLOAD'"
             >
               {{ getVerdictTitle(evalResult.verdict) }}
             </span>
           </div>
-          <div class="verdict-latency mono">
-            <span>Tiempo de Evaluación:</span>
-            <strong>&lt; 15 ms</strong>
-          </div>
         </div>
 
         <p class="verdict-reason">{{ evalResult.reason }}</p>
 
+        <div class="verdict-recommendation">
+          <span class="rec-title">Orientación para el Analista:</span>
+          <p class="rec-body">{{ getVerdictRecommendation(evalResult.verdict) }}</p>
+        </div>
+
         <div class="verdict-metrics-grid">
           <div class="metric-item">
-            <span class="metric-lbl">Clave de Idempotencia:</span>
-            <span class="metric-val mono snippet">{{ evalResult.idempotency_key }}</span>
+            <span class="metric-lbl">Estado de Disponibilidad:</span>
+            <span class="metric-val mono">
+              @if (evalResult.verdict === 'CACHE_HIT_BRONZE') {
+                En Repositorio Local (Capa Bronze)
+              } @else if (evalResult.verdict === 'CACHE_HIT_GOLD' || evalResult.verdict === 'REUSE_DERIVATION') {
+                En Datamart Analítico (Capa Gold)
+              } @else if (evalResult.verdict === 'IN_PROGRESS') {
+                Descarga en Tránsito
+              } @else {
+                Requiere Adquisición de Red
+              }
+            </span>
           </div>
 
           <div class="metric-item">
-            <span class="metric-lbl">Bloqueo Adquirido:</span>
-            <span class="metric-val mono">{{ evalResult.lock_acquired ? 'SÍ (RECURSO EN INGESTA)' : 'NO (RECUPERADO DE CUSTODIA)' }}</span>
+            <span class="metric-lbl">Condición de Descarga:</span>
+            <span class="metric-val mono">{{ evalResult.lock_acquired ? 'Autorizado (Sin conflicto)' : 'Bloqueada por existencia previa' }}</span>
           </div>
 
           @if (evalResult.cached_artifact_id) {
             <div class="metric-item">
-              <span class="metric-lbl">ID de Archivo en Custodia:</span>
+              <span class="metric-lbl">Código de Archivo en Custodia:</span>
               <span class="metric-val mono text-highlight">{{ evalResult.cached_artifact_id }}</span>
-            </div>
-          }
-
-          @if (evalResult.in_flight_task_id) {
-            <div class="metric-item">
-              <span class="metric-lbl">Tarea en Vuelo Asignada:</span>
-              <span class="metric-val mono text-highlight">{{ evalResult.in_flight_task_id }}</span>
             </div>
           }
         </div>

@@ -100,16 +100,31 @@
         </select>
       </div>
 
+      <div class="filter-item">
+        <label class="toolbar-label" for="sync-source">Entidad para Resguardo:</label>
+        <select
+          id="sync-source"
+          class="select-input select-sync"
+          [value]="selectedSourceForSync()"
+          (change)="selectedSourceForSync.set($any($event.target).value)"
+        >
+          <option value="bbv">Bolsa Boliviana de Valores (BBV)</option>
+          <option value="bcb">Banco Central de Bolivia (BCB)</option>
+          <option value="finrural">FINRURAL</option>
+          <option value="asfi">ASFI</option>
+        </select>
+      </div>
+
       <button
         type="button"
         class="btn-sync-action"
         [disabled]="store.syncing()"
-        (click)="store.runSyncBatch('bbv')"
+        (click)="onExecuteSync()"
       >
         @if (store.syncing()) {
-          <span>Descargando Lote...</span>
+          <span>Resguardando Lote Oficial...</span>
         } @else {
-          <span>Ejecutar Resguardo Asistido</span>
+          <span>Resguardar Documentos Oficiales</span>
         }
       </button>
     </div>
@@ -119,11 +134,11 @@
   @if (store.lastSyncResult(); as syncRes) {
     <div class="sync-banner">
       <div class="sync-heading">
-        <span class="sync-tag mono">PLAN DE RESGUARDO COMPLETADO</span>
-        <span class="sync-summary">{{ syncRes.summary }}</span>
+        <span class="sync-tag">RESGUARDO OFICIAL COMPLETADO</span>
+        <span class="sync-summary">{{ formatSyncSummary(syncRes) }}</span>
       </div>
       <div class="sync-stats mono">
-        <span>Tareas Exitosas: <strong>{{ syncRes.completed_tasks }}</strong> / {{ syncRes.total_tasks }}</span>
+        <span>Publicaciones Oficiales Almacenadas: <strong>{{ syncRes.completed_tasks }}</strong> de {{ syncRes.total_tasks }}</span>
       </div>
     </div>
   }
@@ -138,9 +153,8 @@
             <th>Periodo</th>
             <th>Portal Emisor</th>
             <th>Tamaño</th>
-            <th>Firma Criptográfica SHA-256</th>
             <th>Fecha de Resguardo</th>
-            <th>Auditoría de Integridad</th>
+            <th>Integridad Normativa (ASFI/BCB)</th>
           </tr>
         </thead>
         <tbody>
@@ -150,34 +164,23 @@
               <td class="mono">{{ art.period || 'Periódico' }}</td>
               <td class="mono text-muted-subtle">{{ art.domain }}</td>
               <td class="mono">{{ formatBytes(art.size_bytes) }}</td>
-              <td class="mono sha-cell">
-                <span class="sha-snippet" [title]="art.sha256_hash">
-                  {{ art.sha256_hash | slice:0:16 }}...
+              <td class="mono">{{ art.downloaded_at | slice:0:19 }}</td>
+              <td class="integrity-cell">
+                <span class="badge-integrity-ok">
+                  ✓ Original Certificado
                 </span>
                 <button
                   type="button"
                   class="btn-copy-hash"
-                  (click)="copyHash(art.sha256_hash)"
-                  title="Copiar firma SHA-256 completa"
+                  (click)="copyHash(art.sha256_hash, art.artifact_id)"
+                  title="Firma SHA-256: {{ art.sha256_hash }}"
                 >
-                  Copiar
+                  @if (copiedHashId() === art.artifact_id) {
+                    <span>¡Copiada!</span>
+                  } @else {
+                    <span>Copiar Firma</span>
+                  }
                 </button>
-              </td>
-              <td class="mono">{{ art.downloaded_at | slice:0:19 }}</td>
-              <td>
-                @if (store.verifiedArtifacts()[art.artifact_id]) {
-                  <span class="badge-integrity-ok">
-                    INTEGRIDAD CERTIFICADA
-                  </span>
-                } @else {
-                  <button
-                    type="button"
-                    class="btn-verify"
-                    (click)="store.verifyArtifactIntegrity(art.artifact_id)"
-                  >
-                    Auditar Hash
-                  </button>
-                }
               </td>
             </tr>
           }

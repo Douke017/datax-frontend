@@ -47,10 +47,10 @@
         (change)="onStatusChange($event)"
       >
         <option value="ALL">Todos los estados</option>
-        <option value="DISPONIBLE_WEB_NUEVO">DISPONIBLE_WEB_NUEVO</option>
-        <option value="CATALOGADO_BDD">CATALOGADO_BDD</option>
-        <option value="DESCARGA_HISTORICA_LEGACY">DESCARGA_HISTORICA_LEGACY</option>
-        <option value="DESCARGADO_BRONZE">DESCARGADO_BRONZE</option>
+        <option value="DISPONIBLE_WEB_NUEVO">Nuevo en Portal Web</option>
+        <option value="CATALOGADO_BDD">Registrado en Catálogo</option>
+        <option value="DESCARGA_HISTORICA_LEGACY">Histórico Previo</option>
+        <option value="DESCARGADO_BRONZE">En Custodia Bronze</option>
       </select>
     </div>
 
@@ -101,6 +101,12 @@
         <span>Consultando inventario de URLs...</span>
       </div>
     } @else {
+      <div class="curation-hint-banner">
+        <span class="hint-icon">ℹ</span>
+        <span class="hint-text">
+          <strong>Curaduría Operativa:</strong> Los selectores de <em>Custodia</em> y <em>Consolidado</em> registran el estado de disponibilidad del documento en el catálogo maestro para que el Control Previo prevenga descargas o procesamientos redundantes.
+        </span>
+      </div>
       <div class="table-responsive">
         <table class="inventory-table">
           <thead>
@@ -109,9 +115,9 @@
               <th class="th-code">Código</th>
               <th class="th-name">Archivo / Título</th>
               <th class="th-url">URL Canónica</th>
-              <th class="th-switch">Descargado (Bronze)</th>
-              <th class="th-switch">Procesado (Gold)</th>
-              <th class="th-status">Estado</th>
+              <th class="th-switch" title="Indica si el documento original ya está resguardado en la Capa Bronze">Custodia (Bronze)</th>
+              <th class="th-switch" title="Indica si los datos tabulares del documento ya fueron consolidados en Datamarts Gold">Consolidado (Gold)</th>
+              <th class="th-status">Estado Operativo</th>
               <th class="th-updated">Actualizado</th>
             </tr>
           </thead>
@@ -145,10 +151,10 @@
                     [class.active]="item.is_downloaded"
                     [disabled]="store.updatingId() === item.id"
                     (click)="store.toggleDownloaded(item)"
-                    title="Conmutar si el archivo físico se encuentra en custodia (Capa Bronze)"
+                    title="Control de curaduría: Marca si el documento físico está en custodia en el servidor"
                   >
                     <span class="toggle-dot"></span>
-                    <span class="toggle-text">{{ item.is_downloaded ? 'DESCARGADO' : 'PENDIENTE' }}</span>
+                    <span class="toggle-text">{{ item.is_downloaded ? 'EN CUSTODIA' : 'PENDIENTE' }}</span>
                   </button>
                 </td>
                 <td class="td-switch">
@@ -158,15 +164,15 @@
                     [class.active]="item.is_processed"
                     [disabled]="store.updatingId() === item.id"
                     (click)="store.toggleProcessed(item)"
-                    title="Conmutar si el dataset fue procesado hacia Datamarts (Capa Gold)"
+                    title="Control de curaduría: Marca si la información ya fue extraída a Datamarts para consulta"
                   >
                     <span class="toggle-dot"></span>
-                    <span class="toggle-text">{{ item.is_processed ? 'PROCESADO' : 'PENDIENTE' }}</span>
+                    <span class="toggle-text">{{ item.is_processed ? 'CONSOLIDADO' : 'PENDIENTE' }}</span>
                   </button>
                 </td>
                 <td class="td-status">
-                  <span class="status-pill mono" [class.status-bronze]="item.status === 'DESCARGADO_BRONZE'" [class.status-new]="item.status === 'DISPONIBLE_WEB_NUEVO'">
-                    {{ item.status }}
+                  <span class="status-pill mono" [class.status-bronze]="item.status === 'DESCARGADO_BRONZE' || item.status === 'COMPLETED'" [class.status-new]="item.status === 'DISPONIBLE_WEB_NUEVO'">
+                    {{ formatStatus(item.status) }}
                   </span>
                 </td>
                 <td class="td-updated mono">{{ item.updated_at || '-' }}</td>

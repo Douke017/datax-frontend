@@ -305,6 +305,13 @@
   gap: 6px;
 }
 
+.integrity-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 .sha-snippet {
   color: #60a5fa;
   font-size: 11px;
