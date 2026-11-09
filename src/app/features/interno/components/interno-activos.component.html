@@ -1,12 +1,12 @@
 <div class="activos-container">
-  <!-- ENCABEZADO Y SELECTOR DE LOS 4 REPOSITORIOS CONSOLIDADOS -->
+  <!-- ENCABEZADO Y SELECTOR DE LOS 5 REPOSITORIOS MULTI-FUENTE -->
   <section class="header-card">
     <div class="header-top">
       <div>
-        <span class="section-kicker mono">ALMACENAMIENTO CONSOLIDADO Y AUTOSERVICIO DIRECTO</span>
-        <h2 class="header-title">Repositorios Financieros Consolidados y Catálogo de Activos</h2>
+        <span class="section-kicker mono">ALMACENAMIENTO OPTIMIZADO Y AUTOSERVICIO MULTI-FUENTE (52+ PORTALES)</span>
+        <h2 class="header-title">Repositorios Consolidados de Series, Archivos en Bruto, Reportes y Bases de Datos</h2>
         <p class="header-desc">
-          Seleccione un módulo consolidado para ejecutar consultas directas sin intermediarios, descargar libros Excel (.xlsx) con diccionario integrado, inspeccionar relaciones entre tablas o conectar Microsoft Excel y Power BI en vivo.
+          Seleccione un repositorio consolidado para consultar las 52+ fuentes del catálogo sin intermediarios, exportar libros Excel (.xlsx) con diccionario y trazabilidad, inspeccionar relaciones técnicas o enlazar Excel Power Query y Power BI en vivo.
         </p>
       </div>
 
@@ -115,14 +115,14 @@
         </div>
 
         <div class="control-item">
-          <label class="control-lbl" for="q-inst">Entidad Financiera / Emisor</label>
+          <label class="control-lbl" for="q-inst">Fuente / Institución Emisora</label>
           <select
             id="q-inst"
             class="select-control"
             [ngModel]="selectedInstitution()"
             (ngModelChange)="selectedInstitution.set($event); executeCurrentQuery()"
           >
-            <option value="">Todas las entidades</option>
+            <option value="">Todas las fuentes (52+ portales)</option>
             @for (inst of dimensions()?.instituciones || dimensions()?.institutions || []; track inst) {
               <option [value]="inst">{{ inst }}</option>
             }
@@ -307,10 +307,10 @@
     <section class="panel-card">
       <div class="section-head-row">
         <div>
-          <span class="section-kicker mono">MODELO RELACIONAL DE NEGOCIO</span>
-          <h3 class="section-title">Relaciones con Otros Repositorios Consolidados</h3>
+          <span class="section-kicker mono">MODELO RELACIONAL DE DATOS</span>
+          <h3 class="section-title">Relaciones de Integración entre Archivos, Reportes y Bases Consolidadas</h3>
           <p class="section-desc">
-            Llaves de cruce estandarizadas para combinar series entre ASFI, BCB, FINRURAL y BBV en estudios integrales.
+            Vínculos técnicos entre el Mapa de las 52 Fuentes (`url_inventory_map`), Series (`file`/`file9`), Descargas en Bruto (`download`), Reportes (`report`) y Bases (`data_base`/`cubo`).
           </p>
         </div>
       </div>
@@ -455,10 +455,11 @@
           <label class="control-lbl" for="key-scope">Alcance Autorizado</label>
           <select id="key-scope" class="select-control" [(ngModel)]="newKeyScope">
             <option value="*">Todos los Repositorios Consolidados (*)</option>
-            <option value="mart_indicadores_asfi">Indicadores Financieros (ASFI)</option>
-            <option value="mart_tasas_bcb">Tasas de Interés (BCB)</option>
-            <option value="mart_cartera">Cartera y Balance (FINRURAL)</option>
-            <option value="mart_estadisticas_bbv">Operaciones Bursátiles (BBV)</option>
+            <option value="catalogo_series_files">Catálogo Maestro de Series (D_BO_* / A_*)</option>
+            <option value="historial_descargas_bruto">Archivos Descargados en Bruto (Download & DAGs)</option>
+            <option value="reportes_conversiones">Reportes Extraídos y Conversiones (D_BO_*_xx)</option>
+            <option value="bases_datos_cubos">Bases de Datos Consolidadas (DB_BO_* / S_BO*)</option>
+            <option value="mapa_web_52_fuentes">Mapa Unificado de las 52 Fuentes</option>
           </select>
         </div>
 

@@ -117,17 +117,16 @@
       </div>
 
       <div class="filter-item">
-        <label class="toolbar-label" for="sync-source">Institución para Resguardo:</label>
+        <label class="toolbar-label" for="sync-source">Fuente para Resguardo:</label>
         <select
           id="sync-source"
           class="select-input select-sync"
           [value]="selectedSourceForSync()"
           (change)="selectedSourceForSync.set($any($event.target).value)"
         >
-          <option value="asfi">ASFI</option>
-          <option value="bcb">Banco Central de Bolivia (BCB)</option>
-          <option value="finrural">FINRURAL</option>
-          <option value="bbv">Bolsa Boliviana de Valores (BBV)</option>
+          @for (s of availableSyncSources(); track s) {
+            <option [value]="s">{{ s.toUpperCase() }}</option>
+          }
         </select>
       </div>
 

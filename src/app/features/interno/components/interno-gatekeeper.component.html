@@ -46,13 +46,13 @@
       </div>
 
       <div class="form-group">
-        <label class="form-lbl" for="gk-dataset">Módulo o Serie Documental</label>
+        <label class="form-lbl" for="gk-dataset">Repositorio o Serie (D_BO_* / DB_BO_*)</label>
         <input
           id="gk-dataset"
           type="text"
           class="form-input mono"
           [(ngModel)]="datasetCode"
-          placeholder="mart_cartera o DS_BO_ASFI"
+          placeholder="catalogo_series_files, D_BO_000000101 o DB_BO_000001"
         />
       </div>
 
@@ -209,10 +209,11 @@
       <div class="form-group">
         <label class="form-lbl" for="deriv-dm">Repositorio Consolidado Base</label>
         <select id="deriv-dm" class="form-select" [(ngModel)]="derivationDataset">
-          <option value="mart_cartera">Cartera y Estados Financieros (FINRURAL)</option>
-          <option value="mart_tasas_bcb">Tasas de Interés Efectivas (BCB)</option>
-          <option value="mart_estadisticas_bbv">Operaciones Bursátiles (BBV)</option>
-          <option value="mart_indicadores_asfi">Indicadores Financieros (ASFI)</option>
+          <option value="catalogo_series_files">Catálogo Maestro de Series y Archivos (D_BO_* / A_*)</option>
+          <option value="mapa_web_52_fuentes">Mapa Unificado de las 52 Fuentes</option>
+          <option value="historial_descargas_bruto">Archivos Descargados en Bruto (Download & DAGs)</option>
+          <option value="reportes_conversiones">Reportes Extraídos y Conversiones (D_BO_*_xx)</option>
+          <option value="bases_datos_cubos">Bases de Datos Consolidadas (DB_BO_* / S_BO*)</option>
         </select>
       </div>
 

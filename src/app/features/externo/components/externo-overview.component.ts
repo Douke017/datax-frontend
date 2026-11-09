@@ -59,7 +59,11 @@ export class ExternoOverviewComponent {
   });
 
   getSourceResourceCount(sourceId: string): number {
-    return this.sourceCounts().get(sourceId.toLowerCase()) || 0;
+    const key = sourceId.toLowerCase();
+    const loadedCount = this.sourceCounts().get(key) || 0;
+    if (loadedCount > 0) return loadedCount;
+    const src = this.store.sources().find((s) => s.source_id.toLowerCase() === key);
+    return src?.baseline_resource_count || 0;
   }
 
   filterBySource(sourceId: string): void {

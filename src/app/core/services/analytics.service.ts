@@ -26,7 +26,10 @@ import {
 })
 export class AnalyticsService {
   private readonly http = inject(HttpClient);
-  readonly baseUrl = 'http://localhost:8001';
+  readonly baseUrl =
+    typeof window !== 'undefined' && window.location?.hostname
+      ? `http://${window.location.hostname}:8001`
+      : 'http://localhost:8001';
 
   getDatamartsSummary(): Observable<DatamartSummaryItem[]> {
     return this.http.get<DatamartSummaryItem[]>(`${this.baseUrl}/api/v1/analytics/datamarts`);
@@ -36,7 +39,7 @@ export class AnalyticsService {
     return this.http.post<AnalyticsQueryResponse>(`${this.baseUrl}/api/v1/analytics/query`, request);
   }
 
-  getDimensions(datamart: string = 'mart_cartera'): Observable<GoldDimensions> {
+  getDimensions(datamart: string = 'catalogo_series_files'): Observable<GoldDimensions> {
     return this.http.get<GoldDimensions>(
       `${this.baseUrl}/api/v1/analytics/dimensions?datamart=${encodeURIComponent(datamart)}`
     );

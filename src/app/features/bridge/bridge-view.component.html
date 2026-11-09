@@ -2,16 +2,17 @@
   <div class="bridge-header-card">
     <div class="header-main">
       <div class="header-titles">
-        <span class="system-badge">CONCILIACIÓN DOCUMENTAL E INVENTARIO</span>
-        <h1 class="header-title">Conciliación entre Portales Oficiales y Custodia Institucional</h1>
+        <span class="system-badge">PUENTE DE SINCRONIZACIÓN BIDIRECCIONAL (EXTERNO ↔ INTERNO)</span>
+        <h1 class="header-title">Conciliación de Mapas Web de las 52 Fuentes contra Custodia e Inventario Interno</h1>
         <p class="header-desc">
-          Contrasta el catálogo de publicaciones detectadas en portales públicos frente a los archivos originales
-          resguardados con firma de integridad SHA-256, identificando brechas documentales y coordinando su adquisición controlada.
+          Contrasta en tiempo real el catálogo de recursos descubiertos por el <strong>Prospector Externo</strong> (52 portales)
+          contra los archivos en bruto resguardados y registrados en el <strong>Prospector Interno</strong> (inventario relacional y custodia SHA-256),
+          automatizando la adquisición por lotes y la actualización bidireccional de estados.
         </p>
       </div>
 
       <div class="source-picker-box">
-        <label class="picker-label" for="bridge-source-select">Entidad Emisora:</label>
+        <label class="picker-label" for="bridge-source-select">Fuente de Datos:</label>
         <select
           id="bridge-source-select"
           class="source-select"
@@ -19,12 +20,12 @@
           (change)="onSourceSelect($event)"
           [disabled]="store.reconciling() || store.syncing()"
         >
-          <option value="bcb">Banco Central de Bolivia (BCB)</option>
-          <option value="bbv">Bolsa Boliviana de Valores (BBV)</option>
-          <option value="finrural">Asociación FINRURAL</option>
-          <option value="asfi_valores">Autoridad de Supervisión del Sistema Financiero (ASFI)</option>
-          <option value="ine">Instituto Nacional de Estadística (INE)</option>
-          <option value="aps">Autoridad de Pensiones y Seguros (APS)</option>
+          <option value="ALL">Todas las Fuentes del Catálogo ({{ store.sources().length || 52 }} portales)</option>
+          @for (src of store.sources(); track src.source_id) {
+            <option [value]="src.source_id">
+              {{ src.source_id.toUpperCase() }} — {{ src.name }} ({{ formatInt(src.baseline_resource_count || 0) }} rec.)
+            </option>
+          }
         </select>
         <button
           type="button"
@@ -52,48 +53,50 @@
   <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">PUBLICACIONES EN PORTAL</span>
-        <span class="kpi-badge badge-neutral">CATÁLOGO EXTERNO</span>
+        <span class="kpi-title">RECURSOS EN MAPA EXTERNO</span>
+        <span class="kpi-badge badge-neutral">PROSPECTOR EXTERNO</span>
       </div>
       <div class="kpi-value">{{ formatInt(store.totalDiscovered()) }}</div>
-      <div class="kpi-caption">Documentos publicados en el sitio institucional</div>
+      <div class="kpi-caption">
+        Archivos y rutas en {{ formatInt(store.distinctSourcesInDiff()) }} fuente(s) seleccionada(s)
+      </div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">RESGUARDADOS EN CUSTODIA</span>
-        <span class="kpi-badge badge-success">CERTIFICADOS</span>
+        <span class="kpi-title">CONCILIADOS EN CUSTODIA</span>
+        <span class="kpi-badge badge-success">SINCRONIZADOS</span>
       </div>
       <div class="kpi-value text-success">{{ formatInt(store.totalConfirmed()) }}</div>
-      <div class="kpi-caption">Archivos originales verificados con firma SHA-256</div>
+      <div class="kpi-caption">Archivos ya descargados y verificados en Prospector Interno</div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">PENDIENTES DE RESGUARDO</span>
-        <span class="kpi-badge badge-info">NOVEDADES</span>
+        <span class="kpi-title">PENDIENTES DE DESCARGA</span>
+        <span class="kpi-badge badge-info">BRECHA NUEVA</span>
       </div>
       <div class="kpi-value text-info">{{ formatInt(store.totalNew()) }}</div>
-      <div class="kpi-caption">Publicaciones nuevas listas para incorporación</div>
+      <div class="kpi-caption">Recursos descubiertos en Externo pendientes de transferir a Interno</div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">ACTUALIZADOS EN ORIGEN</span>
-        <span class="kpi-badge badge-warning">REVISIÓN</span>
+        <span class="kpi-title">MODIFICADOS EN ORIGEN</span>
+        <span class="kpi-badge badge-warning">ACTUALIZACIÓN</span>
       </div>
       <div class="kpi-value text-warning">{{ formatInt(store.totalModified()) }}</div>
-      <div class="kpi-caption">Documentos con nueva versión respecto al archivo local</div>
+      <div class="kpi-caption">Archivos con cambio de huella detectado respecto a la versión local</div>
     </div>
   </div>
 
   <div class="sync-panel-card">
     <div class="sync-panel-header">
       <div>
-        <h2 class="panel-title">Planificación y Resguardo por Lotes</h2>
+        <h2 class="panel-title">Sincronización y Transferencia por Lotes (Externo → Interno)</h2>
         <p class="panel-desc">
-          Simule el lote de adquisición o ejecute la transferencia controlada con validación previa de duplicidad,
-          control de cortesía hacia el portal emisor y certificación SHA-256 inmediata.
+          Simule el plan priorizado o ejecute la transferencia en bruto con validación previa de duplicidad,
+          registro en cola de descargas activas, persistencia en el inventario relacional y notificación de estado a Prospector Externo.
         </p>
       </div>
 
@@ -107,10 +110,10 @@
             (change)="onBatchSizeChange($event)"
             [disabled]="store.syncing()"
           >
-            <option [value]="5">5 publicaciones</option>
-            <option [value]="10">10 publicaciones</option>
-            <option [value]="25">25 publicaciones</option>
-            <option [value]="50">50 publicaciones</option>
+            <option [value]="5">5 archivos</option>
+            <option [value]="10">10 archivos</option>
+            <option [value]="25">25 archivos</option>
+            <option [value]="50">50 archivos</option>
           </select>
         </div>
 
@@ -120,7 +123,7 @@
           (click)="onExecuteSync(false)"
           [disabled]="store.syncing() || store.reconciling()"
         >
-          Simular Plan
+          Simular Plan de Sincronización
         </button>
 
         <button
@@ -130,9 +133,9 @@
           [disabled]="store.syncing() || store.reconciling() || (store.totalNew() === 0 && store.totalModified() === 0)"
         >
           @if (store.syncing()) {
-            <span>Resguardando Lote...</span>
+            <span>Sincronizando Lote...</span>
           } @else {
-            <span>Resguardar Lote en Custodia</span>
+            <span>Sincronizar y Resguardar Lote</span>
           }
         </button>
       </div>
@@ -142,15 +145,15 @@
       <div class="sync-result-box">
         <div class="result-top">
           <span class="result-badge mono">
-            {{ syncRes.is_executed ? 'RESGUARDO EJECUTADO' : 'SIMULACIÓN DE PLAN' }}
+            {{ syncRes.is_executed ? 'SINCRONIZACIÓN EJECUTADA' : 'SIMULACIÓN DE PLAN' }}
           </span>
-          <span class="result-id mono">Plan: {{ syncRes.plan_id }}</span>
+          <span class="result-id mono">Plan: {{ syncRes.plan_id }} | Fuente: {{ syncRes.source_id.toUpperCase() }}</span>
         </div>
         <p class="result-summary">{{ syncRes.summary }}</p>
         <div class="result-stats">
-          <span class="stat-tag text-success">Resguardados: {{ syncRes.completed_tasks }}</span>
-          <span class="stat-tag" [class.text-danger]="syncRes.failed_tasks > 0">Incidencias: {{ syncRes.failed_tasks }}</span>
-          <span class="stat-tag">Programados en Lote: {{ syncRes.total_tasks }}</span>
+          <span class="stat-tag text-success">Transferidos a Custodia: {{ syncRes.completed_tasks }}</span>
+          <span class="stat-tag" [class.text-danger]="syncRes.failed_tasks > 0">Incidencias de Red: {{ syncRes.failed_tasks }}</span>
+          <span class="stat-tag">Total en Lote: {{ syncRes.total_tasks }}</span>
         </div>
       </div>
     }
@@ -181,7 +184,7 @@
           [class.active]="store.categoryFilter() === 'CONFIRMED'"
           (click)="store.setCategoryFilter('CONFIRMED')"
         >
-          En Custodia ({{ formatInt(store.totalConfirmed()) }})
+          Sincronizados en Custodia ({{ formatInt(store.totalConfirmed()) }})
         </button>
         <button
           type="button"
@@ -189,7 +192,7 @@
           [class.active]="store.categoryFilter() === 'MODIFIED'"
           (click)="store.setCategoryFilter('MODIFIED')"
         >
-          Actualizados ({{ formatInt(store.totalModified()) }})
+          Modificados ({{ formatInt(store.totalModified()) }})
         </button>
       </div>
 
@@ -197,7 +200,7 @@
         <input
           type="text"
           class="search-input mono"
-          placeholder="Filtrar por enlace, código o periodo..."
+          placeholder="Filtrar por fuente, clave, URL, formato o periodo..."
           [value]="store.searchQuery()"
           (input)="onSearchInput($event)"
         />
@@ -207,49 +210,53 @@
     @if (store.reconciling()) {
       <div class="loading-state">
         <span class="loading-spinner"></span>
-        <span>Contrastando catálogo externo contra el repositorio de custodia...</span>
+        <span>Contrastando catálogo del Prospector Externo contra el inventario del Prospector Interno...</span>
       </div>
     } @else if (store.pagedItems().length === 0) {
       <div class="empty-state">
         <span class="empty-title">Sin registros coincidentes</span>
-        <span class="empty-desc">No se encontraron publicaciones bajo los criterios seleccionados.</span>
+        <span class="empty-desc">No se encontraron recursos bajo los filtros seleccionados.</span>
       </div>
     } @else {
       <div class="table-wrapper">
         <table class="diff-table">
           <thead>
             <tr>
-              <th style="width: 130px;">Estado</th>
-              <th style="width: 110px;">Periodo</th>
-              <th style="width: 90px;">Formato</th>
-              <th>Enlace Oficial de Publicación</th>
+              <th style="width: 125px;">Estado</th>
+              <th style="width: 110px;">Fuente</th>
+              <th style="width: 160px;">Clave de Recurso</th>
+              <th style="width: 100px;">Periodo</th>
+              <th style="width: 80px;">Formato</th>
+              <th>URL de Origen (Prospector Externo)</th>
               <th>Dictamen de Conciliación</th>
             </tr>
           </thead>
           <tbody>
-            @for (item of store.pagedItems(); track item.resource_key) {
+            @for (item of store.pagedItems(); track item.resource_key + item.url) {
               <tr>
                 <td>
                   @switch (item.category) {
                     @case ('CONFIRMED') {
-                      <span class="badge-status badge-confirmed">RESGUARDADO</span>
+                      <span class="badge-status badge-confirmed">SINCRONIZADO</span>
                     }
                     @case ('NEW') {
                       <span class="badge-status badge-new">PENDIENTE</span>
                     }
                     @case ('MODIFIED') {
-                      <span class="badge-status badge-modified">ACTUALIZADO</span>
+                      <span class="badge-status badge-modified">MODIFICADO</span>
                     }
                     @default {
                       <span class="badge-status badge-neutral">{{ item.category }}</span>
                     }
                   }
                 </td>
+                <td class="mono" style="font-weight: 700; color: #60a5fa;">{{ (item.source_id || '').toUpperCase() }}</td>
+                <td class="mono" style="font-size: 11px;">{{ item.resource_key | slice:0:22 }}</td>
                 <td class="mono">{{ item.period_label || 'General' }}</td>
                 <td class="mono text-uppercase">{{ item.file_extension || 'N/D' }}</td>
                 <td class="url-cell mono">
                   <a [href]="item.url" target="_blank" rel="noopener noreferrer" [title]="item.url">
-                    {{ item.url | slice:0:82 }}{{ item.url.length > 82 ? '...' : '' }}
+                    {{ item.url | slice:0:75 }}{{ item.url.length > 75 ? '...' : '' }}
                   </a>
                 </td>
                 <td class="detail-cell">{{ item.detail }}</td>
@@ -262,7 +269,7 @@
       <div class="pagination-footer">
         <span>
           Mostrando <strong class="mono">{{ store.paginationStart() }} – {{ store.paginationEnd() }}</strong>
-          de <strong class="mono">{{ formatInt(store.totalFiltered()) }}</strong> publicaciones
+          de <strong class="mono">{{ formatInt(store.totalFiltered()) }}</strong> recursos conciliados
         </span>
 
         <div class="pagination-controls">

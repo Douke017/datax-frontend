@@ -1,15 +1,17 @@
 import { inject } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, withHooks, patchState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { pipe, switchMap, tap, catchError, of } from 'rxjs';
+import { pipe, switchMap, tap, catchError, of, retry } from 'rxjs';
 import {
   BridgeReconcileResponse,
-  BridgeSyncResponse,
-  ReconciliationDiffItem
+  BridgeSyncResponse
 } from '../../core/models/reconciliation.model';
+import { CatalogSource } from '../../core/models/catalog.model';
 import { InternoService } from '../../core/services/interno.service';
+import { ExternoService } from '../../core/services/externo.service';
 
 export interface BridgeState {
+  sources: CatalogSource[];
   selectedSourceId: string;
   reconcileResult: BridgeReconcileResponse | null;
   reconciling: boolean;
@@ -24,16 +26,17 @@ export interface BridgeState {
 }
 
 const initialState: BridgeState = {
-  selectedSourceId: 'bcb',
+  sources: [],
+  selectedSourceId: 'ALL',
   reconcileResult: null,
   reconciling: false,
   syncing: false,
   lastSyncResult: null,
   categoryFilter: 'ALL',
   searchQuery: '',
-  batchSize: 5,
+  batchSize: 10,
   currentPage: 1,
-  pageSize: 15,
+  pageSize: 20,
   error: null
 };
 
@@ -58,8 +61,10 @@ export const BridgeStore = signalStore(
           list = list.filter((i) =>
             i.url.toLowerCase().includes(query) ||
             i.resource_key.toLowerCase().includes(query) ||
+            i.source_id.toLowerCase().includes(query) ||
             (i.period_label && i.period_label.toLowerCase().includes(query)) ||
-            i.file_extension.toLowerCase().includes(query)
+            i.file_extension.toLowerCase().includes(query) ||
+            (i.detail && i.detail.toLowerCase().includes(query))
           );
         }
 
@@ -68,7 +73,11 @@ export const BridgeStore = signalStore(
       totalDiscovered: () => reconcileResult()?.total_external_resources ?? 0,
       totalConfirmed: () => reconcileResult()?.total_confirmed ?? 0,
       totalNew: () => reconcileResult()?.total_new ?? 0,
-      totalModified: () => reconcileResult()?.total_modified ?? 0
+      totalModified: () => reconcileResult()?.total_modified ?? 0,
+      distinctSourcesInDiff: () => {
+        const items = reconcileResult()?.items ?? [];
+        return new Set(items.map((i) => (i.source_id || '').toUpperCase())).size;
+      }
     };
   }),
   withComputed(({ filteredItems, currentPage, pageSize }) => {
@@ -89,12 +98,28 @@ export const BridgeStore = signalStore(
       }
     };
   }),
-  withMethods((store, internoService = inject(InternoService)) => {
+  withMethods((store, internoService = inject(InternoService), externoService = inject(ExternoService)) => {
+    const loadSources = rxMethod<void>(
+      pipe(
+        switchMap(() =>
+          externoService.getSources().pipe(
+            retry({ count: 3, delay: 1000 }),
+            tap((srcs) => {
+              const sorted = [...(srcs || [])].sort((a, b) => a.source_id.localeCompare(b.source_id));
+              patchState(store, { sources: sorted });
+            }),
+            catchError(() => of([]))
+          )
+        )
+      )
+    );
+
     const reconcileSource = rxMethod<string>(
       pipe(
         tap(() => patchState(store, { reconciling: true, error: null })),
         switchMap((sourceId) =>
           internoService.reconcile({ source_id: sourceId }).pipe(
+            retry({ count: 2, delay: 800 }),
             tap((res) => {
               patchState(store, {
                 reconcileResult: res,
@@ -105,7 +130,7 @@ export const BridgeStore = signalStore(
             catchError((err) => {
               patchState(store, {
                 reconciling: false,
-                error: err.error?.detail || 'Error al ejecutar conciliación con el motor analítico.'
+                error: err.error?.detail || 'Error al ejecutar conciliación entre el Prospector Externo y el Interno.'
               });
               return of(null);
             })
@@ -134,6 +159,7 @@ export const BridgeStore = signalStore(
               });
               if (executeDownloads) {
                 reconcileSource(sourceId);
+                loadSources();
               }
             }),
             catchError((err) => {
@@ -165,12 +191,14 @@ export const BridgeStore = signalStore(
       setPage(page: number): void {
         patchState(store, { currentPage: page });
       },
+      loadSources,
       reconcileSource,
       executeSyncPlan
     };
   }),
   withHooks({
     onInit(store) {
+      store.loadSources();
       store.reconcileSource(store.selectedSourceId());
     }
   })

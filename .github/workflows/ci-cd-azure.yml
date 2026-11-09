@@ -1,0 +1,28 @@
+name: DATAX Frontend Angular 22 CI/CD — Production Build & Docker
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-frontend:
+    name: "Angular 22 Strict Production Build & Nginx Image"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies & build production bundle
+        run: |
+          npm ci
+          npx ng build --configuration production
+
+      - name: Build Nginx production image
+        run: docker build -t ghcr.io/datax-bo/datax-frontend:latest .

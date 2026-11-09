@@ -22,13 +22,6 @@ import {
 
 type ActivosSubTab = 'explorer' | 'dictionary' | 'connectors';
 
-const INSTITUTION_TO_DATAMART: Record<string, string> = {
-  asfi: 'mart_indicadores_asfi',
-  bcb: 'mart_tasas_bcb',
-  finrural: 'mart_cartera',
-  bbv: 'mart_estadisticas_bbv'
-};
-
 @Component({
   selector: 'app-interno-activos',
   standalone: true,
@@ -44,11 +37,9 @@ export class InternoActivosComponent implements OnInit {
 
   readonly activeSubTab = signal<ActivosSubTab>('explorer');
 
-  // Repositorios consolidados
+  // Repositorios consolidados multi-fuente (52+ fuentes)
   readonly datamarts = signal<DatamartSummaryItem[]>([]);
-  readonly selectedDatamart = signal<string>(
-    INSTITUTION_TO_DATAMART[this.institutionState.currentInstitutionId()] || 'mart_cartera'
-  );
+  readonly selectedDatamart = signal<string>('catalogo_series_files');
   readonly materializing = signal<boolean>(false);
   readonly materializeMessage = signal<string>('');
 
@@ -80,7 +71,7 @@ export class InternoActivosComponent implements OnInit {
   readonly creatingKey = signal<boolean>(false);
   readonly copiedToken = signal<string>('');
 
-  newKeyLabel = 'Libro Ejecutivo Excel — Analista Financiero';
+  newKeyLabel = 'Conector Directo Excel Power Query — Ciencia de Datos';
   newKeyScope = '*';
 
   readonly activeDatamartSummary = computed<DatamartSummaryItem | undefined>(() =>
@@ -121,10 +112,8 @@ export class InternoActivosComponent implements OnInit {
       const inst = this.institutionState.currentInstitutionId();
       if (inst && inst !== this.lastSyncedInst) {
         this.lastSyncedInst = inst;
-        const mappedDm = INSTITUTION_TO_DATAMART[inst];
-        if (mappedDm && mappedDm !== this.selectedDatamart()) {
-          this.selectDatamart(mappedDm);
-        }
+        this.selectedInstitution.set(inst.toUpperCase());
+        this.executeCurrentQuery();
       }
     });
   }
@@ -233,12 +222,12 @@ export class InternoActivosComponent implements OnInit {
 
   onMaterializeAll(): void {
     this.materializing.set(true);
-    this.materializeMessage.set('Consolidando los 4 repositorios financieros...');
+    this.materializeMessage.set('Consolidando los 5 repositorios de las 52+ fuentes...');
     this.analyticsService.materializeGold().subscribe({
       next: (res) => {
         this.materializing.set(false);
         this.materializeMessage.set(
-          `Consolidación completada: ${formatInteger(res.total_gold_records)} registros estructurados y disponibles para consulta.`
+          `Consolidación completada: ${formatInteger(res.total_gold_records)} registros multi-fuente estructurados y disponibles para consulta.`
         );
         this.loadDatamartsOverview();
         this.loadDatamartContext(this.selectedDatamart());
@@ -348,14 +337,16 @@ export class InternoActivosComponent implements OnInit {
 
   formatDatamartName(dm: string): string {
     switch (dm) {
-      case 'mart_cartera':
-        return 'Cartera y Balance (FINRURAL)';
-      case 'mart_tasas_bcb':
-        return 'Tasas de Interés (BCB)';
-      case 'mart_estadisticas_bbv':
-        return 'Operaciones Bursátiles (BBV)';
-      case 'mart_indicadores_asfi':
-        return 'Indicadores Financieros (ASFI)';
+      case 'catalogo_series_files':
+        return 'Catálogo de Series y Archivos Fuente (D_BO_* / A_*)';
+      case 'historial_descargas_bruto':
+        return 'Archivos Descargados en Bruto (Download & DAGs)';
+      case 'reportes_conversiones':
+        return 'Reportes Extraídos y Conversiones (D_BO_*_xx)';
+      case 'bases_datos_cubos':
+        return 'Bases de Datos Consolidadas (DB_BO_* / S_BO*) y Cubos';
+      case 'mapa_web_52_fuentes':
+        return 'Mapa Unificado de las 52 Fuentes (Externo ↔ Interno)';
       case '*':
         return 'Todos los Repositorios (*)';
       default:

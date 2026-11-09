@@ -23,7 +23,10 @@ import {
 })
 export class ExternoService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8000';
+  private readonly baseUrl =
+    typeof window !== 'undefined' && window.location?.hostname
+      ? `http://${window.location.hostname}:8000`
+      : 'http://localhost:8000';
 
   getSources(): Observable<CatalogSource[]> {
     return this.http.get<CatalogSource[]>(`${this.baseUrl}/catalog/sources`);

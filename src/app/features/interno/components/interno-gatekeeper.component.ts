@@ -33,25 +33,25 @@ export class InternoGatekeeperComponent implements OnInit {
   readonly presets: PresetScenario[] = [
     {
       id: 'consolidated',
-      label: 'Información Consolidada Existente',
-      entity: 'finrural',
-      datasetCode: 'mart_cartera',
-      domain: 'www.finrural.org.bo',
-      period: '2025-01',
-      targetUrl: 'https://www.finrural.org.bo/estadisticas/boletin_2025_01.xlsx'
+      label: 'Serie Ya Consolidada en Repositorio',
+      entity: 'bcb',
+      datasetCode: 'catalogo_series_files',
+      domain: 'www.bcb.gob.bo',
+      period: '2025-12',
+      targetUrl: 'https://www.bcb.gob.bo/webdocs/estadisticas/boletin_mensual_2025_12.xlsx'
     },
     {
       id: 'derivable',
-      label: 'Trimestre Reutilizable sin Descarga',
-      entity: 'bcb',
-      datasetCode: 'mart_tasas_bcb',
-      domain: 'www.bcb.gob.bo',
+      label: 'Trimestre Construible desde Cortes Mensuales',
+      entity: 'ine',
+      datasetCode: 'catalogo_series_files',
+      domain: 'www.ine.gob.bo',
       period: '2025-Q1',
-      targetUrl: 'https://www.bcb.gob.bo/estadisticas/tasas_trimestre_1_2025.xlsx'
+      targetUrl: 'https://www.ine.gob.bo/estadisticas/serie_trimestral_2025_q1.xlsx'
     },
     {
       id: 'custody',
-      label: 'Documento en Custodia Institucional',
+      label: 'Archivo en Bruto Resguardado con SHA-256',
       entity: 'bbv',
       datasetCode: 'DS_BO_BBV',
       domain: 'www.bbv.com.bo',
@@ -61,9 +61,9 @@ export class InternoGatekeeperComponent implements OnInit {
     },
     {
       id: 'new_acq',
-      label: 'Nueva Publicación No Registrada',
+      label: 'Nuevo Archivo Fuente No Procesado',
       entity: 'asfi',
-      datasetCode: 'DS_BO_ASFI',
+      datasetCode: 'D_BO_000000999',
       domain: 'www.asfi.gob.bo',
       period: '2026-12',
       targetUrl: 'https://www.asfi.gob.bo/boletines/estados_financieros_2026_12.xlsx'
@@ -72,15 +72,15 @@ export class InternoGatekeeperComponent implements OnInit {
 
   readonly activePresetId = signal<string>('consolidated');
 
-  selectedSource = 'finrural';
-  datasetCode = 'mart_cartera';
-  domain = 'www.finrural.org.bo';
-  targetUrl = 'https://www.finrural.org.bo/estadisticas/boletin_2025_01.xlsx';
-  period = '2025-01';
+  selectedSource = 'bcb';
+  datasetCode = 'catalogo_series_files';
+  domain = 'www.bcb.gob.bo';
+  targetUrl = 'https://www.bcb.gob.bo/webdocs/estadisticas/boletin_mensual_2025_12.xlsx';
+  period = '2025-12';
   forceRefresh = false;
 
   // Formulario de Reutilización de Insumos
-  derivationDataset = 'mart_cartera';
+  derivationDataset = 'catalogo_series_files';
   derivationPeriod = '2025-Q1';
   derivationInstitution = '';
 

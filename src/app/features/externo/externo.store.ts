@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { signalStore, withState, withComputed, withMethods, withHooks, patchState } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { pipe, switchMap, tap, catchError, of, forkJoin, Observable } from 'rxjs';
+import { pipe, switchMap, tap, catchError, of, forkJoin, Observable, retry } from 'rxjs';
 import {
   BackupSyncResult,
   CatalogResource,
@@ -132,7 +132,9 @@ export const ExternoStore = signalStore(
 
           return list;
         },
-        totalDiscovered: () => resources().length,
+        totalDiscovered: () =>
+          resources().length ||
+          sources().reduce((acc, s) => acc + (s.baseline_resource_count || 0), 0),
         activeSourcesCount: () => sources().filter((s) => s.health_status === 'ACTIVE').length,
         warningSourcesCount: () => sources().filter((s) => s.health_status === 'WARNING').length,
         suspendedSourcesCount: () => sources().filter((s) => s.health_status === 'SUSPENDED').length,
@@ -181,12 +183,12 @@ export const ExternoStore = signalStore(
           return forkJoin({
             health: service
               .checkHealth()
-              .pipe(catchError(() => of({ status: 'OFFLINE', service: 'catalog-api' }))),
-            sources: service.getSources().pipe(catchError(() => of([]))),
-            resources: service.getResources().pipe(catchError(() => of([]))),
-            runs: service.getRuns().pipe(catchError(() => of([]))),
-            alerts: service.getStructuralAlerts().pipe(catchError(() => of([]))),
-            candidates: service.getDiscoveryCandidates().pipe(catchError(() => of([])))
+              .pipe(retry({ count: 3, delay: 1000 }), catchError(() => of({ status: 'OFFLINE', service: 'catalog-api' }))),
+            sources: service.getSources().pipe(retry({ count: 3, delay: 1000 }), catchError(() => of([]))),
+            resources: service.getResources().pipe(retry({ count: 3, delay: 1000 }), catchError(() => of([]))),
+            runs: service.getRuns().pipe(retry({ count: 2, delay: 1000 }), catchError(() => of([]))),
+            alerts: service.getStructuralAlerts().pipe(retry({ count: 2, delay: 1000 }), catchError(() => of([]))),
+            candidates: service.getDiscoveryCandidates().pipe(retry({ count: 2, delay: 1000 }), catchError(() => of([])))
           }).pipe(
             tap(({ health, sources, resources, runs, alerts, candidates }) => {
               patchState(store, {

@@ -1,6 +1,7 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule, SlicePipe } from '@angular/common';
 import { InternoStore } from '../interno.store';
+import { InventoryStore } from '../inventory.store';
 import { InstitutionStateService } from '../../../core/services/institution-state.service';
 import { BridgeSyncResponse } from '../../../core/models/reconciliation.model';
 import { formatBytes, formatInteger } from '../../../shared/utils/format.utils';
@@ -14,13 +15,20 @@ import { formatBytes, formatInteger } from '../../../shared/utils/format.utils';
 })
 export class InternoCustodiaComponent {
   readonly store = inject(InternoStore);
+  readonly inventoryStore = inject(InventoryStore);
   private readonly institutionState = inject(InstitutionStateService);
 
   readonly formatInt = formatInteger;
   readonly formatSize = formatBytes;
 
-  readonly selectedSourceForSync = signal<string>(this.institutionState.currentInstitutionId());
+  readonly selectedSourceForSync = signal<string>(this.institutionState.currentInstitutionId() || 'bcb');
   readonly copiedHashId = signal<string | null>(null);
+
+  readonly availableSyncSources = computed(() => {
+    const base = ['bcb', 'asfi', 'ine', 'bbv', 'finrural', 'aps', 'sicoes', 'anh', 'att', 'cndc'];
+    const dynamic = this.inventoryStore.sourcesList().map((s) => s.toLowerCase());
+    return Array.from(new Set([...base, ...dynamic]));
+  });
 
   constructor() {
     effect(() => {

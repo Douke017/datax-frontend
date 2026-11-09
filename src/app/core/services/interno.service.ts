@@ -28,7 +28,10 @@ import {
 })
 export class InternoService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8001';
+  private readonly baseUrl =
+    typeof window !== 'undefined' && window.location?.hostname
+      ? `http://${window.location.hostname}:8001`
+      : 'http://localhost:8001';
 
   reconcile(request: BridgeReconcileRequest): Observable<BridgeReconcileResponse> {
     return this.http.post<BridgeReconcileResponse>(`${this.baseUrl}/api/v1/bridge/reconcile`, request);

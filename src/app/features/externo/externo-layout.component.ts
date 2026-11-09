@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ExternoStore } from './externo.store';
 import { ExternoOverviewComponent } from './components/externo-overview.component';
 import { ExternoDiscoveryComponent } from './components/externo-discovery.component';
@@ -24,10 +24,17 @@ export type ExternoTab = 'overview' | 'discovery' | 'inventory' | 'config' | 'al
   templateUrl: './externo-layout.component.html',
   styleUrls: ['./externo-layout.component.css']
 })
-export class ExternoLayoutComponent {
+export class ExternoLayoutComponent implements OnInit {
   readonly store = inject(ExternoStore);
   readonly activeTab = signal<ExternoTab>('overview');
   readonly formatInt = formatIntegerBo;
+
+  ngOnInit(): void {
+    if (this.store.sources().length === 0 || this.store.resources().length === 0) {
+      this.store.loadAll();
+      this.store.loadStorageStatus();
+    }
+  }
 
   readonly isServiceOnline = computed(() => {
     const s = this.store.serviceStatus().toUpperCase();
