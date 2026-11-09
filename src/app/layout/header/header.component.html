@@ -1,0 +1,69 @@
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-badge">DATAX</div>
+    <div class="brand-info">
+      <span class="brand-title">Plataforma de Prospección e Inteligencia Financiera</span>
+      <span class="brand-subtitle">Supervisión Documental, Custodia Institucional y Autoservicio Analítico</span>
+    </div>
+  </div>
+
+  <nav class="system-switcher" aria-label="Selector de Espacios de Trabajo">
+    <a routerLink="/externo" routerLinkActive="active" class="switcher-tab">
+      <span class="tab-step">1</span>
+      <span class="tab-title">Prospector Externo</span>
+    </a>
+
+    <a routerLink="/interno" routerLinkActive="active" class="switcher-tab">
+      <span class="tab-step">2</span>
+      <span class="tab-title">Prospector Interno</span>
+    </a>
+
+    <a routerLink="/bridge" routerLinkActive="active" class="switcher-tab">
+      <span class="tab-step">3</span>
+      <span class="tab-title">Conciliación Documental</span>
+    </a>
+  </nav>
+
+  <div class="header-right">
+    <div class="institution-context">
+      <label class="ctx-label" for="global-inst-select">Entidad Activa:</label>
+      <select
+        id="global-inst-select"
+        class="ctx-select"
+        [ngModel]="institutionState.currentInstitutionId()"
+        (ngModelChange)="onInstitutionChange($event)"
+      >
+        @for (inst of institutions; track inst.id) {
+          <option [value]="inst.id">{{ inst.code }} — {{ inst.name }}</option>
+        }
+      </select>
+    </div>
+
+    <div
+      class="system-status"
+      [class.online]="monitor.isAllOperational()"
+      [class.warning]="!monitor.isAllOperational()"
+      [title]="'Externo: ' + (monitor.externoHealth().status === 'UP' ? 'En línea' : 'Sin respuesta') + ' | Interno: ' + (monitor.internoHealth().status === 'UP' ? 'En línea' : 'Sin respuesta')"
+    >
+      <span class="status-dot"></span>
+      <span class="status-label">
+        @if (monitor.isAllOperational()) {
+          Servicios en Línea
+        } @else if (monitor.operationalCount() > 0) {
+          Conexión Parcial
+        } @else {
+          Sin Conexión
+        }
+      </span>
+    </div>
+
+    <button
+      type="button"
+      class="btn-refresh"
+      (click)="monitor.refreshAll()"
+      title="Actualizar estado de conexión de los servicios"
+    >
+      Verificar
+    </button>
+  </div>
+</header>

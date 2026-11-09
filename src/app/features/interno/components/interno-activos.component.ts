@@ -1,272 +1,365 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
-import { CommonModule, SlicePipe } from '@angular/common';
+import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
+import { CommonModule, DatePipe, SlicePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AnalyticsService } from '../../../core/services/analytics.service';
-import { PredefinedViewResult, GoldDimensions } from '../../../core/models/analytics.model';
-import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
+import { InstitutionStateService } from '../../../core/services/institution-state.service';
+import {
+  DatamartDictionaryDetail,
+  DatamartLineageEntry,
+  DatamartRelationshipItem,
+  DatamartSummaryItem,
+  GoldDimensions,
+  LineageIntegrityCheckResult,
+  PredefinedViewMetadata,
+  SelfServiceAccessLog,
+  SelfServiceApiKey
+} from '../../../core/models/analytics.model';
+import {
+  formatInteger,
+  formatMetricCell,
+  isNumericMetricColumn
+} from '../../../shared/utils/format.utils';
 
-interface DataColumnDefinition {
-  name: string;
-  dataType: string;
-  role: 'Clave Dimensión' | 'Partición' | 'Métrica Numérica' | 'Linaje Criptográfico' | 'Auditoría ETL';
-  description: string;
-  isNullable: boolean;
-}
+type ActivosSubTab = 'explorer' | 'dictionary' | 'connectors';
 
-const DATA_DICTIONARY_COLUMNS: DataColumnDefinition[] = [
-  {
-    name: 'institucion_id',
-    dataType: 'VARCHAR',
-    role: 'Clave Dimensión',
-    description: 'Código alfanumérico normalizado de la entidad emisora (ej. CRECER, DIACONIA, PRO_MUJER)',
-    isNullable: false
-  },
-  {
-    name: 'institucion_nombre',
-    dataType: 'VARCHAR',
-    role: 'Clave Dimensión',
-    description: 'Denominación oficial completa de la entidad o emisor del reporte',
-    isNullable: false
-  },
-  {
-    name: 'gestion',
-    dataType: 'INTEGER',
-    role: 'Partición',
-    description: 'Año calendario del reporte procesado (Clave primaria de partición física en Parquet)',
-    isNullable: false
-  },
-  {
-    name: 'mes',
-    dataType: 'INTEGER',
-    role: 'Partición',
-    description: 'Mes de corte de la información numérica (1 a 12, subpartición física en Parquet)',
-    isNullable: false
-  },
-  {
-    name: 'cartera_bruta',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Volumen consolidado de cartera de colocaciones extraído del reporte fuente',
-    isNullable: true
-  },
-  {
-    name: 'cartera_vigente',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Colocaciones activas con cumplimiento regular de cronograma',
-    isNullable: true
-  },
-  {
-    name: 'cartera_vencida',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Colocaciones con amortización impaga fuera del plazo pactado',
-    isNullable: true
-  },
-  {
-    name: 'cartera_en_ejecucion',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Colocaciones en proceso formal de cobranza judicial',
-    isNullable: true
-  },
-  {
-    name: 'cartera_en_mora',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Sumatoria total de colocaciones vencidas y en ejecución',
-    isNullable: true
-  },
-  {
-    name: 'prevision_cartera',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Fondo de cobertura técnica preventiva asignado en el balance',
-    isNullable: true
-  },
-  {
-    name: 'total_activo',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Valor total consolidado de los activos declarados en el estado financiero',
-    isNullable: true
-  },
-  {
-    name: 'total_pasivo',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Valor total consolidado de las obligaciones y pasivos exigibles',
-    isNullable: true
-  },
-  {
-    name: 'total_patrimonio',
-    dataType: 'DOUBLE',
-    role: 'Métrica Numérica',
-    description: 'Valor total consolidado del patrimonio neto institucional',
-    isNullable: true
-  },
-  {
-    name: 'source_file_sha256',
-    dataType: 'VARCHAR(64)',
-    role: 'Linaje Criptográfico',
-    description: 'Firma digital SHA-256 del archivo inmutable resguardado en Capa Bronze del cual se extrajo este registro',
-    isNullable: false
-  },
-  {
-    name: 'transformed_at',
-    dataType: 'TIMESTAMP',
-    role: 'Auditoría ETL',
-    description: 'Timestamp UTC en que el pipeline procesó y consolidó el registro en Capa Gold',
-    isNullable: false
-  }
-];
+const INSTITUTION_TO_DATAMART: Record<string, string> = {
+  asfi: 'mart_indicadores_asfi',
+  bcb: 'mart_tasas_bcb',
+  finrural: 'mart_cartera',
+  bbv: 'mart_estadisticas_bbv'
+};
 
 @Component({
   selector: 'app-interno-activos',
   standalone: true,
-  imports: [CommonModule, SlicePipe, KpiCardComponent],
+  imports: [CommonModule, FormsModule, SlicePipe, DatePipe],
   templateUrl: './interno-activos.component.html',
   styleUrl: './interno-activos.component.css'
 })
 export class InternoActivosComponent implements OnInit {
   private readonly analyticsService = inject(AnalyticsService);
+  private readonly institutionState = inject(InstitutionStateService);
 
-  readonly activeSubTab = signal<'dictionary' | 'explorer'>('dictionary');
+  readonly formatInt = formatInteger;
+
+  readonly activeSubTab = signal<ActivosSubTab>('explorer');
+
+  // Repositorios consolidados
+  readonly datamarts = signal<DatamartSummaryItem[]>([]);
+  readonly selectedDatamart = signal<string>(
+    INSTITUTION_TO_DATAMART[this.institutionState.currentInstitutionId()] || 'mart_cartera'
+  );
+  readonly materializing = signal<boolean>(false);
+  readonly materializeMessage = signal<string>('');
+
+  // Consulta directa y vistas preestablecidas
   readonly dimensions = signal<GoldDimensions | null>(null);
+  readonly predefinedViews = signal<PredefinedViewMetadata[]>([]);
+  readonly selectedQueryMode = signal<string>('DIRECT_TABLE');
   readonly selectedInstitution = signal<string>('');
   readonly selectedGestion = signal<number | null>(null);
   readonly selectedMes = signal<number | null>(null);
   readonly resultLimit = signal<number>(50);
 
-  readonly viewResult = signal<PredefinedViewResult | null>(null);
+  readonly tableColumns = signal<string[]>([]);
+  readonly tableRecords = signal<Record<string, unknown>[]>([]);
+  readonly totalRecordsCount = signal<number>(0);
   readonly loadingData = signal<boolean>(false);
-  readonly materializing = signal<boolean>(false);
 
-  readonly dictionaryColumns = DATA_DICTIONARY_COLUMNS;
+  // Catálogo técnico, relaciones y cadena de custodia
+  readonly dictionary = signal<DatamartDictionaryDetail | null>(null);
+  readonly relationships = signal<DatamartRelationshipItem[]>([]);
+  readonly lineageEntries = signal<DatamartLineageEntry[]>([]);
+  readonly verificationResults = signal<Record<string, LineageIntegrityCheckResult>>({});
+  readonly verifyingAssetId = signal<string | null>(null);
 
-  ngOnInit(): void {
-    this.loadDimensions();
-    this.refreshCurrentView();
+  // Conectores Excel Power Query / Power BI (API Keys)
+  readonly apiKeys = signal<SelfServiceApiKey[]>([]);
+  readonly accessLogs = signal<SelfServiceAccessLog[]>([]);
+  readonly newlyIssuedKey = signal<SelfServiceApiKey | null>(null);
+  readonly creatingKey = signal<boolean>(false);
+  readonly copiedToken = signal<string>('');
+
+  newKeyLabel = 'Libro Ejecutivo Excel — Analista Financiero';
+  newKeyScope = '*';
+
+  readonly activeDatamartSummary = computed<DatamartSummaryItem | undefined>(() =>
+    this.datamarts().find((d) => d.datamart === this.selectedDatamart())
+  );
+
+  readonly columnMetaMap = computed<Record<string, { label: string; unit?: string | null }>>(() => {
+    const dict = this.dictionary();
+    const map: Record<string, { label: string; unit?: string | null }> = {};
+    if (dict) {
+      for (const col of dict.columns) {
+        map[col.column_name] = { label: col.business_label, unit: col.unit };
+      }
+    }
+    return map;
+  });
+
+  readonly activeFeedUrl = computed<string>(() => {
+    const rawKey = this.newlyIssuedKey()?.raw_api_key || 'INGRESE_SU_LLAVE_DE_ACCESO';
+    return this.analyticsService.buildLiveFeedUrl(this.selectedDatamart(), rawKey, 'csv');
+  });
+
+  readonly powerQueryFormula = computed<string>(() => {
+    const url = this.activeFeedUrl();
+    return [
+      'let',
+      `    Origen = Csv.Document(Web.Contents("${url}"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.None]),`,
+      '    EncabezadosPromovidos = Table.PromoteHeaders(Origen, [PromoteAllScalars=true])',
+      'in',
+      '    EncabezadosPromovidos'
+    ].join('\n');
+  });
+
+  private lastSyncedInst = this.institutionState.currentInstitutionId();
+
+  constructor() {
+    effect(() => {
+      const inst = this.institutionState.currentInstitutionId();
+      if (inst && inst !== this.lastSyncedInst) {
+        this.lastSyncedInst = inst;
+        const mappedDm = INSTITUTION_TO_DATAMART[inst];
+        if (mappedDm && mappedDm !== this.selectedDatamart()) {
+          this.selectDatamart(mappedDm);
+        }
+      }
+    });
   }
 
-  loadDimensions(): void {
-    this.analyticsService.getDimensions().subscribe({
-      next: (dims) => this.dimensions.set(dims),
+  ngOnInit(): void {
+    this.loadDatamartsOverview();
+    this.loadDatamartContext(this.selectedDatamart());
+    this.loadSelfServiceKeysAndLogs();
+  }
+
+  loadDatamartsOverview(): void {
+    this.analyticsService.getDatamartsSummary().subscribe({
+      next: (list) => this.datamarts.set(list),
       error: () => {}
     });
   }
 
-  onInstitutionChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedInstitution.set(val);
+  selectDatamart(datamart: string): void {
+    this.selectedDatamart.set(datamart);
+    this.selectedInstitution.set('');
+    this.selectedGestion.set(null);
+    this.selectedMes.set(null);
+    this.selectedQueryMode.set('DIRECT_TABLE');
+    this.loadDatamartContext(datamart);
   }
 
-  onGestionChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedGestion.set(val ? Number(val) : null);
+  private loadDatamartContext(datamart: string): void {
+    this.analyticsService.getDimensions(datamart).subscribe({
+      next: (dims) => this.dimensions.set(dims),
+      error: () => this.dimensions.set(null)
+    });
+
+    this.analyticsService.getPredefinedViews(datamart).subscribe({
+      next: (views) => this.predefinedViews.set(views),
+      error: () => this.predefinedViews.set([])
+    });
+
+    this.analyticsService.getDatamartDictionary(datamart).subscribe({
+      next: (dict) => this.dictionary.set(dict),
+      error: () => this.dictionary.set(null)
+    });
+
+    this.analyticsService.getRelationships(datamart).subscribe({
+      next: (rels) => this.relationships.set(rels),
+      error: () => this.relationships.set([])
+    });
+
+    this.analyticsService.getDatamartLineage(datamart, 60).subscribe({
+      next: (entries) => this.lineageEntries.set(entries),
+      error: () => this.lineageEntries.set([])
+    });
+
+    this.executeCurrentQuery();
   }
 
-  onMesChange(event: Event): void {
-    const val = (event.target as HTMLSelectElement).value;
-    this.selectedMes.set(val ? Number(val) : null);
-  }
-
-  onLimitChange(event: Event): void {
-    const val = Number((event.target as HTMLSelectElement).value);
-    this.resultLimit.set(val);
-  }
-
-  refreshCurrentView(): void {
+  executeCurrentQuery(): void {
+    const dm = this.selectedDatamart();
+    const mode = this.selectedQueryMode();
     this.loadingData.set(true);
 
-    const req = {
-      institutions: this.selectedInstitution() ? [this.selectedInstitution()] : undefined,
-      gestion: this.selectedGestion() ?? undefined,
-      mes: this.selectedMes() ?? undefined,
-      limit: this.resultLimit()
-    };
+    if (mode === 'DIRECT_TABLE') {
+      this.analyticsService
+        .queryDatamart({
+          datamart: dm,
+          institutions: this.selectedInstitution() ? [this.selectedInstitution()] : null,
+          gestiones: this.selectedGestion() !== null ? [this.selectedGestion()!] : null,
+          meses: this.selectedMes() !== null ? [this.selectedMes()!] : null
+        })
+        .subscribe({
+          next: (res) => {
+            const limit = this.resultLimit();
+            this.tableColumns.set(res.columns);
+            this.tableRecords.set(res.records.slice(0, limit));
+            this.totalRecordsCount.set(res.total_records);
+            this.loadingData.set(false);
+          },
+          error: () => {
+            this.tableRecords.set([]);
+            this.totalRecordsCount.set(0);
+            this.loadingData.set(false);
+          }
+        });
+    } else {
+      this.analyticsService
+        .executePredefinedView(mode, {
+          institutions: this.selectedInstitution() ? [this.selectedInstitution()] : null,
+          gestion: this.selectedGestion(),
+          mes: this.selectedMes(),
+          limit: this.resultLimit()
+        })
+        .subscribe({
+          next: (res) => {
+            this.tableColumns.set(res.columns);
+            this.tableRecords.set(res.records);
+            this.totalRecordsCount.set(res.total_records);
+            this.loadingData.set(false);
+          },
+          error: () => {
+            this.tableRecords.set([]);
+            this.totalRecordsCount.set(0);
+            this.loadingData.set(false);
+          }
+        });
+    }
+  }
 
-    // Usar la vista multidimensional de Capa Gold
-    this.analyticsService.executePredefinedView('ranking-solvencia-cobertura', req).subscribe({
+  onMaterializeAll(): void {
+    this.materializing.set(true);
+    this.materializeMessage.set('Consolidando los 4 repositorios financieros...');
+    this.analyticsService.materializeGold().subscribe({
       next: (res) => {
-        this.viewResult.set(res);
-        this.loadingData.set(false);
+        this.materializing.set(false);
+        this.materializeMessage.set(
+          `Consolidación completada: ${formatInteger(res.total_gold_records)} registros estructurados y disponibles para consulta.`
+        );
+        this.loadDatamartsOverview();
+        this.loadDatamartContext(this.selectedDatamart());
+        setTimeout(() => this.materializeMessage.set(''), 6000);
       },
       error: () => {
-        this.loadingData.set(false);
+        this.materializing.set(false);
+        this.materializeMessage.set('No fue posible completar la consolidación en este momento.');
       }
     });
   }
 
-  materializeDatamart(): void {
-    this.materializing.set(true);
-    this.analyticsService.materializeGold().subscribe({
-      next: () => {
-        this.materializing.set(false);
-        this.loadDimensions();
-        this.refreshCurrentView();
-      },
-      error: () => {
-        this.materializing.set(false);
-      }
+  getExportHref(format: 'xlsx' | 'csv'): string {
+    return this.analyticsService.buildExportUrl(format, {
+      datamart: this.selectedDatamart(),
+      gestion: this.selectedGestion(),
+      mes: this.selectedMes(),
+      institutionId: this.selectedInstitution() || null
     });
+  }
+
+  getColumnHeader(col: string): string {
+    const meta = this.columnMetaMap()[col];
+    if (meta?.label) return meta.label;
+    return col.replace(/_/g, ' ');
   }
 
   isNumericCol(col: string): boolean {
-    return (
-      col.includes('cartera') ||
-      col.includes('total') ||
-      col.includes('activo') ||
-      col.includes('pasivo') ||
-      col.includes('patrimonio') ||
-      col.includes('prevision') ||
-      col.includes('ratio') ||
-      col === 'gestion' ||
-      col === 'mes'
-    );
+    const meta = this.columnMetaMap()[col];
+    if (meta?.unit) return true;
+    return isNumericMetricColumn(col);
   }
 
-  formatNumber(val: any): string {
-    if (typeof val !== 'number') return String(val ?? '-');
-    return val.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  formatCell(col: string, val: unknown): string {
+    const unit = this.columnMetaMap()[col]?.unit;
+    return formatMetricCell(col, val, unit);
   }
 
-  exportToCsv(): void {
-    const res = this.viewResult();
-    if (!res || !res.records || !res.records.length) return;
-    const cols = res.columns;
-    const header = cols.join(',');
-    const rows = res.records.map((r) =>
-      cols.map((c) => {
-        const val = r[c];
-        if (val === null || val === undefined) return '';
-        if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
-          return `"${val.replace(/"/g, '""')}"`;
+  onVerifyAsset(assetId: string): void {
+    this.verifyingAssetId.set(assetId);
+    this.analyticsService.verifyAssetIntegrity(assetId).subscribe({
+      next: (res) => {
+        this.verificationResults.set({
+          ...this.verificationResults(),
+          [assetId]: res
+        });
+        this.verifyingAssetId.set(null);
+      },
+      error: () => {
+        this.verifyingAssetId.set(null);
+      }
+    });
+  }
+
+  loadSelfServiceKeysAndLogs(): void {
+    this.analyticsService.getApiKeys().subscribe({
+      next: (keys) => this.apiKeys.set(keys),
+      error: () => {}
+    });
+    this.analyticsService.getAccessLogs(20).subscribe({
+      next: (logs) => this.accessLogs.set(logs),
+      error: () => {}
+    });
+  }
+
+  onCreateApiKey(): void {
+    const label = this.newKeyLabel.trim();
+    if (!label) return;
+    this.creatingKey.set(true);
+    this.analyticsService
+      .createApiKey({
+        label,
+        allowed_datamarts: this.newKeyScope
+      })
+      .subscribe({
+        next: (created) => {
+          this.newlyIssuedKey.set(created);
+          this.creatingKey.set(false);
+          this.loadSelfServiceKeysAndLogs();
+        },
+        error: () => {
+          this.creatingKey.set(false);
         }
-        return String(val);
-      }).join(',')
-    );
-    const csvContent = [header, ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `datax_gold_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      });
   }
 
-  exportToJson(): void {
-    const res = this.viewResult();
-    if (!res || !res.records || !res.records.length) return;
-    const jsonStr = JSON.stringify(res.records, null, 2);
-    const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `datax_gold_export_${new Date().toISOString().slice(0, 10)}.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  onRevokeApiKey(keyId: string): void {
+    this.analyticsService.revokeApiKey(keyId).subscribe({
+      next: () => {
+        if (this.newlyIssuedKey()?.key_id === keyId) {
+          this.newlyIssuedKey.set(null);
+        }
+        this.loadSelfServiceKeysAndLogs();
+      }
+    });
+  }
+
+  copyText(text: string, tokenName: string): void {
+    navigator.clipboard.writeText(text);
+    this.copiedToken.set(tokenName);
+    setTimeout(() => {
+      if (this.copiedToken() === tokenName) {
+        this.copiedToken.set('');
+      }
+    }, 2500);
+  }
+
+  formatDatamartName(dm: string): string {
+    switch (dm) {
+      case 'mart_cartera':
+        return 'Cartera y Balance (FINRURAL)';
+      case 'mart_tasas_bcb':
+        return 'Tasas de Interés (BCB)';
+      case 'mart_estadisticas_bbv':
+        return 'Operaciones Bursátiles (BBV)';
+      case 'mart_indicadores_asfi':
+        return 'Indicadores Financieros (ASFI)';
+      case '*':
+        return 'Todos los Repositorios (*)';
+      default:
+        return dm;
+    }
   }
 }

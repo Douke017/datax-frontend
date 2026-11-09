@@ -1,75 +1,85 @@
 <div class="custodia-container">
-  <!-- KPI Stats Grid -->
   <div class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-header">
         <span class="kpi-title">ARCHIVOS RESGUARDADOS</span>
         <span class="kpi-badge badge-success">INMUTABLES</span>
       </div>
-      <div class="kpi-value">{{ store.totalArtifactsCount() }}</div>
-      <div class="kpi-caption">Documentos originales en custodia física</div>
+      <div class="kpi-value">{{ formatInt(store.totalArtifactsCount()) }}</div>
+      <div class="kpi-caption">Documentos originales en custodia institucional</div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">ESPACIO EN CUSTODIA</span>
-        <span class="kpi-badge badge-info">REPOSITORIO LOCAL</span>
+        <span class="kpi-title">VOLUMEN EN CUSTODIA</span>
+        <span class="kpi-badge badge-info">ALMACENAMIENTO</span>
       </div>
       <div class="kpi-value">{{ store.totalBytesCustodyFormatted() }}</div>
-      <div class="kpi-caption">Almacenamiento total verificado en disco</div>
+      <div class="kpi-caption">Espacio físico auditado en repositorio</div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">
-          <span>INTEGRIDAD CRIPTOGRÁFICA</span>
-          <span class="help-tip" title="Auditoría de Inmutabilidad: Recalcula en disco la firma SHA-256 de cada archivo físico resguardado y la contrasta contra el catálogo de la BDD.">?</span>
-        </span>
+        <span class="kpi-title">INTEGRIDAD CRIPTOGRÁFICA</span>
         <span class="kpi-badge badge-purple">SHA-256</span>
       </div>
       <div class="kpi-value">{{ store.integrityRate() }}</div>
-      <div class="kpi-caption">Firmas validadas contra alteración o corrupción</div>
+      <div class="kpi-caption">Firmas digitales validadas contra alteración</div>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">
-          <span>PROTECCIÓN DE RED</span>
-          <span class="help-tip" title="Disyuntores de Red (Circuit Breakers): Pausan temporalmente las descargas hacia un portal bancario ante fallas consecutivas para evitar baneos de IP.">?</span>
-        </span>
-        <span class="kpi-badge badge-success">DISYUNTORES</span>
+        <span class="kpi-title">DISYUNTORES DE RED</span>
+        <span class="kpi-badge badge-success">RESILIENCIA</span>
       </div>
-      <div class="kpi-value">{{ store.allCircuitsOperational() ? 'OPERATIVO' : 'EN ENFRIAMIENTO' }}</div>
-      <div class="kpi-caption">Tráfico respetuoso y rate limit regulado</div>
+      <div class="kpi-value">
+        {{ store.allCircuitsOperational() ? 'OPERATIVOS' : 'EN AISLAMIENTO' }}
+      </div>
+      <div class="kpi-caption">Protección automática de servidores emisores</div>
     </div>
   </div>
 
-  <!-- Circuit Breakers Status Banner -->
   <div class="circuit-banner">
     <div class="circuit-header">
-      <span class="circuit-title">Estado de Conexión y Disyuntores de Red (Circuit Breakers):</span>
-      <span class="circuit-sub">Protección contra saturación de portales emisores</span>
+      <span class="circuit-title">Estado de Disyuntores de Protección por Dominio Institucional:</span>
+      <span class="circuit-sub">
+        Aislamiento preventivo ante fallas consecutivas en origen
+      </span>
     </div>
     <div class="circuits-list">
       @for (cb of store.circuitBreakers(); track cb.domain) {
         <div class="circuit-chip" [class.circuit-closed]="cb.status === 'CLOSED'">
-          <span class="circuit-dot"></span>
+          <span class="circuit-dot" [class.dot-open]="cb.status !== 'CLOSED'"></span>
           <span class="circuit-domain mono">{{ cb.domain }}</span>
-          <span class="circuit-state mono">{{ cb.status === 'CLOSED' ? 'OPERATIVO (0 Fallas)' : 'EN ENFRIAMIENTO' }}</span>
+          <span class="circuit-state mono" [class.state-open]="cb.status !== 'CLOSED'">
+            {{
+              cb.status === 'CLOSED'
+                ? 'HABILITADO (' + cb.failure_count + ' fallos)'
+                : 'AISLADO (' + cb.failure_count + ' fallos)'
+            }}
+          </span>
+          @if (cb.status !== 'CLOSED' || cb.failure_count > 0) {
+            <button
+              type="button"
+              class="btn-reset-cb"
+              (click)="onResetCircuit(cb.domain)"
+            >
+              Restablecer
+            </button>
+          }
         </div>
       }
     </div>
   </div>
 
-  <!-- Toolbar -->
   <div class="toolbar-card">
     <div class="search-box">
-      <label class="toolbar-label" for="artifact-search">Búsqueda de archivos en custodia:</label>
+      <label class="toolbar-label" for="artifact-search">Búsqueda en repositorio de custodia:</label>
       <input
         id="artifact-search"
         type="text"
         class="search-input mono"
-        placeholder="Buscar por nombre, código de publicación o hash SHA-256..."
+        placeholder="Filtrar por código de serie, dominio o huella SHA-256..."
         [value]="store.searchQuery()"
         (input)="onSearchInput($event)"
       />
@@ -77,14 +87,14 @@
 
     <div class="filter-group">
       <div class="filter-item">
-        <label class="toolbar-label" for="source-filter">Entidad:</label>
+        <label class="toolbar-label" for="source-filter">Serie Documental:</label>
         <select
           id="source-filter"
           class="select-input"
           [value]="store.sourceFilter()"
           (change)="onSourceChange($event)"
         >
-          <option value="ALL">Todas las Entidades</option>
+          <option value="ALL">Todas las Series</option>
           @for (src of store.uniqueSources(); track src) {
             <option [value]="src">{{ src }}</option>
           }
@@ -92,14 +102,14 @@
       </div>
 
       <div class="filter-item">
-        <label class="toolbar-label" for="period-filter">Periodo:</label>
+        <label class="toolbar-label" for="period-filter">Período:</label>
         <select
           id="period-filter"
           class="select-input"
           [value]="store.periodFilter()"
           (change)="onPeriodChange($event)"
         >
-          <option value="ALL">Todos los Periodos</option>
+          <option value="ALL">Todos los Períodos</option>
           @for (p of store.uniquePeriods(); track p) {
             <option [value]="p">{{ p }}</option>
           }
@@ -107,17 +117,17 @@
       </div>
 
       <div class="filter-item">
-        <label class="toolbar-label" for="sync-source">Entidad para Resguardo:</label>
+        <label class="toolbar-label" for="sync-source">Institución para Resguardo:</label>
         <select
           id="sync-source"
           class="select-input select-sync"
           [value]="selectedSourceForSync()"
           (change)="selectedSourceForSync.set($any($event.target).value)"
         >
-          <option value="bbv">Bolsa Boliviana de Valores (BBV)</option>
+          <option value="asfi">ASFI</option>
           <option value="bcb">Banco Central de Bolivia (BCB)</option>
           <option value="finrural">FINRURAL</option>
-          <option value="asfi">ASFI</option>
+          <option value="bbv">Bolsa Boliviana de Valores (BBV)</option>
         </select>
       </div>
 
@@ -128,61 +138,60 @@
         (click)="onExecuteSync()"
       >
         @if (store.syncing()) {
-          <span>Resguardando Lote Oficial...</span>
+          <span>Resguardando lote...</span>
         } @else {
-          <span>Resguardar Documentos Oficiales</span>
+          <span>Resguardar Lote Oficial</span>
         }
       </button>
     </div>
   </div>
 
-  <!-- Sync Result Banner -->
   @if (store.lastSyncResult(); as syncRes) {
     <div class="sync-banner">
       <div class="sync-heading">
-        <span class="sync-tag">RESGUARDO OFICIAL COMPLETADO</span>
+        <span class="sync-tag">RESGUARDO COMPLETADO</span>
         <span class="sync-summary">{{ formatSyncSummary(syncRes) }}</span>
       </div>
       <div class="sync-stats mono">
-        <span>Publicaciones Oficiales Almacenadas: <strong>{{ syncRes.completed_tasks }}</strong> de {{ syncRes.total_tasks }}</span>
+        <span>
+          Archivos verificados: <strong>{{ syncRes.completed_tasks }}</strong> de
+          {{ syncRes.total_tasks }}
+        </span>
       </div>
     </div>
   }
 
-  <!-- Artifacts Table -->
   <div class="table-card">
     <div class="table-scroll-container">
       <table class="custodia-table">
         <thead>
           <tr>
-            <th>Código de Publicación</th>
-            <th>Periodo</th>
-            <th>Portal Emisor</th>
+            <th>Serie Documental</th>
+            <th>Período</th>
+            <th>Dominio Emisor</th>
             <th>Tamaño</th>
             <th>Fecha de Resguardo</th>
-            <th>
-              <span>Integridad Normativa (ASFI/BCB)</span>
-              <span class="help-tip" title="Garantía de inmutabilidad: Demuestra ante auditorías regulatorias que el documento físico no sufrió alteración binaria desde su captura.">?</span>
-            </th>
+            <th>Huella SHA-256 e Inmutabilidad</th>
           </tr>
         </thead>
         <tbody>
           @for (art of store.pagedArtifacts(); track art.artifact_id) {
             <tr class="table-row">
               <td class="mono font-bold">{{ art.dataset_code }}</td>
-              <td class="mono">{{ art.period || 'Periódico' }}</td>
+              <td class="mono">{{ art.period || ' Institucional' }}</td>
               <td class="mono text-muted-subtle">{{ art.domain }}</td>
-              <td class="mono">{{ formatBytes(art.size_bytes) }}</td>
+              <td class="mono">{{ formatSize(art.size_bytes) }}</td>
               <td class="mono">{{ art.downloaded_at | slice:0:19 }}</td>
               <td class="integrity-cell">
-                <span class="badge-integrity-ok">
-                  [Original Certificado]
+                <span class="sha-snippet mono" [title]="art.sha256_hash">
+                  {{ art.sha256_hash | slice:0:16 }}...
                 </span>
+                <span class="badge-integrity-ok">Certificado</span>
                 <button
                   type="button"
                   class="btn-copy-hash"
                   (click)="copyHash(art.sha256_hash, art.artifact_id)"
-                  title="Firma SHA-256: {{ art.sha256_hash }}"
+                  title="Copiar firma completa SHA-256"
                 >
                   @if (copiedHashId() === art.artifact_id) {
                     <span>Copiada</span>
@@ -192,16 +201,24 @@
                 </button>
               </td>
             </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-custodia">
+                No existen archivos en custodia para el filtro actual.
+              </td>
+            </tr>
           }
         </tbody>
       </table>
     </div>
 
-    <!-- Pagination Bar -->
     <div class="pagination-bar">
       <div class="pagination-info">
-        Mostrando <span class="mono">{{ store.paginationRange().start }} – {{ store.paginationRange().end }}</span> de
-        <span class="mono">{{ store.totalFiltered() }}</span> archivos en custodia
+        Mostrando
+        <span class="mono"
+          >{{ store.paginationRange().start }} – {{ store.paginationRange().end }}</span
+        >
+        de <span class="mono">{{ formatInt(store.totalFiltered()) }}</span> archivos resguardados
       </div>
 
       <div class="pagination-controls">

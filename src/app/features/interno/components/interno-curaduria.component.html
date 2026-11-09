@@ -1,45 +1,45 @@
 <div class="curaduria-container">
-  <!-- KPIs Cuantitativos Reales -->
   <div class="kpi-row">
     <div class="kpi-mini">
-      <span class="kpi-mini-label">TOTAL URLS</span>
-      <span class="kpi-mini-value mono">{{ store.totalUrls() }}</span>
+      <span class="kpi-mini-label">TOTAL ENLACES CATALOGADOS</span>
+      <span class="kpi-mini-value mono">{{ formatInt(store.totalUrls()) }}</span>
     </div>
     <div class="kpi-mini">
-      <span class="kpi-mini-label">DESCARGADAS (BRONZE)</span>
-      <span class="kpi-mini-value mono text-emerald">{{ store.totalDownloaded() }}</span>
-      <span class="kpi-mini-sub mono">{{ store.downloadRate() }}%</span>
+      <span class="kpi-mini-label">EN CUSTODIA DOCUMENTAL</span>
+      <span class="kpi-mini-value mono text-emerald">{{ formatInt(store.totalDownloaded()) }}</span>
+      <span class="kpi-mini-sub mono">{{ formatPct(store.downloadRate()) }}</span>
     </div>
     <div class="kpi-mini">
-      <span class="kpi-mini-label">PROCESADAS (GOLD)</span>
-      <span class="kpi-mini-value mono text-cyan">{{ store.totalProcessed() }}</span>
-      <span class="kpi-mini-sub mono">{{ store.processingRate() }}%</span>
+      <span class="kpi-mini-label">CONSOLIDADOS PARA ANÁLISIS</span>
+      <span class="kpi-mini-value mono text-cyan">{{ formatInt(store.totalProcessed()) }}</span>
+      <span class="kpi-mini-sub mono">{{ formatPct(store.processingRate()) }}</span>
     </div>
     <div class="kpi-mini">
-      <span class="kpi-mini-label">PENDIENTES</span>
-      <span class="kpi-mini-value mono text-amber">{{ store.totalUrls() - store.totalDownloaded() }}</span>
+      <span class="kpi-mini-label">PENDIENTES DE DESCARGA</span>
+      <span class="kpi-mini-value mono text-amber">
+        {{ formatInt(store.totalUrls() - store.totalDownloaded()) }}
+      </span>
     </div>
   </div>
 
-  <!-- Barra de Filtros Operativos -->
   <div class="filter-bar">
     <div class="filter-item">
-      <label for="curaduria-src" class="filter-label">Institución:</label>
+      <label for="curaduria-src" class="filter-label">Institución Emisora:</label>
       <select
         id="curaduria-src"
         class="select-control"
         [value]="store.selectedSource()"
         (change)="onSourceChange($event)"
       >
-        <option value="ALL">Todas las fuentes</option>
+        <option value="ALL">Todas las instituciones</option>
         @for (src of store.sourcesList(); track src) {
-          <option [value]="src">{{ src }}</option>
+          <option [value]="src">{{ src.toUpperCase() }}</option>
         }
       </select>
     </div>
 
     <div class="filter-item">
-      <label for="curaduria-status" class="filter-label">Estado:</label>
+      <label for="curaduria-status" class="filter-label">Ciclo Documental:</label>
       <select
         id="curaduria-status"
         class="select-control"
@@ -47,36 +47,28 @@
         (change)="onStatusChange($event)"
       >
         <option value="ALL">Todos los estados</option>
-        <option value="DISPONIBLE_WEB_NUEVO">Nuevo en Portal Web</option>
+        <option value="DISPONIBLE_WEB_NUEVO">Nuevo en Portal Institucional</option>
         <option value="CATALOGADO_BDD">Registrado en Catálogo</option>
         <option value="DESCARGA_HISTORICA_LEGACY">Histórico Previo</option>
-        <option value="DESCARGADO_BRONZE">En Custodia Bronze</option>
+        <option value="DESCARGADO_BRONZE">En Custodia Documental</option>
       </select>
     </div>
 
     <div class="filter-item">
-      <label for="curaduria-dl" class="filter-label">Descarga:</label>
-      <select
-        id="curaduria-dl"
-        class="select-control"
-        (change)="onDownloadFilterChange($event)"
-      >
-        <option value="ALL">Todas</option>
-        <option value="YES">Solo Descargadas</option>
-        <option value="NO">Pendientes Descarga</option>
+      <label for="curaduria-dl" class="filter-label">Estado de Descarga:</label>
+      <select id="curaduria-dl" class="select-control" (change)="onDownloadFilterChange($event)">
+        <option value="ALL">Todos</option>
+        <option value="YES">Descargados en Custodia</option>
+        <option value="NO">Pendientes de Descarga</option>
       </select>
     </div>
 
     <div class="filter-item">
-      <label for="curaduria-pr" class="filter-label">Procesamiento:</label>
-      <select
-        id="curaduria-pr"
-        class="select-control"
-        (change)="onProcessedFilterChange($event)"
-      >
-        <option value="ALL">Todas</option>
-        <option value="YES">Solo Procesadas</option>
-        <option value="NO">Pendientes Proceso</option>
+      <label for="curaduria-pr" class="filter-label">Estado de Consolidación:</label>
+      <select id="curaduria-pr" class="select-control" (change)="onProcessedFilterChange($event)">
+        <option value="ALL">Todos</option>
+        <option value="YES">Consolidados</option>
+        <option value="NO">Pendientes de Consolidación</option>
       </select>
     </div>
 
@@ -86,54 +78,48 @@
         id="curaduria-search"
         type="text"
         class="input-control mono"
-        placeholder="Buscar por URL, archivo o código..."
+        placeholder="Filtrar por enlace, archivo o código..."
         [value]="store.searchQuery()"
         (input)="onSearchInput($event)"
       />
     </div>
   </div>
 
-  <!-- Tabla de URLs e Ingesta -->
   <div class="table-card">
     @if (store.loading()) {
       <div class="loading-state">
         <span class="loading-spinner"></span>
-        <span>Consultando inventario de URLs...</span>
+        <span>Consultando inventario centralizado de enlaces...</span>
       </div>
     } @else {
       <div class="table-responsive">
         <table class="inventory-table">
           <thead>
             <tr>
-              <th class="th-src">Institución</th>
+              <th class="th-src">Entidad</th>
               <th class="th-code">Código</th>
-              <th class="th-name">Archivo / Título</th>
-              <th class="th-url">URL Canónica</th>
-              <th class="th-switch">
-                <span>Custodia (Bronze)</span>
-                <span class="help-tip" title="Control de Curaduría: Al marcar como En Custodia, se actualiza el catálogo maestro indicando que el archivo físico ya está en custodia en el servidor.">?</span>
-              </th>
-              <th class="th-switch">
-                <span>Consolidado (Gold)</span>
-                <span class="help-tip" title="Control de Curaduría: Indica si los datos tabulares del documento ya fueron consolidados en Datamarts Gold para consultas analíticas.">?</span>
-              </th>
-              <th class="th-status">
-                <span>Estado Operativo</span>
-                <span class="help-tip" title="Ciclo de vida del recurso en el sistema: Nuevo en Portal, Registrado en Catálogo, En Custodia Bronze o Histórico Previo.">?</span>
-              </th>
+              <th class="th-name">Documento / Publicación</th>
+              <th class="th-url">Enlace Canónico</th>
+              <th class="th-switch">Estado en Custodia</th>
+              <th class="th-switch">Estado Consolidado</th>
+              <th class="th-status">Clasificación</th>
               <th class="th-updated">Actualizado</th>
             </tr>
           </thead>
           <tbody>
             @for (item of store.items(); track item.id) {
-              <tr class="item-row" [class.row-downloaded]="item.is_downloaded" [class.row-processed]="item.is_processed">
+              <tr
+                class="item-row"
+                [class.row-downloaded]="item.is_downloaded"
+                [class.row-processed]="item.is_processed"
+              >
                 <td class="td-src">
-                  <span class="source-tag mono">{{ item.source_id }}</span>
+                  <span class="source-tag mono">{{ item.source_id.toUpperCase() }}</span>
                 </td>
-                <td class="td-code mono">{{ item.file_code || ('#' + item.id) }}</td>
+                <td class="td-code mono">{{ item.file_code || '#' + item.id }}</td>
                 <td class="td-name">
-                  <div class="file-name" [title]="item.file_name || 'Sin título'">
-                    {{ item.file_name || 'Sin título asignado' }}
+                  <div class="file-name" [title]="item.file_name || 'Sin denominación'">
+                    {{ item.file_name || 'Sin denominación asignada' }}
                   </div>
                 </td>
                 <td class="td-url">
@@ -154,10 +140,11 @@
                     [class.active]="item.is_downloaded"
                     [disabled]="store.updatingId() === item.id"
                     (click)="store.toggleDownloaded(item)"
-                    title="Control de curaduría: Marca si el documento físico está en custodia en el servidor"
                   >
                     <span class="toggle-dot"></span>
-                    <span class="toggle-text">{{ item.is_downloaded ? 'EN CUSTODIA' : 'PENDIENTE' }}</span>
+                    <span class="toggle-text">
+                      {{ item.is_downloaded ? 'EN CUSTODIA' : 'PENDIENTE' }}
+                    </span>
                   </button>
                 </td>
                 <td class="td-switch">
@@ -167,14 +154,21 @@
                     [class.active]="item.is_processed"
                     [disabled]="store.updatingId() === item.id"
                     (click)="store.toggleProcessed(item)"
-                    title="Control de curaduría: Marca si la información ya fue extraída a Datamarts para consulta"
                   >
                     <span class="toggle-dot"></span>
-                    <span class="toggle-text">{{ item.is_processed ? 'CONSOLIDADO' : 'PENDIENTE' }}</span>
+                    <span class="toggle-text">
+                      {{ item.is_processed ? 'CONSOLIDADO' : 'PENDIENTE' }}
+                    </span>
                   </button>
                 </td>
                 <td class="td-status">
-                  <span class="status-pill mono" [class.status-bronze]="item.status === 'DESCARGADO_BRONZE' || item.status === 'COMPLETED'" [class.status-new]="item.status === 'DISPONIBLE_WEB_NUEVO'">
+                  <span
+                    class="status-pill mono"
+                    [class.status-bronze]="
+                      item.status === 'DESCARGADO_BRONZE' || item.status === 'COMPLETED'
+                    "
+                    [class.status-new]="item.status === 'DISPONIBLE_WEB_NUEVO'"
+                  >
                     {{ formatStatus(item.status) }}
                   </span>
                 </td>
@@ -183,7 +177,7 @@
             } @empty {
               <tr>
                 <td colspan="8" class="empty-state">
-                  No se encontraron URLs con los filtros seleccionados.
+                  No se encontraron registros para los criterios seleccionados.
                 </td>
               </tr>
             }
@@ -191,10 +185,12 @@
         </table>
       </div>
 
-      <!-- Paginación Directa -->
       <div class="pagination-bar">
         <span class="pagination-info mono">
-          Mostrando página {{ store.currentPage() }} de {{ store.totalPages() }} ({{ store.totalItems() }} URLs encontradas)
+          Página {{ store.currentPage() }} de {{ store.totalPages() }} ({{
+            formatInt(store.totalItems())
+          }}
+          registros encontrados)
         </span>
         <div class="pagination-actions">
           <button

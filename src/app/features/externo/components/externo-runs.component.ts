@@ -1,7 +1,8 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { ExternoStore } from '../externo.store';
-import { RunReport, SourceRunResult } from '../../../core/models/catalog.model';
+import { RunReport } from '../../../core/models/catalog.model';
+import { formatInteger } from '../../../shared/utils/format.utils';
 
 @Component({
   selector: 'app-externo-runs',
@@ -12,6 +13,7 @@ import { RunReport, SourceRunResult } from '../../../core/models/catalog.model';
 })
 export class ExternoRunsComponent {
   readonly store = inject(ExternoStore);
+  readonly formatInt = formatInteger;
 
   readonly selectedRunId = signal<string>('');
 
@@ -65,7 +67,7 @@ export class ExternoRunsComponent {
     let reqs = 0;
 
     for (const sr of run.source_results) {
-      const cov = sr.coverage as any;
+      const cov = sr.coverage;
       if (cov) {
         pages += cov.pages_visited || 0;
         disc += cov.urls_discovered || 0;
@@ -87,16 +89,16 @@ export class ExternoRunsComponent {
   }
 
   formatStopReason(reason?: string): string {
-    if (!reason) return 'Ciclo normal';
+    if (!reason) return 'Ciclo completado';
     switch (reason) {
       case 'QUEUE_EXHAUSTED':
-        return 'Cola agotada (exploración exhaustiva)';
+        return 'Exploración exhaustiva completada';
       case 'MAX_URLS_REACHED':
-        return 'Límite de URLs alcanzado';
+        return 'Presupuesto máximo de páginas alcanzado';
       case 'MAX_RESOURCES_REACHED':
-        return 'Límite de recursos alcanzado';
+        return 'Límite máximo de recursos alcanzado';
       case 'CIRCUIT_BREAKER_TRIGGERED':
-        return 'Disyuntor activado por fallas';
+        return 'Disyuntor activado por fallas consecutivas';
       default:
         return reason;
     }

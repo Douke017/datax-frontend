@@ -312,6 +312,62 @@
       font-family: var(--font-mono);
     }
 
+    .proc-kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px;
+    }
+    .proc-kpi {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .proc-lbl {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-subtle);
+      letter-spacing: 0.04em;
+    }
+    .proc-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .text-green { color: #34d399; }
+    .text-info { color: #38bdf8; }
+    .text-danger { color: #f87171; }
+    .font-bold { font-weight: 700; }
+
+    .proc-select {
+      background: var(--bg-app);
+      border: 1px solid var(--border-medium);
+      color: var(--text-muted);
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .proc-select.proc-done {
+      border-color: var(--success-border);
+      color: #34d399;
+      background: var(--success-bg);
+    }
+    .proc-select.proc-run {
+      border-color: var(--info-border);
+      color: #38bdf8;
+      background: var(--info-bg);
+    }
+    .proc-select.proc-err {
+      border-color: var(--danger-border);
+      color: #f87171;
+      background: var(--danger-bg);
+    }
+
     /* Drawer Styles */
     .drawer-backdrop {
       position: fixed;

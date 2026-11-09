@@ -1,17 +1,23 @@
 import { Component, inject, signal } from '@angular/core';
 import { SlicePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ExternoStore } from '../externo.store';
-import { CatalogResource } from '../../../core/models/catalog.model';
+import { FileProcessingStatus } from '../../../core/models/catalog.model';
+import { formatBytesBo, formatIntegerBo } from '../../../shared/utils/format.utils';
 
 @Component({
   selector: 'app-externo-inventory',
   standalone: true,
-  imports: [SlicePipe],
+  imports: [SlicePipe, FormsModule],
   templateUrl: './externo-inventory.component.html',
-  styleUrl: './externo-inventory.component.css'
+  styleUrls: ['./externo-inventory.component.css']
 })
 export class ExternoInventoryComponent {
   readonly store = inject(ExternoStore);
+  readonly formatBytes = formatBytesBo;
+  readonly formatInt = formatIntegerBo;
+
+  readonly copiedUrl = signal<boolean>(false);
 
   onSearchInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
@@ -37,6 +43,15 @@ export class ExternoInventoryComponent {
     this.store.setStatusFilter(val);
   }
 
+  onProcessingFilterChange(event: Event): void {
+    const val = (event.target as HTMLSelectElement).value as 'ALL' | FileProcessingStatus;
+    this.store.setProcessingFilter(val);
+  }
+
+  onUpdateProcessingStatus(resourceKey: string, nextStatus: string): void {
+    this.store.updateResourceStatus(resourceKey, nextStatus as FileProcessingStatus);
+  }
+
   onPageSizeChange(event: Event): void {
     const val = Number((event.target as HTMLSelectElement).value);
     this.store.setPageSize(val);
@@ -50,18 +65,26 @@ export class ExternoInventoryComponent {
         return 'CONFIRMADO';
       case 'MODIFIED':
         return 'MODIFICADO';
+      case 'REMOVED':
+      case 'DELETED':
+        return 'RETIRADO';
       default:
         return status;
     }
   }
 
-  formatBytes(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  getProcessingLabel(status?: FileProcessingStatus): string {
+    switch (status || 'PENDIENTE') {
+      case 'PROCESADO_EXITOSAMENTE':
+        return 'PROCESADO';
+      case 'EN_PROCESO':
+        return 'EN PROCESO';
+      case 'ERROR':
+        return 'CON ERROR';
+      default:
+        return 'PENDIENTE';
+    }
   }
-
-  readonly copiedUrl = signal<boolean>(false);
 
   copiarUrl(url: string): void {
     if (navigator?.clipboard) {

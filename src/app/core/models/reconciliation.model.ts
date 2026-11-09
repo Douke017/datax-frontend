@@ -31,6 +31,7 @@ export interface BridgeSyncRequest {
   external_api_url?: string | null;
   external_map_path?: string | null;
   batch_size?: number;
+  max_downloads?: number;
   execute_downloads?: boolean;
 }
 
@@ -42,15 +43,6 @@ export interface BridgeSyncResponse {
   failed_tasks: number;
   is_executed: boolean;
   summary: string;
-}
-
-export interface BronzeAsset {
-  filename: string;
-  source_id: string;
-  rel_path: string;
-  size_bytes: number;
-  sha256?: string;
-  last_modified: string;
 }
 
 export interface BronzeArtifactEntry {
@@ -78,7 +70,13 @@ export interface IngestionEvaluateRequest {
 }
 
 export interface IngestionEvaluateResponse {
-  verdict: 'PROCEED_DOWNLOAD' | 'CACHE_HIT_BRONZE' | 'CACHE_HIT_GOLD' | 'IN_FLIGHT_LOCKED' | 'REUSE_DERIVATION' | 'IN_PROGRESS';
+  verdict:
+    | 'PROCEED_DOWNLOAD'
+    | 'CACHE_HIT_BRONZE'
+    | 'CACHE_HIT_GOLD'
+    | 'IN_FLIGHT_LOCKED'
+    | 'REUSE_DERIVATION'
+    | 'IN_PROGRESS';
   idempotency_key: string;
   reason: string;
   lock_acquired: boolean;
@@ -89,6 +87,50 @@ export interface IngestionEvaluateResponse {
   subscribers_count: number;
   derivation_query?: string | null;
   missing_periods?: string[] | null;
+}
+
+export interface DerivationEvaluationRequest {
+  dataset_code: string;
+  period: string;
+  institution_id?: string | null;
+}
+
+export interface DerivationEvaluationResult {
+  status: 'DERIVABLE' | 'MISSING_PERIODS' | 'NOT_DERIVABLE';
+  is_derivable: boolean;
+  target_period: string;
+  granularity: 'ANNUAL' | 'SEMESTER' | 'QUARTER' | 'MONTHLY' | 'CUSTOM_RANGE';
+  required_periods: string[];
+  available_periods: string[];
+  missing_periods: string[];
+  coverage_ratio: number;
+  precompiled_sql?: string | null;
+  explanation: string;
+}
+
+export interface DownloadStatusItem {
+  download_id: string;
+  source_id: string;
+  canonical_url: string;
+  status: 'PENDING' | 'DOWNLOADING' | 'COMPLETED' | 'FAILED';
+  bytes_downloaded: number;
+  total_bytes?: number | null;
+  task_id?: string | null;
+  subscribers_count: number;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+export interface DownloadsStatusListResponse {
+  total_active: number;
+  downloads: DownloadStatusItem[];
+}
+
+export interface EnqueueDownloadRequest {
+  source_id: string;
+  canonical_url: string;
+  status?: 'PENDING' | 'DOWNLOADING';
+  task_id?: string | null;
 }
 
 export interface DomainCircuitStatus {

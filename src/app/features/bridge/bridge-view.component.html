@@ -1,0 +1,292 @@
+<div class="bridge-container">
+  <div class="bridge-header-card">
+    <div class="header-main">
+      <div class="header-titles">
+        <span class="system-badge">CONCILIACIÓN DOCUMENTAL E INVENTARIO</span>
+        <h1 class="header-title">Conciliación entre Portales Oficiales y Custodia Institucional</h1>
+        <p class="header-desc">
+          Contrasta el catálogo de publicaciones detectadas en portales públicos frente a los archivos originales
+          resguardados con firma de integridad SHA-256, identificando brechas documentales y coordinando su adquisición controlada.
+        </p>
+      </div>
+
+      <div class="source-picker-box">
+        <label class="picker-label" for="bridge-source-select">Entidad Emisora:</label>
+        <select
+          id="bridge-source-select"
+          class="source-select"
+          [value]="store.selectedSourceId()"
+          (change)="onSourceSelect($event)"
+          [disabled]="store.reconciling() || store.syncing()"
+        >
+          <option value="bcb">Banco Central de Bolivia (BCB)</option>
+          <option value="bbv">Bolsa Boliviana de Valores (BBV)</option>
+          <option value="finrural">Asociación FINRURAL</option>
+          <option value="asfi_valores">Autoridad de Supervisión del Sistema Financiero (ASFI)</option>
+          <option value="ine">Instituto Nacional de Estadística (INE)</option>
+          <option value="aps">Autoridad de Pensiones y Seguros (APS)</option>
+        </select>
+        <button
+          type="button"
+          class="btn-reconcile"
+          (click)="onReconcile()"
+          [disabled]="store.reconciling() || store.syncing()"
+        >
+          @if (store.reconciling()) {
+            <span>Conciliando...</span>
+          } @else {
+            <span>Actualizar Conciliación</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    @if (store.error(); as err) {
+      <div class="error-banner">
+        <span class="error-label">AVISO OPERATIVO:</span>
+        <span class="error-msg">{{ err }}</span>
+      </div>
+    }
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">PUBLICACIONES EN PORTAL</span>
+        <span class="kpi-badge badge-neutral">CATÁLOGO EXTERNO</span>
+      </div>
+      <div class="kpi-value">{{ formatInt(store.totalDiscovered()) }}</div>
+      <div class="kpi-caption">Documentos publicados en el sitio institucional</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">RESGUARDADOS EN CUSTODIA</span>
+        <span class="kpi-badge badge-success">CERTIFICADOS</span>
+      </div>
+      <div class="kpi-value text-success">{{ formatInt(store.totalConfirmed()) }}</div>
+      <div class="kpi-caption">Archivos originales verificados con firma SHA-256</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">PENDIENTES DE RESGUARDO</span>
+        <span class="kpi-badge badge-info">NOVEDADES</span>
+      </div>
+      <div class="kpi-value text-info">{{ formatInt(store.totalNew()) }}</div>
+      <div class="kpi-caption">Publicaciones nuevas listas para incorporación</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-header">
+        <span class="kpi-title">ACTUALIZADOS EN ORIGEN</span>
+        <span class="kpi-badge badge-warning">REVISIÓN</span>
+      </div>
+      <div class="kpi-value text-warning">{{ formatInt(store.totalModified()) }}</div>
+      <div class="kpi-caption">Documentos con nueva versión respecto al archivo local</div>
+    </div>
+  </div>
+
+  <div class="sync-panel-card">
+    <div class="sync-panel-header">
+      <div>
+        <h2 class="panel-title">Planificación y Resguardo por Lotes</h2>
+        <p class="panel-desc">
+          Simule el lote de adquisición o ejecute la transferencia controlada con validación previa de duplicidad,
+          control de cortesía hacia el portal emisor y certificación SHA-256 inmediata.
+        </p>
+      </div>
+
+      <div class="sync-controls">
+        <div class="batch-selector">
+          <label class="batch-label" for="batch-size-select">Tamaño de Lote:</label>
+          <select
+            id="batch-size-select"
+            class="batch-select"
+            [value]="store.batchSize()"
+            (change)="onBatchSizeChange($event)"
+            [disabled]="store.syncing()"
+          >
+            <option [value]="5">5 publicaciones</option>
+            <option [value]="10">10 publicaciones</option>
+            <option [value]="25">25 publicaciones</option>
+            <option [value]="50">50 publicaciones</option>
+          </select>
+        </div>
+
+        <button
+          type="button"
+          class="btn-secondary-sync"
+          (click)="onExecuteSync(false)"
+          [disabled]="store.syncing() || store.reconciling()"
+        >
+          Simular Plan
+        </button>
+
+        <button
+          type="button"
+          class="btn-sync-exec"
+          (click)="onExecuteSync(true)"
+          [disabled]="store.syncing() || store.reconciling() || (store.totalNew() === 0 && store.totalModified() === 0)"
+        >
+          @if (store.syncing()) {
+            <span>Resguardando Lote...</span>
+          } @else {
+            <span>Resguardar Lote en Custodia</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    @if (store.lastSyncResult(); as syncRes) {
+      <div class="sync-result-box">
+        <div class="result-top">
+          <span class="result-badge mono">
+            {{ syncRes.is_executed ? 'RESGUARDO EJECUTADO' : 'SIMULACIÓN DE PLAN' }}
+          </span>
+          <span class="result-id mono">Plan: {{ syncRes.plan_id }}</span>
+        </div>
+        <p class="result-summary">{{ syncRes.summary }}</p>
+        <div class="result-stats">
+          <span class="stat-tag text-success">Resguardados: {{ syncRes.completed_tasks }}</span>
+          <span class="stat-tag" [class.text-danger]="syncRes.failed_tasks > 0">Incidencias: {{ syncRes.failed_tasks }}</span>
+          <span class="stat-tag">Programados en Lote: {{ syncRes.total_tasks }}</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="table-card">
+    <div class="table-toolbar">
+      <div class="category-filters">
+        <button
+          type="button"
+          class="filter-tab"
+          [class.active]="store.categoryFilter() === 'ALL'"
+          (click)="store.setCategoryFilter('ALL')"
+        >
+          Todos ({{ formatInt(store.totalDiscovered()) }})
+        </button>
+        <button
+          type="button"
+          class="filter-tab"
+          [class.active]="store.categoryFilter() === 'NEW'"
+          (click)="store.setCategoryFilter('NEW')"
+        >
+          Nuevos Pendientes ({{ formatInt(store.totalNew()) }})
+        </button>
+        <button
+          type="button"
+          class="filter-tab"
+          [class.active]="store.categoryFilter() === 'CONFIRMED'"
+          (click)="store.setCategoryFilter('CONFIRMED')"
+        >
+          En Custodia ({{ formatInt(store.totalConfirmed()) }})
+        </button>
+        <button
+          type="button"
+          class="filter-tab"
+          [class.active]="store.categoryFilter() === 'MODIFIED'"
+          (click)="store.setCategoryFilter('MODIFIED')"
+        >
+          Actualizados ({{ formatInt(store.totalModified()) }})
+        </button>
+      </div>
+
+      <div class="search-box">
+        <input
+          type="text"
+          class="search-input mono"
+          placeholder="Filtrar por enlace, código o periodo..."
+          [value]="store.searchQuery()"
+          (input)="onSearchInput($event)"
+        />
+      </div>
+    </div>
+
+    @if (store.reconciling()) {
+      <div class="loading-state">
+        <span class="loading-spinner"></span>
+        <span>Contrastando catálogo externo contra el repositorio de custodia...</span>
+      </div>
+    } @else if (store.pagedItems().length === 0) {
+      <div class="empty-state">
+        <span class="empty-title">Sin registros coincidentes</span>
+        <span class="empty-desc">No se encontraron publicaciones bajo los criterios seleccionados.</span>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="diff-table">
+          <thead>
+            <tr>
+              <th style="width: 130px;">Estado</th>
+              <th style="width: 110px;">Periodo</th>
+              <th style="width: 90px;">Formato</th>
+              <th>Enlace Oficial de Publicación</th>
+              <th>Dictamen de Conciliación</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of store.pagedItems(); track item.resource_key) {
+              <tr>
+                <td>
+                  @switch (item.category) {
+                    @case ('CONFIRMED') {
+                      <span class="badge-status badge-confirmed">RESGUARDADO</span>
+                    }
+                    @case ('NEW') {
+                      <span class="badge-status badge-new">PENDIENTE</span>
+                    }
+                    @case ('MODIFIED') {
+                      <span class="badge-status badge-modified">ACTUALIZADO</span>
+                    }
+                    @default {
+                      <span class="badge-status badge-neutral">{{ item.category }}</span>
+                    }
+                  }
+                </td>
+                <td class="mono">{{ item.period_label || 'General' }}</td>
+                <td class="mono text-uppercase">{{ item.file_extension || 'N/D' }}</td>
+                <td class="url-cell mono">
+                  <a [href]="item.url" target="_blank" rel="noopener noreferrer" [title]="item.url">
+                    {{ item.url | slice:0:82 }}{{ item.url.length > 82 ? '...' : '' }}
+                  </a>
+                </td>
+                <td class="detail-cell">{{ item.detail }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination-footer">
+        <span>
+          Mostrando <strong class="mono">{{ store.paginationStart() }} – {{ store.paginationEnd() }}</strong>
+          de <strong class="mono">{{ formatInt(store.totalFiltered()) }}</strong> publicaciones
+        </span>
+
+        <div class="pagination-controls">
+          <button
+            type="button"
+            class="btn-page"
+            [disabled]="store.currentPage() <= 1"
+            (click)="store.setPage(store.currentPage() - 1)"
+          >
+            Anterior
+          </button>
+          <span class="page-indicator mono">
+            Página {{ store.currentPage() }} de {{ store.totalPages() }}
+          </span>
+          <button
+            type="button"
+            class="btn-page"
+            [disabled]="store.currentPage() >= store.totalPages()"
+            (click)="store.setPage(store.currentPage() + 1)"
+          >
+            Siguiente
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+</div>

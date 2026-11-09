@@ -1,13 +1,15 @@
 <div class="overview-layout">
-  <!-- KPIs de Estado de Portales -->
   <section class="kpi-grid">
     <div class="kpi-card">
       <div class="kpi-header">
         <span class="kpi-title">LISTA BLANCA — FUENTES OPERATIVAS</span>
         <span class="badge-whitelist">OPERATIVAS</span>
       </div>
-      <div class="kpi-value text-green">{{ store.activeSourcesCount() }} <span class="kpi-total">/ {{ store.sources().length }}</span></div>
-      <p class="kpi-desc">Portales accesibles sin restricciones técnicas bajo rastreo continuo.</p>
+      <div class="kpi-value text-green">
+        {{ formatInt(store.activeSourcesCount()) }}
+        <span class="kpi-total">/ {{ formatInt(store.sources().length) }}</span>
+      </div>
+      <p class="kpi-desc">Portales oficiales accesibles sin impedimentos perimetrales bajo monitoreo continuo.</p>
     </div>
 
     <div class="kpi-card highlight-blacklist">
@@ -15,44 +17,52 @@
         <span class="kpi-title">LISTA NEGRA — FUENTES OBSERVADAS</span>
         <span class="badge-blacklist">CON INCIDENCIAS</span>
       </div>
-      <div class="kpi-value text-amber">{{ incidentSourcesCount() }} <span class="kpi-total">/ {{ store.sources().length }}</span></div>
-      <p class="kpi-desc">Portales con bloqueos TLS/WAF, límites de cuota o suspensión operativa.</p>
+      <div class="kpi-value text-amber">
+        {{ formatInt(incidentSourcesCount()) }}
+        <span class="kpi-total">/ {{ formatInt(store.sources().length) }}</span>
+      </div>
+      <p class="kpi-desc">Portales con restricciones TLS, bloqueos perimetrales, cambios estructurales o cuotas.</p>
     </div>
 
     <div class="kpi-card">
       <div class="kpi-header">
-        <span class="kpi-title">RECURSOS TOTALES INDEXADOS</span>
-        <span class="badge-info">CATÁLOGO</span>
+        <span class="kpi-title">PUBLICACIONES CATALOGADAS</span>
+        <span class="badge-info">INVENTARIO</span>
       </div>
-      <div class="kpi-value">{{ store.totalDiscovered() }}</div>
-      <p class="kpi-desc">Archivos de datos extraídos e inventariados en el sistema.</p>
+      <div class="kpi-value">{{ formatInt(store.totalDiscovered()) }}</div>
+      <p class="kpi-desc">Archivos documentales registrados y auditados a nivel de enlace oficial.</p>
     </div>
   </section>
 
-  <!-- Sección de Control y Auditoría de Fuentes -->
+  @if (store.runTriggerMessage(); as msg) {
+    <div class="run-notice-banner">
+      <span class="run-notice-tag font-mono">EXTRACCIÓN DIRIGIDA</span>
+      <span>{{ msg }}</span>
+    </div>
+  }
+
   <section class="main-card">
     <header class="card-header-bar">
       <div>
-        <h2 class="card-heading">Auditoría de Portales & Estado de Acceso</h2>
+        <h2 class="card-heading">Auditoría de Portales y Estado de Acceso</h2>
         <p class="card-subheading">
-          Monitoreo técnico de los 52 portales oficiales: verificación de disponibilidad, clasificación de errores y contingencias.
+          Supervisión operativa de los {{ formatInt(store.sources().length) }} portales del catálogo institucional: disponibilidad, causas de bloqueo y respaldo de contingencia.
         </p>
       </div>
-      <span class="total-badge">52 Fuentes Registradas</span>
+      <span class="total-badge">{{ formatInt(store.sources().length) }} Fuentes Registradas</span>
     </header>
 
-    <!-- Barra de Filtros y Búsqueda -->
     <div class="toolbar">
       <div class="search-wrap">
         <input
           type="text"
           class="search-input"
-          placeholder="Buscar por portal, sigla o código de error (ej. BCB, ASFI, TLS_HOLD)..."
+          placeholder="Buscar por código, entidad o código diagnóstico (ej. BCB, ASFI, TLS_HOLD)..."
           [value]="searchPortal()"
           (input)="onSearchInput($event)"
         />
         @if (searchPortal()) {
-          <button type="button" class="btn-clear" (click)="clearSearch()">✕</button>
+          <button type="button" class="btn-clear" (click)="clearSearch()">Limpiar</button>
         }
       </div>
 
@@ -63,7 +73,7 @@
           [class.active]="portalFilter() === 'ALL'"
           (click)="setPortalFilter('ALL')"
         >
-          Todas ({{ store.sources().length }})
+          Todas ({{ formatInt(store.sources().length) }})
         </button>
         <button
           type="button"
@@ -71,7 +81,7 @@
           [class.active]="portalFilter() === 'WHITELIST'"
           (click)="setPortalFilter('WHITELIST')"
         >
-          Lista Blanca: Operativas ({{ store.activeSourcesCount() }})
+          Lista Blanca: Operativas ({{ formatInt(store.activeSourcesCount()) }})
         </button>
         <button
           type="button"
@@ -79,17 +89,16 @@
           [class.active]="portalFilter() === 'BLACKLIST'"
           (click)="setPortalFilter('BLACKLIST')"
         >
-          Lista Negra: Con Incidencias ({{ incidentSourcesCount() }})
+          Lista Negra: Con Incidencias ({{ formatInt(incidentSourcesCount()) }})
         </button>
       </div>
     </div>
 
-    <!-- TABLA DE AUDITORÍA DE LISTA NEGRA (CUANDO SE FILTRA POR LISTA NEGRA) -->
     @if (portalFilter() === 'BLACKLIST') {
       <div class="blacklist-report">
         <div class="report-header">
-          <span class="report-title">INFORME DE FUENTES CON INCIDENCIA TÉCNICA (LISTA NEGRA)</span>
-          <span class="report-sub">Registro de causas técnicas de bloqueo, fallas de protocolo y límites para revisión del analista</span>
+          <span class="report-title">TABLA DE AUDITORÍA E INCIDENCIAS TÉCNICAS (LISTA NEGRA)</span>
+          <span class="report-sub">Detalle de portales observados, diagnóstico técnico de la causa y acciones de mitigación</span>
         </div>
 
         <div class="table-scroll">
@@ -98,10 +107,10 @@
               <tr>
                 <th>Código</th>
                 <th>Denominación Oficial</th>
-                <th>Tipo de Incidencia / Error</th>
-                <th>Diagnóstico y Causa Técnica</th>
+                <th>Código de Error</th>
+                <th>Diagnóstico Técnico de la Causa</th>
                 <th>Estado Operativo</th>
-                <th>Acciones</th>
+                <th>Mitigación</th>
               </tr>
             </thead>
             <tbody>
@@ -114,7 +123,7 @@
                     <div class="source-name-cell">
                       <span class="name-text">{{ source.name }}</span>
                       <a [href]="source.entrypoint" target="_blank" rel="noopener noreferrer" class="link-url font-mono" [title]="source.entrypoint">
-                        {{ source.entrypoint }} ↗
+                        {{ source.entrypoint }}
                       </a>
                     </div>
                   </td>
@@ -124,11 +133,11 @@
                       [class.error-suspended]="source.health_status === 'SUSPENDED'"
                       [class.error-warning]="source.health_status === 'WARNING'"
                     >
-                      {{ source.audit_code || 'SIN_CODIGO' }}
+                      {{ source.audit_code || 'OBSERVADO' }}
                     </span>
                   </td>
                   <td class="audit-note-cell">
-                    {{ source.audit_note || 'Pendiente de auditoría técnica detallada.' }}
+                    {{ source.audit_note || 'Requiere inspección técnica de selectores o conectividad.' }}
                   </td>
                   <td>
                     <span
@@ -140,19 +149,28 @@
                     </span>
                   </td>
                   <td>
-                    <button
-                      type="button"
-                      class="btn-action-config"
-                      (click)="onConfigureSource(source.source_id)"
-                    >
-                      Configurar Reglas ⚙
-                    </button>
+                    <div class="blacklist-actions">
+                      <button
+                        type="button"
+                        class="btn-action-config"
+                        (click)="onConfigureSource(source.source_id)"
+                      >
+                        Contingencia
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-action-config"
+                        (click)="onInspectReport(source.source_id)"
+                      >
+                        Informe Técnico
+                      </button>
+                    </div>
                   </td>
                 </tr>
               } @empty {
                 <tr>
                   <td colspan="6" class="empty-table-cell">
-                    No se encontraron fuentes con incidencias según los criterios de búsqueda.
+                    No se encontraron fuentes con incidencias bajo los criterios indicados.
                   </td>
                 </tr>
               }
@@ -161,7 +179,6 @@
         </div>
       </div>
     } @else {
-      <!-- CUADRÍCULA DE TARJETAS (TODAS O LISTA BLANCA) -->
       <div class="sources-grid">
         @for (source of filteredSources(); track source.source_id) {
           <div class="portal-card" [class.is-incident]="source.health_status !== 'ACTIVE'">
@@ -180,11 +197,9 @@
               </span>
             </div>
 
-            <!-- Banner de Incidencia si está en Lista Negra -->
             @if (source.health_status !== 'ACTIVE' && source.audit_code) {
               <div class="incident-callout" [class.incident-suspended]="source.health_status === 'SUSPENDED'">
                 <div class="incident-code-row">
-                  <span class="incident-icon">{{ source.health_status === 'SUSPENDED' ? '⛔' : '⚠️' }}</span>
                   <span class="incident-code font-mono">[{{ source.audit_code }}]</span>
                 </div>
                 <p class="incident-text">{{ source.audit_note }}</p>
@@ -195,28 +210,30 @@
               <div class="meta-row">
                 <span class="meta-label">Punto de entrada:</span>
                 <a [href]="source.entrypoint" target="_blank" rel="noopener noreferrer" class="meta-link font-mono" [title]="source.entrypoint">
-                  {{ source.entrypoint }} ↗
+                  {{ source.entrypoint }}
                 </a>
               </div>
 
               @if (source.contingency_url || (source.contingency_urls && source.contingency_urls.length > 0)) {
                 <div class="meta-row">
-                  <span class="meta-label text-blue">Contingencia:</span>
+                  <span class="meta-label text-blue">Respaldo activo:</span>
                   <span class="meta-val font-mono text-blue">
-                    {{ source.contingency_urls && source.contingency_urls.length > 1 ? (source.contingency_urls.length + ' URLs de respaldo') : (source.contingency_url || source.contingency_urls?.[0]) }}
+                    {{ source.contingency_urls && source.contingency_urls.length > 1 ? (source.contingency_urls.length + ' URLs alternativas') : (source.contingency_url || source.contingency_urls?.[0]) }}
                   </span>
                 </div>
               }
 
               <div class="meta-row">
-                <span class="meta-label">Motor & Frecuencia:</span>
-                <span class="meta-val font-mono">{{ source.workflow }} · {{ source.update_category === 'DAILY' ? 'Diario' : (source.update_category === 'WEEKLY' ? 'Semanal' : 'Mensual') }}</span>
+                <span class="meta-label">Módulo y Frecuencia:</span>
+                <span class="meta-val font-mono">
+                  {{ formatWorkflowLabel(source.workflow) }} · {{ source.update_category === 'DAILY' ? 'Diario' : (source.update_category === 'WEEKLY' ? 'Semanal' : 'Mensual') }}
+                </span>
               </div>
 
               <div class="meta-row">
-                <span class="meta-label">Recursos detectados:</span>
+                <span class="meta-label">Archivos catalogados:</span>
                 <span class="meta-val font-bold">
-                  {{ getSourceResourceCount(source.source_id) }} archivos
+                  {{ formatInt(getSourceResourceCount(source.source_id)) }} documentos
                 </span>
               </div>
             </div>
@@ -227,28 +244,45 @@
                   type="button"
                   class="btn-view-resources"
                   (click)="filterBySource(source.source_id)"
-                  title="Ver inventario de archivos"
                 >
-                  Ver Recursos ({{ getSourceResourceCount(source.source_id) }}) &rarr;
+                  Ver Catálogo ({{ formatInt(getSourceResourceCount(source.source_id)) }})
                 </button>
               } @else {
-                <span class="pending-pill">En Espera de Rastreo</span>
+                <button
+                  type="button"
+                  class="btn-configure"
+                  [disabled]="store.triggeringSourceId() === source.source_id"
+                  (click)="onTriggerRun(source.source_id)"
+                >
+                  {{ store.triggeringSourceId() === source.source_id ? 'Iniciando...' : 'Ejecutar Rastreo' }}
+                </button>
               }
 
-              <button
-                type="button"
-                class="btn-configure"
-                (click)="onConfigureSource(source.source_id)"
-                title="Configurar parámetros y contingencia"
-              >
-                Configurar Reglas ⚙
-              </button>
+              <div class="right-card-btns">
+                @if (getSourceResourceCount(source.source_id) > 0) {
+                  <button
+                    type="button"
+                    class="btn-configure"
+                    [disabled]="store.triggeringSourceId() === source.source_id"
+                    (click)="onTriggerRun(source.source_id)"
+                    title="Ejecutar extracción dirigida sobre este portal"
+                  >
+                    Extraer
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="btn-configure"
+                  (click)="onConfigureSource(source.source_id)"
+                >
+                  Parámetros
+                </button>
+              </div>
             </div>
           </div>
         } @empty {
           <div class="empty-state">
-            <span class="empty-icon">🔍</span>
-            <p>No se encontraron portales que coincidan con la búsqueda.</p>
+            <p>No se encontraron portales que coincidan con el filtro aplicado.</p>
             <button type="button" class="btn-reset" (click)="resetFilters()">Restablecer Filtros</button>
           </div>
         }

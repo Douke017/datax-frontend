@@ -137,6 +137,32 @@
   color: #34d399;
 }
 
+.dot-open {
+  background: #f59e0b;
+  box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+}
+
+.state-open {
+  color: #fbbf24;
+}
+
+.btn-reset-cb {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.empty-custodia {
+  text-align: center;
+  padding: 28px;
+  color: var(--text-muted);
+}
+
 /* Toolbar */
 .toolbar-card {
   background: var(--bg-surface);

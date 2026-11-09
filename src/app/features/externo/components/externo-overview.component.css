@@ -597,3 +597,30 @@
 .text-blue { color: #60a5fa; }
 .font-mono { font-family: var(--font-mono); }
 .font-bold { font-weight: 700; }
+
+.run-notice-banner {
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.run-notice-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: #60a5fa;
+  background: rgba(37, 99, 235, 0.2);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.blacklist-actions,
+.right-card-btns {
+  display: flex;
+  gap: 6px;
+}

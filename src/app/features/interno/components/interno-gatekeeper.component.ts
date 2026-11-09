@@ -1,86 +1,232 @@
-import { Component, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { CommonModule, SlicePipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { InternoStore } from '../interno.store';
 import { InventoryStore } from '../inventory.store';
 import { IngestionEvaluateRequest } from '../../../core/models/reconciliation.model';
+import { formatBytes, formatPercentage } from '../../../shared/utils/format.utils';
+
+interface PresetScenario {
+  id: string;
+  label: string;
+  entity: string;
+  datasetCode: string;
+  domain: string;
+  period: string;
+  targetUrl: string;
+}
 
 @Component({
   selector: 'app-interno-gatekeeper',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule, SlicePipe],
   templateUrl: './interno-gatekeeper.component.html',
   styleUrl: './interno-gatekeeper.component.css'
 })
-export class InternoGatekeeperComponent {
+export class InternoGatekeeperComponent implements OnInit {
   readonly store = inject(InternoStore);
   readonly inventoryStore = inject(InventoryStore);
 
-  readonly selectedSource = signal<string>('bbv');
-  readonly searchQuery = signal<string>('');
-  readonly forceRefresh = signal<boolean>(false);
+  readonly formatSize = formatBytes;
+  readonly formatPct = formatPercentage;
 
-  readonly datasetCode = signal<string>('DS_BO_BBV');
-  readonly domain = signal<string>('www.bbv.com.bo');
-  readonly targetUrl = signal<string>('https://www.bbv.com.bo/wp-content/uploads/2024/10/137-tarifario-oficial-bbv.pdf');
-  readonly period = signal<string>('2024');
+  readonly presets: PresetScenario[] = [
+    {
+      id: 'consolidated',
+      label: 'Información Consolidada Existente',
+      entity: 'finrural',
+      datasetCode: 'mart_cartera',
+      domain: 'www.finrural.org.bo',
+      period: '2025-01',
+      targetUrl: 'https://www.finrural.org.bo/estadisticas/boletin_2025_01.xlsx'
+    },
+    {
+      id: 'derivable',
+      label: 'Trimestre Reutilizable sin Descarga',
+      entity: 'bcb',
+      datasetCode: 'mart_tasas_bcb',
+      domain: 'www.bcb.gob.bo',
+      period: '2025-Q1',
+      targetUrl: 'https://www.bcb.gob.bo/estadisticas/tasas_trimestre_1_2025.xlsx'
+    },
+    {
+      id: 'custody',
+      label: 'Documento en Custodia Institucional',
+      entity: 'bbv',
+      datasetCode: 'DS_BO_BBV',
+      domain: 'www.bbv.com.bo',
+      period: '2024',
+      targetUrl:
+        'https://www.bbv.com.bo/wp-content/uploads/2024/10/137-tarifario-oficial-bbv.pdf'
+    },
+    {
+      id: 'new_acq',
+      label: 'Nueva Publicación No Registrada',
+      entity: 'asfi',
+      datasetCode: 'DS_BO_ASFI',
+      domain: 'www.asfi.gob.bo',
+      period: '2026-12',
+      targetUrl: 'https://www.asfi.gob.bo/boletines/estados_financieros_2026_12.xlsx'
+    }
+  ];
+
+  readonly activePresetId = signal<string>('consolidated');
+
+  selectedSource = 'finrural';
+  datasetCode = 'mart_cartera';
+  domain = 'www.finrural.org.bo';
+  targetUrl = 'https://www.finrural.org.bo/estadisticas/boletin_2025_01.xlsx';
+  period = '2025-01';
+  forceRefresh = false;
+
+  // Formulario de Reutilización de Insumos
+  derivationDataset = 'mart_cartera';
+  derivationPeriod = '2025-Q1';
+  derivationInstitution = '';
+
+  // Formulario de Registro en Cola de Descarga
+  queueSourceId = 'asfi';
+  queueUrl = 'https://www.asfi.gob.bo/boletines/serie_mensual_en_transito.xlsx';
+  queueStatus: 'PENDING' | 'DOWNLOADING' = 'DOWNLOADING';
 
   readonly sources = computed(() => {
-    const list = this.inventoryStore.sourcesList();
-    if (list.length > 0) return list;
-    return ['bbv', 'bcb', 'finrural', 'asfi', 'bmsc', 'bnb', 'bisa', 'ganadero'];
+    const base = ['asfi', 'bcb', 'finrural', 'bbv'];
+    const dynamic = this.inventoryStore.sourcesList();
+    return Array.from(new Set([...base, ...dynamic]));
   });
 
-  onSourceSelect(event: Event): void {
-    const src = (event.target as HTMLSelectElement).value;
-    this.selectedSource.set(src);
-    this.datasetCode.set(`DS_BO_${src.toUpperCase()}`);
-    this.domain.set(`www.${src.toLowerCase()}.com.bo`);
-    this.targetUrl.set(`https://www.${src.toLowerCase()}.com.bo/data/reporte_${this.period()}.pdf`);
+  ngOnInit(): void {
+    this.store.loadDownloads();
+    this.onEvaluate();
+    this.onInspectDerivation();
+  }
+
+  applyPreset(preset: PresetScenario): void {
+    this.activePresetId.set(preset.id);
+    this.selectedSource = preset.entity;
+    this.datasetCode = preset.datasetCode;
+    this.domain = preset.domain;
+    this.period = preset.period;
+    this.targetUrl = preset.targetUrl;
+    this.forceRefresh = false;
+    this.onEvaluate();
+  }
+
+  onSourceChange(src: string): void {
+    this.selectedSource = src;
+    const hostMap: Record<string, string> = {
+      asfi: 'www.asfi.gob.bo',
+      bcb: 'www.bcb.gob.bo',
+      finrural: 'www.finrural.org.bo',
+      bbv: 'www.bbv.com.bo'
+    };
+    this.domain = hostMap[src.toLowerCase()] || `www.${src.toLowerCase()}.gob.bo`;
+  }
+
+  onEvaluate(): void {
+    const req: IngestionEvaluateRequest = {
+      source_id: this.selectedSource,
+      dataset_code: this.datasetCode.trim(),
+      domain: this.domain.trim(),
+      target_url: this.targetUrl.trim() || null,
+      period: this.period.trim() || null,
+      force_refresh: this.forceRefresh
+    };
+    this.store.evaluateAdmission(req);
+  }
+
+  onInspectDerivation(): void {
+    if (!this.derivationPeriod.trim()) return;
+    this.store.inspectDerivation({
+      dataset_code: this.derivationDataset,
+      period: this.derivationPeriod.trim(),
+      institution_id: this.derivationInstitution.trim() || null
+    });
+  }
+
+  onEnqueueDownload(): void {
+    const cleanUrl = this.queueUrl.trim();
+    if (!cleanUrl) return;
+    this.store.enqueueDownloadTask({
+      source_id: this.queueSourceId,
+      canonical_url: cleanUrl,
+      status: this.queueStatus
+    });
+    this.selectedSource = this.queueSourceId;
+    this.targetUrl = cleanUrl;
+  }
+
+  testQueuedUrlInControl(sourceId: string, url: string): void {
+    this.selectedSource = sourceId.toLowerCase();
+    this.targetUrl = url;
+    this.datasetCode = `DS_BO_${sourceId.toUpperCase()}`;
+    this.forceRefresh = false;
     this.onEvaluate();
   }
 
   getVerdictTitle(verdict: string): string {
     switch (verdict) {
-      case 'CACHE_HIT_BRONZE':
-        return 'DOCUMENTO EN CUSTODIA LOCAL (DESCARGA REDUNDANTE EVITADA)';
       case 'CACHE_HIT_GOLD':
+        return 'INFORMACIÓN DISPONIBLE EN REPOSITORIO CONSOLIDADO';
       case 'REUSE_DERIVATION':
-        return 'INFORMACIÓN CONSOLIDADA EN DATAMARTS (DISPONIBLE EN CAPA GOLD)';
-      case 'PROCEED_DOWNLOAD':
-        return 'DOCUMENTO NO RESGUARDADO (AUTORIZADO PARA DESCARGA)';
+        return 'REUTILIZABLE A PARTIR DE INSUMOS CONSOLIDADOS';
+      case 'CACHE_HIT_BRONZE':
+        return 'ARCHIVO FUENTE DISPONIBLE EN CUSTODIA DOCUMENTAL';
       case 'IN_FLIGHT_LOCKED':
       case 'IN_PROGRESS':
-        return 'DESCARGA EN PROCESO POR OTRO PROCESO (EN COLA)';
+        return 'DESCARGA EN CURSO — SOLICITUD VINCULADA SIN DUPLICIDAD';
+      case 'PROCEED_DOWNLOAD':
+        return 'INSUMO NUEVO — AUTORIZADO PARA ADQUISICIÓN';
       default:
-        return 'VALIDACIÓN DE ADMISIÓN COMPLETADA';
+        return 'VALIDACIÓN COMPLETADA';
     }
   }
 
   getVerdictRecommendation(verdict: string): string {
     switch (verdict) {
       case 'CACHE_HIT_GOLD':
+        return 'Los datos solicitados ya fueron procesados anteriormente. Acceda directamente a "Repositorios Consolidados y Autoservicio" para consultarlos o exportarlos a Excel sin reprocesar archivos.';
       case 'REUSE_DERIVATION':
-        return 'Los datos de este periodo ya se encuentran estructurados en los Datamarts analíticos. Se recomienda consultarlos directamente desde la pestaña de Activos Analíticos sin disparar descargas de archivos.';
+        return 'El período agregado solicitado puede construirse directamente combinando los cortes mensuales ya consolidados, evitando nuevas descargas.';
       case 'CACHE_HIT_BRONZE':
-        return 'El archivo original ya está en el repositorio de custodia física en el servidor. Puede consultarse de inmediato sin tráfico de red.';
+        return 'El documento original ya se encuentra resguardado y verificado con firma SHA-256 en el servidor. No se requiere una nueva descarga desde el portal externo.';
       case 'IN_PROGRESS':
       case 'IN_FLIGHT_LOCKED':
-        return 'Actualmente otro proceso o analista está adquiriendo este documento. El sistema enlazará su solicitud al archivo en cuanto finalice.';
+        return 'El archivo fuente ya se encuentra en cola o en proceso de descarga activa. Su solicitud quedó suscrita a la misma tarea para evitar tráfico duplicado.';
       case 'PROCEED_DOWNLOAD':
-        return 'El documento aún no forma parte del inventario local. Puede proceder al resguardo asistido desde la pestaña de Custodia de Archivos.';
+        return 'No existe registro previo ni descarga activa para este recurso. El sistema autoriza su adquisición desde la fuente institucional.';
       default:
-        return 'Consulte el diagnóstico detallado para verificar el estado de adquisición.';
+        return 'Revise el detalle de trazabilidad para continuar con la operación.';
     }
   }
 
-  onEvaluate(): void {
-    const req: IngestionEvaluateRequest = {
-      dataset_code: this.datasetCode(),
-      domain: this.domain(),
-      target_url: this.targetUrl(),
-      period: this.period(),
-      force_refresh: this.forceRefresh()
-    };
-    this.store.evaluateAdmission(req);
+  formatGranularity(granularity: string): string {
+    switch (granularity) {
+      case 'ANNUAL':
+        return 'Anual (12 cortes mensuales)';
+      case 'SEMESTER':
+        return 'Semestral (6 cortes mensuales)';
+      case 'QUARTER':
+        return 'Trimestral (3 cortes mensuales)';
+      case 'MONTHLY':
+        return 'Mensual';
+      default:
+        return 'Rango Personalizado';
+    }
+  }
+
+  formatDownloadStatus(status: string): string {
+    switch (status) {
+      case 'PENDING':
+        return 'EN COLA';
+      case 'DOWNLOADING':
+        return 'DESCARGANDO';
+      case 'COMPLETED':
+        return 'COMPLETADO';
+      case 'FAILED':
+        return 'CON INCIDENCIA';
+      default:
+        return status;
+    }
   }
 }

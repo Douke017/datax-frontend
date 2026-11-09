@@ -1,0 +1,17 @@
+<div class="kpi-card" [class]="'tone-' + tone()">
+  <div class="kpi-header">
+    <span class="kpi-title">{{ title() }}</span>
+    @if (badgeText()) {
+      <span class="kpi-badge">{{ badgeText() }}</span>
+    }
+  </div>
+  <div class="kpi-value-container">
+    <span class="kpi-value">{{ value() }}</span>
+    @if (unit()) {
+      <span class="kpi-unit">{{ unit() }}</span>
+    }
+  </div>
+  @if (subtitle()) {
+    <div class="kpi-subtitle">{{ subtitle() }}</div>
+  }
+</div>

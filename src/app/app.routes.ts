@@ -1,8 +1,5 @@
 import { Routes } from '@angular/router';
 import { LayoutComponent } from './layout/layout.component';
-import { ExternoLayoutComponent } from './features/externo/externo-layout.component';
-import { InternoLayoutComponent } from './features/interno/interno-layout.component';
-import { BridgeViewComponent } from './features/bridge/bridge-view.component';
 
 export const routes: Routes = [
   {
@@ -10,18 +7,31 @@ export const routes: Routes = [
     component: LayoutComponent,
     children: [
       { path: '', redirectTo: 'externo', pathMatch: 'full' },
-      // Prospector Externo (Rastreo e inventario web indexado)
-      { path: 'externo', component: ExternoLayoutComponent },
+      {
+        path: 'externo',
+        loadComponent: () =>
+          import('./features/externo/externo-layout.component').then(
+            (m) => m.ExternoLayoutComponent
+          )
+      },
       { path: 'catalog-radar', redirectTo: 'externo', pathMatch: 'full' },
 
-      // Prospector Interno (Custodia, Gatekeeper, Curaduría de URLs, Activos Gold)
-      { path: 'interno', component: InternoLayoutComponent },
+      {
+        path: 'interno',
+        loadComponent: () =>
+          import('./features/interno/interno-layout.component').then(
+            (m) => m.InternoLayoutComponent
+          )
+      },
       { path: 'bronze-lake', redirectTo: 'interno', pathMatch: 'full' },
       { path: 'curaduria', redirectTo: 'interno', pathMatch: 'full' },
       { path: 'gold-analytics', redirectTo: 'interno', pathMatch: 'full' },
 
-      // Conciliación y Sync Bridge (Diff DuckDB y Sincronización)
-      { path: 'bridge', component: BridgeViewComponent },
+      {
+        path: 'bridge',
+        loadComponent: () =>
+          import('./features/bridge/bridge-view.component').then((m) => m.BridgeViewComponent)
+      },
       { path: 'conciliacion', redirectTo: 'bridge', pathMatch: 'full' },
       { path: 'audit-matrix', redirectTo: 'bridge', pathMatch: 'full' },
       { path: 'dashboard', redirectTo: 'externo', pathMatch: 'full' },

@@ -124,6 +124,7 @@ export const BridgeStore = signalStore(
           return internoService.sync({
             source_id: sourceId,
             batch_size: batchSize,
+            max_downloads: batchSize,
             execute_downloads: executeDownloads
           }).pipe(
             tap((res) => {

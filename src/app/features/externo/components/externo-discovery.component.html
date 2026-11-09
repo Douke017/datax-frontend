@@ -1,0 +1,256 @@
+<div class="discovery-layout">
+  <section class="search-panel">
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title">Exploración Automatizada y Preselección de Fuentes Públicas</h2>
+        <p class="panel-desc">
+          Evalúa portales institucionales y repositorios abiertos aplicando criterios temáticos, validación TLS en vivo,
+          disponibilidad de archivos tabulares y cálculo auditable del Índice de Confianza y Relevancia (0 a 100 puntos).
+        </p>
+      </div>
+    </div>
+
+    <form (ngSubmit)="onExecuteDiscovery()" class="criteria-form">
+      <div class="criteria-grid">
+        <div class="field-group span-2">
+          <label class="field-label" for="disc-query">Criterios Temáticos de Búsqueda</label>
+          <input
+            id="disc-query"
+            type="text"
+            class="field-input"
+            name="queryText"
+            [(ngModel)]="queryText"
+            placeholder="Ej. cartera crediticia, tasas de interés, estados financieros, boletín estadístico..."
+          />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="disc-sector">Sector Institucional</label>
+          <select id="disc-sector" class="field-select" name="sectorFilter" [(ngModel)]="sectorFilter">
+            <option value="TODOS">Todos los Sectores</option>
+            <option value="SUPERVISION_FINANCIERA">Supervisión Financiera (ASFI)</option>
+            <option value="MONETARIO_FINANCIERO">Política Monetaria y Cambiaria (BCB)</option>
+            <option value="MICROFINANZAS_IFD">Microfinanzas e IFD (FINRURAL / ASOFIN)</option>
+            <option value="MERCADO_VALORES">Mercado de Valores (BBV)</option>
+            <option value="MACROECONOMIA">Estadísticas Macroeconómicas (INE)</option>
+            <option value="PENSIONES_SEGUROS">Pensiones y Seguros (APS)</option>
+            <option value="FISCAL_TESORO"> Finanzas Públicas y Tesoro</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="disc-score">Umbral Mínimo de Confianza (0–95)</label>
+          <input
+            id="disc-score"
+            type="number"
+            min="0"
+            max="95"
+            class="field-input mono"
+            name="minCombinedScore"
+            [(ngModel)]="minCombinedScore"
+          />
+        </div>
+      </div>
+
+      <div class="formats-and-flags">
+        <div class="field-group">
+          <span class="field-label">Formatos Requeridos en Origen</span>
+          <div class="ext-chips">
+            @for (ext of availableExtensions; track ext) {
+              <button
+                type="button"
+                class="ext-btn mono"
+                [class.active]="selectedExtensions().includes(ext)"
+                (click)="toggleExtension(ext)"
+              >
+                {{ ext }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="toggles-col">
+          <label class="check-row">
+            <input type="checkbox" name="trustedOnly" [(ngModel)]="trustedDomainsOnly" />
+            <span>Restringir a dominios institucionales reconocidos (.gob.bo, .org.bo, .com.bo, .int)</span>
+          </label>
+          <label class="check-row">
+            <input type="checkbox" name="liveProbe" [(ngModel)]="liveProbe" />
+            <span>Inspeccionar protocolo HTTPS/TLS y enlaces de descarga en tiempo real</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="seed-adder">
+        <label class="field-label" for="custom-seed-input">URL Adicional para Evaluación Directa (Opcional)</label>
+        <div class="seed-row">
+          <input
+            id="custom-seed-input"
+            type="url"
+            class="field-input mono"
+            name="newSeedUrl"
+            [(ngModel)]="newSeedUrl"
+            placeholder="https://www.entidad.gob.bo/estadisticas"
+            (keydown.enter)="addCustomSeed(); $event.preventDefault()"
+          />
+          <button type="button" class="btn-secondary-sm" (click)="addCustomSeed()">
+            Agregar Dirección
+          </button>
+        </div>
+        @if (customSeeds().length > 0) {
+          <div class="seeds-chips">
+            @for (su of customSeeds(); track su; let idx = $index) {
+              <span class="seed-chip mono">
+                {{ su }}
+                <button type="button" class="chip-del" (click)="removeCustomSeed(idx)">Quitar</button>
+              </span>
+            }
+          </div>
+        }
+      </div>
+
+      <footer class="form-footer-bar">
+        <div class="feedback-msg">
+          @if (promoteFeedback()) {
+            <span>{{ promoteFeedback() }}</span>
+          }
+        </div>
+        <button type="submit" class="btn-run-discovery" [disabled]="store.discoveryLoading()">
+          @if (store.discoveryLoading()) {
+            <span>Evaluando Portales y Criterios de Confianza...</span>
+          } @else {
+            <span>Ejecutar Exploración y Preselección</span>
+          }
+        </button>
+      </footer>
+    </form>
+  </section>
+
+  <section class="candidates-panel">
+    <div class="panel-head-inline">
+      <div>
+        <h3 class="panel-subtitle">Fuentes Preseleccionadas ({{ store.discoveryCandidates().length }})</h3>
+        <p class="panel-desc">
+          Ordenadas por Índice Combinado de Confianza de Dominio, Salud TLS, Disponibilidad de Formatos y Relevancia Temática.
+        </p>
+      </div>
+    </div>
+
+    @if (store.discoveryLoading()) {
+      <div class="empty-box">
+        <p class="empty-main">Analizando cabeceras HTTP, certificados TLS y enlaces documentales...</p>
+      </div>
+    } @else if (store.discoveryCandidates().length === 0) {
+      <div class="empty-box">
+        <p class="empty-main">Aún no se han ejecutado exploraciones en esta sesión.</p>
+        <p class="empty-sub">Defina los criterios superiores y pulse "Ejecutar Exploración y Preselección".</p>
+      </div>
+    } @else {
+      <div class="candidates-grid">
+        @for (cand of store.discoveryCandidates(); track cand.candidate_id) {
+          <article class="candidate-card" [class.promoted]="cand.status === 'APROBADA'">
+            <div class="cand-top">
+              <div>
+                <span class="sector-tag">{{ formatSectorLabel(cand.sector) }}</span>
+                <h4 class="cand-title">{{ cand.title }}</h4>
+                <a [href]="cand.entrypoint" target="_blank" rel="noopener noreferrer" class="cand-url mono">
+                  {{ cand.entrypoint }}
+                </a>
+              </div>
+
+              <div class="score-box" [class.score-high]="cand.combined_score >= 70" [class.score-mid]="cand.combined_score < 70">
+                <span class="score-num mono">{{ cand.combined_score }}</span>
+                <span class="score-cap">ÍNDICE / 100</span>
+              </div>
+            </div>
+
+            <div class="breakdown-bars">
+              <div class="b-item">
+                <span>Dominio ({{ cand.breakdown.domain_trust_pts }}/35)</span>
+                <div class="bar-bg"><div class="bar-fill" [style.width.%]="(cand.breakdown.domain_trust_pts / 35) * 100"></div></div>
+              </div>
+              <div class="b-item">
+                <span>Protocolo TLS ({{ cand.breakdown.protocol_health_pts }}/20)</span>
+                <div class="bar-bg"><div class="bar-fill" [style.width.%]="(cand.breakdown.protocol_health_pts / 20) * 100"></div></div>
+              </div>
+              <div class="b-item">
+                <span>Formatos ({{ cand.breakdown.format_availability_pts }}/30)</span>
+                <div class="bar-bg"><div class="bar-fill" [style.width.%]="(cand.breakdown.format_availability_pts / 30) * 100"></div></div>
+              </div>
+              <div class="b-item">
+                <span>Relevancia ({{ cand.breakdown.thematic_relevance_pts }}/15)</span>
+                <div class="bar-bg"><div class="bar-fill" [style.width.%]="(cand.breakdown.thematic_relevance_pts / 15) * 100"></div></div>
+              </div>
+            </div>
+
+            <div class="cand-meta-row mono">
+              <span>HTTP: {{ cand.http_status || 'Verificado' }}</span>
+              <span>TLS: {{ cand.tls_valid ? 'Válido' : 'No verificado' }}</span>
+              <span>Archivos Muestra: {{ cand.detected_files_count }}</span>
+              <span>Formatos: {{ cand.detected_extensions.join(', ') || 'HTML/Portal' }}</span>
+            </div>
+
+            <div class="cand-footer">
+              <span class="cand-status mono">
+                {{ cand.status === 'APROBADA' ? 'INCORPORADA (' + (cand.promoted_source_id || '').toUpperCase() + ')' : 'PRESELECCIONADA' }}
+              </span>
+
+              @if (cand.status !== 'APROBADA') {
+                <button type="button" class="btn-promote" (click)="openPromoteModal(cand)">
+                  Incorporar al Catálogo Oficial
+                </button>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
+  </section>
+
+  @if (promotingCandidate(); as target) {
+    <div class="modal-backdrop" (click)="closePromoteModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <h3 class="modal-title">Incorporar Fuente Preseleccionada al Catálogo Oficial</h3>
+        <p class="modal-desc">
+          Se registrará la fuente con monitoreo estructural continuo y políticas de rastreo declarativas.
+        </p>
+
+        <div class="field-group">
+          <label class="field-label" for="prom-id">Código Único de Fuente</label>
+          <input id="prom-id" type="text" class="field-input mono" [(ngModel)]="promoteSourceId" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label" for="prom-name">Denominación Institucional</label>
+          <input id="prom-name" type="text" class="field-input" [(ngModel)]="promoteSourceName" />
+        </div>
+
+        <div class="modal-grid-2">
+          <div class="field-group">
+            <label class="field-label" for="prom-cat">Frecuencia de Rastreo</label>
+            <select id="prom-cat" class="field-select" [(ngModel)]="promoteCategory">
+              <option value="DAILY">Diario</option>
+              <option value="WEEKLY">Semanal</option>
+              <option value="MONTHLY">Mensual</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="prom-wf">Módulo de Extracción</label>
+            <select id="prom-wf" class="field-select" [(ngModel)]="promoteWorkflow">
+              <option value="html">Portal Estándar (HTML)</option>
+              <option value="javascript">Portal Dinámico (Navegador)</option>
+              <option value="api">Servicio de Datos (API JSON)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary-sm" (click)="closePromoteModal()">Cancelar</button>
+          <button type="button" class="btn-run-discovery" [disabled]="isPromoting()" (click)="confirmPromotion()">
+            {{ isPromoting() ? 'Incorporando...' : 'Confirmar Incorporación' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { InventoryStore } from '../inventory.store';
+import { formatInteger, formatPercentage } from '../../../shared/utils/format.utils';
 
 @Component({
   selector: 'app-interno-curaduria',
@@ -11,6 +12,8 @@ import { InventoryStore } from '../inventory.store';
 })
 export class InternoCuraduriaComponent {
   readonly store = inject(InventoryStore);
+  readonly formatInt = formatInteger;
+  readonly formatPct = formatPercentage;
 
   onSourceChange(event: Event): void {
     const target = event.target as HTMLSelectElement;
@@ -49,7 +52,7 @@ export class InternoCuraduriaComponent {
         return 'Histórico Previo';
       case 'DESCARGADO_BRONZE':
       case 'COMPLETED':
-        return 'En Custodia Bronze';
+        return 'En Custodia Documental';
       default:
         return status;
     }

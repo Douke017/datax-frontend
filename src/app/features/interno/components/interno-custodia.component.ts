@@ -1,6 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
-import { SlicePipe, CommonModule } from '@angular/common';
+import { Component, effect, inject, signal } from '@angular/core';
+import { CommonModule, SlicePipe } from '@angular/common';
 import { InternoStore } from '../interno.store';
+import { InstitutionStateService } from '../../../core/services/institution-state.service';
+import { BridgeSyncResponse } from '../../../core/models/reconciliation.model';
+import { formatBytes, formatInteger } from '../../../shared/utils/format.utils';
 
 @Component({
   selector: 'app-interno-custodia',
@@ -11,9 +14,22 @@ import { InternoStore } from '../interno.store';
 })
 export class InternoCustodiaComponent {
   readonly store = inject(InternoStore);
+  private readonly institutionState = inject(InstitutionStateService);
 
-  readonly selectedSourceForSync = signal<string>('bbv');
+  readonly formatInt = formatInteger;
+  readonly formatSize = formatBytes;
+
+  readonly selectedSourceForSync = signal<string>(this.institutionState.currentInstitutionId());
   readonly copiedHashId = signal<string | null>(null);
+
+  constructor() {
+    effect(() => {
+      const inst = this.institutionState.currentInstitutionId();
+      if (inst && inst !== this.selectedSourceForSync()) {
+        this.selectedSourceForSync.set(inst);
+      }
+    });
+  }
 
   onSearchInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
@@ -30,13 +46,6 @@ export class InternoCustodiaComponent {
     this.store.setPeriodFilter(val);
   }
 
-  formatBytes(bytes: number): string {
-    if (!bytes) return '0 B';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  }
-
   copyHash(hash: string, artifactId: string): void {
     navigator.clipboard.writeText(hash);
     this.copiedHashId.set(artifactId);
@@ -49,6 +58,10 @@ export class InternoCustodiaComponent {
 
   onExecuteSync(): void {
     this.store.runSyncBatch(this.selectedSourceForSync());
+  }
+
+  onResetCircuit(domain: string): void {
+    this.store.resetDomainCircuit(domain);
   }
 
   getEntityDisplayName(sourceId: string): string {
@@ -66,8 +79,8 @@ export class InternoCustodiaComponent {
     }
   }
 
-  formatSyncSummary(syncRes: any): string {
+  formatSyncSummary(syncRes: BridgeSyncResponse): string {
     const entity = this.getEntityDisplayName(syncRes.source_id);
-    return `Se resguardaron exitosamente ${syncRes.completed_tasks} publicaciones oficiales de ${entity} en el repositorio físico de custodia.`;
+    return `Se resguardaron ${syncRes.completed_tasks} publicaciones oficiales de ${entity} con verificación criptográfica SHA-256.`;
   }
 }

@@ -1,8 +1,12 @@
-import { Component, inject, signal, computed, effect } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ExternoStore } from '../externo.store';
-import { CatalogSource, SourcePolicyUpdate } from '../../../core/models/catalog.model';
+import {
+  BackupOriginType,
+  CatalogSource,
+  SourcePolicyUpdate
+} from '../../../core/models/catalog.model';
 
 @Component({
   selector: 'app-externo-config',
@@ -14,15 +18,25 @@ import { CatalogSource, SourcePolicyUpdate } from '../../../core/models/catalog.
 export class ExternoConfigComponent {
   readonly store = inject(ExternoStore);
 
-  readonly availableExtensions = ['.pdf', '.xlsx', '.xls', '.csv', '.zip', '.dat', '.json', '.ods'];
+  readonly availableExtensions = [
+    '.pdf',
+    '.xlsx',
+    '.xls',
+    '.csv',
+    '.zip',
+    '.docx',
+    '.dat',
+    '.json',
+    '.ods'
+  ];
 
   readonly selectedSourceId = signal<string>('bcb');
   readonly isSaving = signal<boolean>(false);
   readonly saveSuccess = signal<boolean>(false);
   readonly saveError = signal<boolean>(false);
   readonly actionMessage = signal<string>('');
+  readonly validationError = signal<string>('');
 
-  // Form Fields
   formEntrypoint = '';
   readonly formContingencyUrls = signal<string[]>([]);
   newContingencyUrl = '';
@@ -39,7 +53,13 @@ export class ExternoConfigComponent {
   readonly formSeeds = signal<string[]>([]);
   newSeedUrl = '';
 
-  readonly formExtensions = signal<string[]>(['.pdf', '.xlsx', '.csv', '.zip']);
+  readonly formAllowedHosts = signal<string[]>([]);
+  newAllowedHost = '';
+
+  readonly formExcludedKeywords = signal<string[]>([]);
+  newExcludedKeyword = '';
+
+  readonly formExtensions = signal<string[]>(['.pdf', '.xlsx', '.xls', '.csv', '.zip', '.docx']);
 
   readonly currentSource = computed<CatalogSource | undefined>(() => {
     const list = this.store.sources();
@@ -66,6 +86,7 @@ export class ExternoConfigComponent {
 
   onSelectSource(sourceId: string): void {
     this.selectedSourceId.set(sourceId);
+    this.store.clearContingencyResult();
     const src = this.store.sources().find((s) => s.source_id === sourceId);
     if (src) {
       this.syncFormWithSource(src);
@@ -75,7 +96,6 @@ export class ExternoConfigComponent {
   private syncFormWithSource(src: CatalogSource): void {
     this.formEntrypoint = src.entrypoint || '';
 
-    // Manejo de múltiples URLs de contingencia
     const urls: string[] = [];
     if (src.contingency_urls && src.contingency_urls.length > 0) {
       urls.push(...src.contingency_urls);
@@ -85,48 +105,94 @@ export class ExternoConfigComponent {
     this.formContingencyUrls.set(urls);
     this.newContingencyUrl = '';
 
-    this.formCategory = (src.update_category as any) || 'MONTHLY';
+    const cat = src.update_category;
+    this.formCategory =
+      cat === 'DAILY' || cat === 'WEEKLY' || cat === 'MONTHLY' ? cat : 'MONTHLY';
     this.formRateLimit = src.rate_limit_seconds ?? 1.0;
     this.formMaxUrls = src.max_urls ?? 250;
     this.formMaxResources = src.max_resources ?? 1000;
     this.formIgnoreRobots = !!src.ignore_robots_txt;
-    this.formHealth = (src.health_status as any) || 'ACTIVE';
+    const hs = src.health_status;
+    this.formHealth =
+      hs === 'ACTIVE' || hs === 'WARNING' || hs === 'SUSPENDED' ? hs : 'ACTIVE';
     this.formAuditCode = src.audit_code || '';
     this.formAuditNote = src.audit_note || '';
 
     this.formSeeds.set([...(src.seeds || [])]);
-    this.formExtensions.set([...(src.allowed_extensions || ['.pdf', '.xlsx', '.csv', '.zip'])]);
-    this.actionMessage.set('');
+    this.formAllowedHosts.set([...(src.allowed_hosts || [])]);
+    this.formExcludedKeywords.set([...(src.excluded_path_keywords || [])]);
+    this.formExtensions.set([
+      ...(src.allowed_extensions || ['.pdf', '.xlsx', '.xls', '.csv', '.zip', '.docx'])
+    ]);
+    this.validationError.set('');
   }
 
-  // URLs de Contingencia (múltiples)
-  addContingencyUrl(): void {
-    const url = this.newContingencyUrl.trim();
+  addContingencyUrl(candidateUrl?: string): void {
+    const url = (candidateUrl ?? this.newContingencyUrl).trim();
     if (!url) return;
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      alert('La URL debe comenzar con http:// o https://');
+      this.validationError.set('El enlace de contingencia debe iniciar con http:// o https://');
       return;
     }
+    this.validationError.set('');
     const current = this.formContingencyUrls();
     if (!current.includes(url)) {
       this.formContingencyUrls.set([...current, url]);
     }
-    this.newContingencyUrl = '';
+    if (!candidateUrl) {
+      this.newContingencyUrl = '';
+    }
   }
 
   removeContingencyUrl(index: number): void {
-    const current = this.formContingencyUrls();
-    this.formContingencyUrls.set(current.filter((_, idx) => idx !== index));
+    this.formContingencyUrls.set(this.formContingencyUrls().filter((_, idx) => idx !== index));
   }
 
-  // Rutas Semilla
+  onDiscoverContingencies(): void {
+    const sid = this.selectedSourceId();
+    this.validationError.set('');
+    this.store.discoverContingencies(sid, true).subscribe({
+      next: (res) => {
+        this.formContingencyUrls.set([...res.updated_contingency_urls]);
+        this.saveSuccess.set(true);
+        this.saveError.set(false);
+        this.actionMessage.set(
+          `Evaluación concluida: ${res.candidates.length} rutas verificadas, ${res.auto_registered_count} enlaces de respaldo registrados automáticamente.`
+        );
+      },
+      error: () => {
+        this.saveError.set(true);
+        this.saveSuccess.set(false);
+        this.actionMessage.set('No fue posible completar la búsqueda automática de contingencias.');
+      }
+    });
+  }
+
+  formatOriginType(origin: BackupOriginType): string {
+    switch (origin) {
+      case 'CONFIGURADA':
+        return 'Respaldo Configurado';
+      case 'ESPEJO_INSTITUCIONAL':
+        return 'Espejo Institucional';
+      case 'RUTA_ESTADISTICA_ALTERNA':
+        return 'Ruta Estadística Alterna';
+      case 'DATOS_ABIERTOS':
+        return 'Portal Datos Abiertos';
+      case 'WAYBACK_CDX':
+        return 'Archivo Histórico Verificado';
+      default:
+        return origin;
+    }
+  }
+
   addSeed(): void {
     const url = this.newSeedUrl.trim();
     if (!url) return;
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      alert('La ruta semilla debe comenzar con http:// o https://');
+      this.validationError.set('La ruta semilla debe iniciar con http:// o https://');
       return;
     }
+    this.validationError.set('');
     const current = this.formSeeds();
     if (!current.includes(url)) {
       this.formSeeds.set([...current, url]);
@@ -135,11 +201,43 @@ export class ExternoConfigComponent {
   }
 
   removeSeed(index: number): void {
-    const current = this.formSeeds();
-    this.formSeeds.set(current.filter((_, idx) => idx !== index));
+    this.formSeeds.set(this.formSeeds().filter((_, idx) => idx !== index));
   }
 
-  // Extensiones
+  addAllowedHost(): void {
+    const host = this.newAllowedHost
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '');
+    if (!host) return;
+    const current = this.formAllowedHosts();
+    if (!current.includes(host)) {
+      this.formAllowedHosts.set([...current, host]);
+    }
+    this.newAllowedHost = '';
+  }
+
+  removeAllowedHost(index: number): void {
+    this.formAllowedHosts.set(this.formAllowedHosts().filter((_, idx) => idx !== index));
+  }
+
+  addExcludedKeyword(): void {
+    const kw = this.newExcludedKeyword.trim().toLowerCase();
+    if (!kw) return;
+    const current = this.formExcludedKeywords();
+    if (!current.includes(kw)) {
+      this.formExcludedKeywords.set([...current, kw]);
+    }
+    this.newExcludedKeyword = '';
+  }
+
+  removeExcludedKeyword(index: number): void {
+    this.formExcludedKeywords.set(
+      this.formExcludedKeywords().filter((_, idx) => idx !== index)
+    );
+  }
+
   toggleExtension(ext: string): void {
     const current = this.formExtensions();
     if (current.includes(ext)) {
@@ -156,7 +254,8 @@ export class ExternoConfigComponent {
     this.isSaving.set(true);
     this.saveSuccess.set(false);
     this.saveError.set(false);
-    this.actionMessage.set('Guardando parámetros en la base de datos...');
+    this.validationError.set('');
+    this.actionMessage.set('Guardando parámetros operativos del portal...');
 
     const contingencyList = this.formContingencyUrls();
     const payload: SourcePolicyUpdate = {
@@ -164,6 +263,8 @@ export class ExternoConfigComponent {
       contingency_urls: contingencyList,
       contingency_url: contingencyList.length > 0 ? contingencyList[0] : undefined,
       seeds: this.formSeeds(),
+      allowed_hosts: this.formAllowedHosts(),
+      excluded_path_keywords: this.formExcludedKeywords(),
       update_category: this.formCategory,
       allowed_extensions: this.formExtensions(),
       rate_limit_seconds: this.formRateLimit,
@@ -179,13 +280,15 @@ export class ExternoConfigComponent {
       next: () => {
         this.isSaving.set(false);
         this.saveSuccess.set(true);
-        this.actionMessage.set(`Parámetros de '${sid.toUpperCase()}' guardados y sincronizados correctamente.`);
+        this.actionMessage.set(
+          `Parámetros de '${sid.toUpperCase()}' actualizados y sincronizados correctamente.`
+        );
         setTimeout(() => this.actionMessage.set(''), 5000);
       },
       error: () => {
         this.isSaving.set(false);
         this.saveError.set(true);
-        this.actionMessage.set('Error al guardar los parámetros en el servidor.');
+        this.actionMessage.set('No fue posible guardar los parámetros en el servidor.');
       }
     });
   }

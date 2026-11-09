@@ -7,9 +7,14 @@ import {
   BridgeSyncRequest,
   BridgeSyncResponse,
   BronzeArtifactEntry,
+  DerivationEvaluationRequest,
+  DerivationEvaluationResult,
+  DomainCircuitStatus,
+  DownloadStatusItem,
+  DownloadsStatusListResponse,
+  EnqueueDownloadRequest,
   IngestionEvaluateRequest,
-  IngestionEvaluateResponse,
-  DomainCircuitStatus
+  IngestionEvaluateResponse
 } from '../models/reconciliation.model';
 import {
   InventoryStatsResponse,
@@ -23,7 +28,7 @@ import {
 })
 export class InternoService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8001'; // Puerto oficial de Prospector Interno & Sync Bridge
+  private readonly baseUrl = 'http://localhost:8001';
 
   reconcile(request: BridgeReconcileRequest): Observable<BridgeReconcileResponse> {
     return this.http.post<BridgeReconcileResponse>(`${this.baseUrl}/api/v1/bridge/reconcile`, request);
@@ -42,9 +47,32 @@ export class InternoService {
     return this.http.post<IngestionEvaluateResponse>(`${this.baseUrl}/api/v1/gatekeeper/evaluate`, request);
   }
 
+  inspectDerivation(request: DerivationEvaluationRequest): Observable<DerivationEvaluationResult> {
+    return this.http.post<DerivationEvaluationResult>(`${this.baseUrl}/api/v1/gatekeeper/inspect`, request);
+  }
+
+  getDownloadsStatus(sourceId?: string, includeRecent: boolean = true): Observable<DownloadsStatusListResponse> {
+    let params = new HttpParams().set('include_recent', includeRecent.toString());
+    if (sourceId && sourceId !== 'ALL') {
+      params = params.set('source_id', sourceId);
+    }
+    return this.http.get<DownloadsStatusListResponse>(`${this.baseUrl}/api/v1/downloads/status`, { params });
+  }
+
+  enqueueDownload(request: EnqueueDownloadRequest): Observable<DownloadStatusItem> {
+    return this.http.post<DownloadStatusItem>(`${this.baseUrl}/api/v1/downloads/queue`, request);
+  }
+
   getCircuitBreaker(domain: string): Observable<DomainCircuitStatus> {
     return this.http.get<DomainCircuitStatus>(
       `${this.baseUrl}/api/v1/bridge/circuit-breaker/${encodeURIComponent(domain)}`
+    );
+  }
+
+  resetCircuitBreaker(domain: string): Observable<{ status: string; domain: string; message: string }> {
+    return this.http.post<{ status: string; domain: string; message: string }>(
+      `${this.baseUrl}/api/v1/bridge/circuit-breaker/${encodeURIComponent(domain)}/reset`,
+      {}
     );
   }
 

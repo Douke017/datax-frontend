@@ -1,17 +1,15 @@
 <div class="config-layout">
-  <!-- Encabezado de Configuración -->
   <header class="config-header">
     <div class="header-main">
       <div class="header-title-group">
-        <h1 class="header-title">Parámetros de Rastreo</h1>
+        <h1 class="header-title">Parámetros de Rastreo y Resiliencia</h1>
         <p class="header-desc">
-          Ajuste los puntos de acceso, URLs de contingencia, semillas de extracción y parámetros de auditoría técnica por portal.
+          Configure enlaces oficiales, descubrimiento automático de URLs de contingencia, dominios autorizados, rutas de exclusión y políticas de extracción dirigida por portal.
         </p>
       </div>
 
-      <!-- Selector de Portal -->
       <div class="source-picker">
-        <label for="portal-select" class="picker-label">Portal Seleccionado:</label>
+        <label for="portal-select" class="picker-label">Portal Institucional Seleccionado:</label>
         <select
           id="portal-select"
           class="form-select picker-select"
@@ -30,45 +28,70 @@
     @if (currentSource(); as src) {
       <div class="source-summary-bar">
         <div class="summary-item">
-          <span class="summary-label">Entidad</span>
+          <span class="summary-label">ENTIDAD</span>
           <span class="summary-val">{{ src.name }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Código</span>
+          <span class="summary-label">CÓDIGO</span>
           <span class="summary-val font-mono">{{ src.source_id.toUpperCase() }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Motor</span>
+          <span class="summary-label">MÓDULO DE EXTRACCIÓN</span>
           <span class="summary-val font-mono">{{ src.workflow }}</span>
         </div>
         <div class="summary-item">
-          <span class="summary-label">Estado</span>
+          <span class="summary-label">CLASIFICACIÓN</span>
           <span
             class="status-chip"
             [class.status-active]="formHealth === 'ACTIVE'"
             [class.status-warning]="formHealth === 'WARNING'"
             [class.status-suspended]="formHealth === 'SUSPENDED'"
           >
-            {{ formHealth === 'ACTIVE' ? 'Operativo' : (formHealth === 'WARNING' ? 'En Advertencia' : 'Suspendido') }}
+            {{
+              formHealth === 'ACTIVE'
+                ? 'Lista Blanca (Operativo)'
+                : formHealth === 'WARNING'
+                  ? 'Lista Negra (En Observación)'
+                  : 'Lista Negra (Suspendido)'
+            }}
           </span>
         </div>
       </div>
     }
   </header>
 
+  @if (validationError()) {
+    <div class="validation-banner">
+      <strong>Validación de formulario:</strong> {{ validationError() }}
+    </div>
+  }
+
   @if (currentSource(); as src) {
     <form (ngSubmit)="onSavePolicy()" class="form-container">
-      <!-- SECCIÓN 1: ENLACES Y RESILIENCIA -->
+      <!-- SECCIÓN 1: PUNTO DE ENTRADA Y RESILIENCIA AUTOMÁTICA DE CONTINGENCIA -->
       <section class="config-card">
-        <div class="card-header">
-          <h2 class="card-title">Punto de Entrada y URLs de Respaldo</h2>
-          <p class="card-desc">
-            Defina el enlace principal del portal y las URLs alternativas que sirven como respaldo ante caídas o migraciones.
-          </p>
+        <div class="card-header card-header-split">
+          <div>
+            <h2 class="card-title">Punto de Entrada y Resiliencia de Fuentes (Contingencia)</h2>
+            <p class="card-desc">
+              Gestione el enlace oficial primario y descubra, evalúe y registre automáticamente URLs alternativas de confianza ante caídas o migraciones.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="btn-discover"
+            [disabled]="store.contingencyLoading()"
+            (click)="onDiscoverContingencies()"
+          >
+            @if (store.contingencyLoading()) {
+              <span>Evaluando enlaces espejo...</span>
+            } @else {
+              <span>Descubrir y Evaluar Respaldos</span>
+            }
+          </button>
         </div>
 
         <div class="card-body">
-          <!-- URL Principal -->
           <div class="form-group">
             <label class="form-label" for="entrypoint-input">Enlace Principal Oficial</label>
             <div class="input-with-button">
@@ -82,18 +105,105 @@
                 placeholder="https://portal.gob.bo/inicio/"
               />
               @if (formEntrypoint) {
-                <a [href]="formEntrypoint" target="_blank" rel="noopener noreferrer" class="btn-external-link" title="Visitar enlace">
-                  Probar ↗
+                <a
+                  [href]="formEntrypoint"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="btn-external-link"
+                >
+                  Abrir enlace
                 </a>
               }
             </div>
           </div>
 
-          <!-- URLs de Contingencia / Respaldo -->
+          <!-- Resultado en vivo del Evaluador Automático de Contingencias -->
+          @if (store.contingencyResult(); as evalRes) {
+            <div class="contingency-eval-panel">
+              <div class="eval-panel-head">
+                <div>
+                  <span class="eval-badge">EVALUACIÓN AUTOMÁTICA DE CONTINGENCIA</span>
+                  <p class="eval-sub">
+                    Portal evaluado: <strong>{{ evalRes.source_name }}</strong> — Enlaces registrados automáticamente:
+                    <strong>{{ evalRes.auto_registered_count }}</strong>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="btn-clear-eval"
+                  (click)="store.clearContingencyResult()"
+                >
+                  Ocultar resultado
+                </button>
+              </div>
+
+              <div class="eval-table-wrap">
+                <table class="eval-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo de Respaldo</th>
+                      <th>URL Alternativa Evaluada</th>
+                      <th>Respuesta HTTP</th>
+                      <th>Archivos Detectados</th>
+                      <th>Confianza</th>
+                      <th>Diagnóstico</th>
+                      <th>Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (cand of evalRes.candidates; track cand.url) {
+                      <tr>
+                        <td>
+                          <span class="origin-pill">{{ formatOriginType(cand.origin_type) }}</span>
+                        </td>
+                        <td class="font-mono cell-url" [title]="cand.url">{{ cand.url }}</td>
+                        <td class="font-mono">
+                          <span
+                            class="http-pill"
+                            [class.http-ok]="cand.reachable"
+                            [class.http-fail]="!cand.reachable"
+                          >
+                            {{ cand.reachable ? 'HTTP ' + (cand.http_status || 200) : 'Inaccesible' }}
+                          </span>
+                        </td>
+                        <td class="font-mono text-right">{{ cand.detected_resources_count }}</td>
+                        <td class="font-mono font-bold">
+                          <span
+                            [class.score-high]="cand.confidence_score >= 70"
+                            [class.score-mid]="cand.confidence_score >= 45 && cand.confidence_score < 70"
+                          >
+                            {{ cand.confidence_score }} / 100
+                          </span>
+                        </td>
+                        <td class="cell-rec">{{ cand.recommendation }}</td>
+                        <td>
+                          @if (formContingencyUrls().includes(cand.url)) {
+                            <span class="registered-tag">Registrada</span>
+                          } @else {
+                            <button
+                              type="button"
+                              class="btn-mini-add"
+                              (click)="addContingencyUrl(cand.url)"
+                            >
+                              Incorporar
+                            </button>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          }
+
+          <!-- Lista activa de URLs de Contingencia -->
           <div class="form-group">
             <div class="label-row">
-              <label class="form-label">URLs Alternativas de Contingencia / Respaldo</label>
-              <span class="label-hint">Repositorios espejo o enlaces secundarios en caso de falla del portal principal.</span>
+              <label class="form-label">URLs Alternativas de Contingencia Registradas</label>
+              <span class="label-hint">
+                Conmutación automática ordenada en caso de caída o bloqueo del enlace principal.
+              </span>
             </div>
 
             <div class="items-list-box">
@@ -101,12 +211,27 @@
                 <div class="list-entry">
                   <span class="entry-url font-mono">{{ curl }}</span>
                   <div class="entry-actions">
-                    <a [href]="curl" target="_blank" rel="noopener noreferrer" class="btn-entry-test" title="Probar enlace">Probar ↗</a>
-                    <button type="button" class="btn-entry-remove" (click)="removeContingencyUrl(idx)" title="Eliminar URL">✕</button>
+                    <a
+                      [href]="curl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="btn-entry-test"
+                    >
+                      Verificar
+                    </a>
+                    <button
+                      type="button"
+                      class="btn-entry-remove"
+                      (click)="removeContingencyUrl(idx)"
+                    >
+                      Quitar
+                    </button>
                   </div>
                 </div>
               } @empty {
-                <p class="empty-list-note">Sin URLs alternativas configuradas. El sistema utilizará únicamente el enlace principal.</p>
+                <p class="empty-list-note">
+                  Sin URLs alternativas registradas. Utilice "Descubrir y Evaluar Respaldos" o agregue un enlace espejo manualmente.
+                </p>
               }
             </div>
 
@@ -114,34 +239,33 @@
               <input
                 type="url"
                 class="form-input"
-                placeholder="https://espejo.portal.gob.bo/ o https://datos.gob.bo/entidad/"
+                placeholder="https://espejo.entidad.gob.bo/estadisticas/ o https://datos.gob.bo/..."
                 [(ngModel)]="newContingencyUrl"
                 name="newContingency"
                 (keydown.enter)="addContingencyUrl(); $event.preventDefault()"
               />
               <button type="button" class="btn-add-entry" (click)="addContingencyUrl()">
-                + Agregar URL de Contingencia
+                Agregar URL de Respaldo
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- SECCIÓN 2: PARÁMETROS DE EXTRACCIÓN Y RASTREO -->
+      <!-- SECCIÓN 2: FILTROS DE CONFIANZA Y EXTRACCIÓN DIRIGIDA -->
       <section class="config-card">
         <div class="card-header">
-          <h2 class="card-title">Estrategia de Extracción y Rastreo</h2>
+          <h2 class="card-title">Filtros de Dominio, Exclusión y Extracción Dirigida</h2>
           <p class="card-desc">
-            Configure las rutas internas prioritarias, los formatos autorizados y los parámetros de cortesía de peticiones HTTP.
+            Configure rutas semilla prioritarias, dominios autorizados, patrones de exclusión y formatos documentales objetivo.
           </p>
         </div>
 
         <div class="card-body">
-          <!-- Rutas Semilla -->
           <div class="form-group">
             <div class="label-row">
-              <label class="form-label">Rutas Semilla de Exploración (Seeds)</label>
-              <span class="label-hint">Secciones o páginas internas prioritarias con archivos para descarga.</span>
+              <label class="form-label">Rutas Semilla de Exploración Prioritaria</label>
+              <span class="label-hint">Secciones directas con boletines, memorias o series estadísticas.</span>
             </div>
 
             <div class="items-list-box">
@@ -149,12 +273,18 @@
                 <div class="list-entry">
                   <span class="entry-url font-mono">{{ seed }}</span>
                   <div class="entry-actions">
-                    <a [href]="seed" target="_blank" rel="noopener noreferrer" class="btn-entry-test" title="Visitar">Visitar ↗</a>
-                    <button type="button" class="btn-entry-remove" (click)="removeSeed(idx)" title="Eliminar semilla">✕</button>
+                    <a [href]="seed" target="_blank" rel="noopener noreferrer" class="btn-entry-test">
+                      Abrir
+                    </a>
+                    <button type="button" class="btn-entry-remove" (click)="removeSeed(idx)">
+                      Quitar
+                    </button>
                   </div>
                 </div>
               } @empty {
-                <p class="empty-list-note">Sin rutas semilla adicionales (la exploración parte del enlace principal).</p>
+                <p class="empty-list-note">
+                  La exploración parte directamente del enlace principal oficial.
+                </p>
               }
             </div>
 
@@ -168,14 +298,70 @@
                 (keydown.enter)="addSeed(); $event.preventDefault()"
               />
               <button type="button" class="btn-add-entry" (click)="addSeed()">
-                + Agregar Semilla
+                Agregar Ruta Semilla
               </button>
             </div>
           </div>
 
-          <!-- Formatos Autorizados -->
+          <!-- Dominios Autorizados y Patrones de Exclusión -->
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label class="form-label">Dominios Autorizados de Confianza</label>
+              <div class="chips-box">
+                @for (host of formAllowedHosts(); track host; let idx = $index) {
+                  <span class="filter-chip font-mono">
+                    {{ host }}
+                    <button type="button" class="chip-del" (click)="removeAllowedHost(idx)">x</button>
+                  </span>
+                } @empty {
+                  <span class="empty-list-note">Restringido automáticamente al dominio oficial.</span>
+                }
+              </div>
+              <div class="add-entry-row">
+                <input
+                  type="text"
+                  class="form-input font-mono"
+                  placeholder="ej. cdn.bcb.gob.bo"
+                  [(ngModel)]="newAllowedHost"
+                  name="newAllowedHost"
+                  (keydown.enter)="addAllowedHost(); $event.preventDefault()"
+                />
+                <button type="button" class="btn-add-entry" (click)="addAllowedHost()">
+                  Autorizar
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Patrones de Exclusión de Ruta</label>
+              <div class="chips-box">
+                @for (kw of formExcludedKeywords(); track kw; let idx = $index) {
+                  <span class="filter-chip chip-exclude font-mono">
+                    {{ kw }}
+                    <button type="button" class="chip-del" (click)="removeExcludedKeyword(idx)">x</button>
+                  </span>
+                } @empty {
+                  <span class="empty-list-note">Sin exclusiones personalizadas adicionales.</span>
+                }
+              </div>
+              <div class="add-entry-row">
+                <input
+                  type="text"
+                  class="form-input font-mono"
+                  placeholder="ej. /licitaciones/ o /galeria/"
+                  [(ngModel)]="newExcludedKeyword"
+                  name="newExcludedKeyword"
+                  (keydown.enter)="addExcludedKeyword(); $event.preventDefault()"
+                />
+                <button type="button" class="btn-add-entry" (click)="addExcludedKeyword()">
+                  Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div class="form-group">
-            <label class="form-label">Formatos de Archivo Autorizados</label>
+            <label class="form-label">Formatos de Archivo Preestablecidos para Extracción</label>
             <div class="extensions-wrap">
               @for (ext of availableExtensions; track ext) {
                 <button
@@ -184,24 +370,25 @@
                   [class.active]="formExtensions().includes(ext)"
                   (click)="toggleExtension(ext)"
                 >
-                  <span class="ext-icon">{{ formExtensions().includes(ext) ? '✓' : '+' }}</span>
                   <span class="font-mono">{{ ext }}</span>
+                  <span class="ext-state">
+                    {{ formExtensions().includes(ext) ? 'Activo' : 'Inactivo' }}
+                  </span>
                 </button>
               }
             </div>
           </div>
 
-          <!-- Cadencia, Rate Limit y Presupuesto -->
           <div class="form-grid-3">
             <div class="form-group">
-              <label class="form-label" for="update-category">Frecuencia de Rastreo</label>
+              <label class="form-label" for="update-category">Frecuencia de Exploración</label>
               <select
                 id="update-category"
                 class="form-select"
                 [(ngModel)]="formCategory"
                 name="update_category"
               >
-                <option value="DAILY">Diario (cada 24 horas)</option>
+                <option value="DAILY">Diaria (cada 24 horas)</option>
                 <option value="WEEKLY">Semanal (cada 7 días)</option>
                 <option value="MONTHLY">Mensual (cada 30 días)</option>
               </select>
@@ -215,71 +402,66 @@
                 step="0.1"
                 min="0.1"
                 max="60"
-                class="form-input"
+                class="form-input font-mono"
                 [(ngModel)]="formRateLimit"
                 name="rate_limit_seconds"
               />
-              <span class="field-subtext">Pausa entre peticiones sucesivas.</span>
+              <span class="field-subtext">Pausa obligatoria entre peticiones HTTP sucesivas.</span>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="max-urls">Límite Máximo de Páginas</label>
+              <label class="form-label" for="max-urls">Presupuesto Máximo de Páginas</label>
               <input
                 id="max-urls"
                 type="number"
                 min="10"
                 max="5000"
-                class="form-input"
+                class="form-input font-mono"
                 [(ngModel)]="formMaxUrls"
                 name="max_urls"
               />
-              <span class="field-subtext">Presupuesto seguro por ciclo.</span>
+              <span class="field-subtext">Cuota máxima de páginas por ciclo de rastreo.</span>
             </div>
           </div>
 
-          <!-- Override Robots.txt -->
           <div class="form-group">
             <label class="checkbox-label-wrap">
-              <input
-                type="checkbox"
-                [(ngModel)]="formIgnoreRobots"
-                name="ignore_robots_txt"
-              />
+              <input type="checkbox" [(ngModel)]="formIgnoreRobots" name="ignore_robots_txt" />
               <span>
-                <strong>Auditoría autorizada:</strong> Permitir acceso a información pública independientemente de restricciones robots.txt.
+                <strong>Auditoría pública autorizada:</strong> Permitir indexación de reportes normativos públicos con independencia de directivas robots.txt restrictivas.
               </span>
             </label>
           </div>
         </div>
       </section>
 
-      <!-- SECCIÓN 3: ESTADO Y DIAGNÓSTICO DE AUDITORÍA -->
+      <!-- SECCIÓN 3: ESTADO OPERATIVO Y DIAGNÓSTICO DE AUDITORÍA -->
       <section class="config-card">
         <div class="card-header">
-          <h2 class="card-title">Estado Operativo y Diagnóstico</h2>
+          <h2 class="card-title">Clasificación Operativa y Diagnóstico Técnico</h2>
           <p class="card-desc">
-            Asigne el estado de la fuente y registre notas técnicas en caso de incidencias o bloqueos en origen.
+            Gestione la pertenencia a Lista Blanca o Lista Negra y documente la causa técnica de cualquier observación.
           </p>
         </div>
 
         <div class="card-body">
           <div class="form-grid-2">
             <div class="form-group">
-              <label class="form-label" for="health-status">Estado Operativo</label>
+              <label class="form-label" for="health-status">Clasificación del Portal</label>
               <select
                 id="health-status"
                 class="form-select"
                 [(ngModel)]="formHealth"
                 name="health_status"
               >
-                <option value="ACTIVE">Operativo (Sin incidencias)</option>
-                <option value="WARNING">Advertencia Técnica (Requiere revisión)</option>
-                <option value="SUSPENDED">Suspendido (Portal inactivo o con bloqueo severo)</option>
+                <option value="ACTIVE">Lista Blanca — Operativo sin incidencias</option>
+                <option value="WARNING">Lista Negra — En observación técnica</option>
+                <option value="SUSPENDED">Lista Negra — Suspendido por bloqueo severo</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label class="form-label" for="audit-code">Código Diagnóstico</label>
+              <label class="form-label" for="audit-code">Código Estándar de Diagnóstico</label>
               <input
                 id="audit-code"
                 type="text"
@@ -290,34 +472,36 @@
                 placeholder="OPERATIONAL_OK"
               />
               <datalist id="codes-list">
-                <option value="OPERATIONAL_OK">OPERATIONAL_OK — Operación normal sin incidentes</option>
-                <option value="TLS_HOLD">TLS_HOLD — Error de handshake TLS/SSL en el servidor</option>
-                <option value="BUDGET_LIMIT">BUDGET_LIMIT — Consumo total del presupuesto de URLs</option>
-                <option value="BOT_BLOCKED">BOT_BLOCKED — Bloqueo perimetral por Firewall o WAF</option>
-                <option value="DOM_CHANGED">DOM_CHANGED — Estructura web modificada en origen</option>
+                <option value="OPERATIONAL_OK">OPERATIONAL_OK — Operación normal</option>
+                <option value="DOM_CHANGED">DOM_CHANGED — Cambio estructural en selectores HTML</option>
+                <option value="API_CHANGED">API_CHANGED — Alteración de esquema en servicio JSON</option>
+                <option value="TLS_HOLD">TLS_HOLD — Fallo de certificado o cifrado TLS</option>
+                <option value="BUDGET_LIMIT">BUDGET_LIMIT — Agotamiento de cuota de URLs</option>
+                <option value="BOT_BLOCKED">BOT_BLOCKED — Bloqueo perimetral por Firewall/WAF</option>
+                <option value="HTTP_5XX">HTTP_5XX — Indisponibilidad en servidor origen</option>
               </datalist>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" for="audit-note">Nota Técnica del Diagnóstico</label>
+            <label class="form-label" for="audit-note">Nota Técnica de Mantenimiento</label>
             <textarea
               id="audit-note"
               class="form-textarea"
               rows="2"
               [(ngModel)]="formAuditNote"
               name="audit_note"
-              placeholder="Descripción del incidente técnico para el equipo..."
+              placeholder="Detalle de selectores afectados, comportamiento observado y plan de mitigación..."
             ></textarea>
           </div>
 
           @if (src.consecutive_failures && src.consecutive_failures > 0) {
             <div class="warning-callout">
-              <span class="warning-icon">⚠️</span>
               <div>
-                <strong>Disyuntor Activado:</strong> Se registran <strong>{{ src.consecutive_failures }}</strong> fallos consecutivos de acceso.
+                <strong>Disyuntor de Protección Activo:</strong> Se registran
+                <strong>{{ src.consecutive_failures }}</strong> fallos consecutivos de conexión.
                 @if (src.first_failure_at) {
-                  <span class="subtext">Primer fallo: {{ src.first_failure_at }}</span>
+                  <span class="subtext">Primer incidente registrado: {{ src.first_failure_at }}</span>
                 }
               </div>
             </div>
@@ -325,27 +509,22 @@
         </div>
       </section>
 
-      <!-- BOTÓN DE GUARDADO NATURAL (FLUJO NORMAL SIN POSICION FIJA) -->
       <footer class="form-actions-footer">
         <div class="feedback-area">
           @if (saveSuccess()) {
-            <span class="msg success">✓ {{ actionMessage() }}</span>
+            <span class="msg success">{{ actionMessage() }}</span>
           } @else if (saveError()) {
-            <span class="msg error">✕ {{ actionMessage() }}</span>
+            <span class="msg error">{{ actionMessage() }}</span>
           } @else if (actionMessage()) {
-            <span class="msg info">ℹ {{ actionMessage() }}</span>
+            <span class="msg info">{{ actionMessage() }}</span>
           }
         </div>
 
-        <button
-          type="submit"
-          class="btn-save"
-          [disabled]="isSaving()"
-        >
+        <button type="submit" class="btn-save" [disabled]="isSaving()">
           @if (isSaving()) {
-            <span>Guardando...</span>
+            <span>Guardando cambios...</span>
           } @else {
-            <span>Guardar Parámetros</span>
+            <span>Guardar Parámetros del Portal</span>
           }
         </button>
       </footer>

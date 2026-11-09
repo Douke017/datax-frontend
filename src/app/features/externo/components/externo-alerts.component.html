@@ -1,0 +1,219 @@
+<div class="alerts-layout">
+  <div class="kpi-row">
+    <div class="kpi-box">
+      <span class="kpi-lbl">ALERTAS DE MANTENIMIENTO</span>
+      <span class="kpi-val mono">{{ store.alerts().length }}</span>
+      <span class="kpi-sub">Incidencias estructurales y de acceso activas</span>
+    </div>
+
+    <div class="kpi-box kpi-danger">
+      <span class="kpi-lbl">SEVERIDAD CRÍTICA</span>
+      <span class="kpi-val mono text-danger">{{ store.criticalAlertsCount() }}</span>
+      <span class="kpi-sub">Atención prioritaria requerida por ingeniería</span>
+    </div>
+
+    <div class="kpi-box">
+      <span class="kpi-lbl">CAMBIOS ESTRUCTURALES</span>
+      <span class="kpi-val mono text-amber">{{ domApiAlertsCount() }}</span>
+      <span class="kpi-sub">Mutaciones en rutas XPath, selectores CSS o servicios</span>
+    </div>
+
+    <div class="kpi-box">
+      <span class="kpi-lbl">INCIDENCIAS DE ACCESO</span>
+      <span class="kpi-val mono text-info">{{ protocolAlertsCount() }}</span>
+      <span class="kpi-sub">Certificados TLS, bloqueos perimetrales o cuotas</span>
+    </div>
+  </div>
+
+  <section class="verify-bar">
+    <div>
+      <h2 class="section-title">Verificación Estructural en Tiempo Real e Informe de Mantenimiento</h2>
+      <p class="section-desc">
+        Inspecciona la firma estructural del portal (selectores CSS, rutas XPath de documentos o esquema de servicio)
+        y emite el informe técnico estructurado listo para gestión de incidencias en Taiga.
+      </p>
+    </div>
+
+    <div class="verify-controls">
+      <select class="source-select" [(ngModel)]="selectedSourceToVerify">
+        @for (src of store.sources(); track src.source_id) {
+          <option [value]="src.source_id">{{ src.source_id.toUpperCase() }} — {{ src.name }}</option>
+        }
+      </select>
+      <button
+        type="button"
+        class="btn-verify-live"
+        [disabled]="store.alertsLoading()"
+        (click)="onVerifyLive()"
+      >
+        {{ store.alertsLoading() ? 'Inspeccionando...' : 'Verificar Estructura y Emitir Informe' }}
+      </button>
+    </div>
+  </section>
+
+  @if (store.activeTechnicalReport(); as rep) {
+    <section class="report-panel">
+      <div class="report-top">
+        <div>
+          <span class="rep-tag mono">INFORME TÉCNICO DE MANTENIMIENTO · {{ rep.report_id }}</span>
+          <h3 class="rep-title">{{ rep.source_id.toUpperCase() }} — {{ rep.source_name }}</h3>
+        </div>
+        <div class="rep-actions">
+          <button type="button" class="btn-action-sm" (click)="copyMarkdownReport(rep.taiga_markdown)">
+            {{ copiedMarkdown() ? 'Copiado al Portapapeles' : 'Copiar Informe para Taiga' }}
+          </button>
+          <button
+            type="button"
+            class="btn-action-sm"
+            (click)="downloadMarkdownReport(rep.source_id, rep.report_id, rep.taiga_markdown)"
+          >
+            Descargar Informe (.md)
+          </button>
+          <button type="button" class="btn-close-sm" (click)="store.clearTechnicalReport()">
+            Cerrar
+          </button>
+        </div>
+      </div>
+
+      <div class="rep-grid">
+        <div class="rep-meta-box">
+          <div class="meta-line">
+            <span class="m-lbl">Código Diagnóstico:</span>
+            <span class="m-val mono font-bold">{{ rep.alert_code }} ({{ rep.severity }})</span>
+          </div>
+          <div class="meta-line">
+            <span class="m-lbl">Punto de Entrada:</span>
+            <span class="m-val mono">{{ rep.entrypoint }}</span>
+          </div>
+          <div class="meta-line">
+            <span class="m-lbl">Firma Estructural Previa:</span>
+            <span class="m-val mono">{{ rep.previous_signature ? (rep.previous_signature | slice:0:24) + '...' : 'Línea base inicial' }}</span>
+          </div>
+          <div class="meta-line">
+            <span class="m-lbl">Firma Estructural Actual:</span>
+            <span class="m-val mono">{{ rep.current_signature ? (rep.current_signature | slice:0:24) + '...' : 'No disponible' }}</span>
+          </div>
+          <div class="meta-line">
+            <span class="m-lbl">Respaldo de Contingencia:</span>
+            <span class="m-val mono">
+              {{ rep.contingency_urls.length > 0 ? rep.contingency_urls.length + ' URL(s) configuradas' : 'Sin respaldo registrado' }}
+            </span>
+          </div>
+
+          <div class="steps-block">
+            <span class="m-lbl">Plan de Mitigación Recomendado:</span>
+            <ol class="steps-list">
+              @for (step of rep.remediation_steps; track step) {
+                <li>{{ step }}</li>
+              }
+            </ol>
+          </div>
+        </div>
+
+        <div class="rep-markdown-box">
+          <span class="m-lbl">Documento Estructurado (Formato Historia / Incidente Taiga):</span>
+          <pre class="md-preview mono">{{ rep.taiga_markdown }}</pre>
+        </div>
+      </div>
+    </section>
+  }
+
+  <section class="table-section">
+    <div class="table-head-bar">
+      <div class="sev-pills">
+        <button
+          type="button"
+          class="sev-pill"
+          [class.active]="severityFilter() === 'ALL'"
+          (click)="severityFilter.set('ALL')"
+        >
+          Todas ({{ store.alerts().length }})
+        </button>
+        <button
+          type="button"
+          class="sev-pill"
+          [class.active]="severityFilter() === 'CRITICA'"
+          (click)="severityFilter.set('CRITICA')"
+        >
+          Críticas
+        </button>
+        <button
+          type="button"
+          class="sev-pill"
+          [class.active]="severityFilter() === 'ALTA'"
+          (click)="severityFilter.set('ALTA')"
+        >
+          Altas
+        </button>
+        <button
+          type="button"
+          class="sev-pill"
+          [class.active]="severityFilter() === 'MEDIA'"
+          (click)="severityFilter.set('MEDIA')"
+        >
+          Medias
+        </button>
+      </div>
+
+      <button type="button" class="btn-action-sm" (click)="store.refreshAlerts()">
+        Actualizar Alertas
+      </button>
+    </div>
+
+    <div class="table-scroll">
+      <table class="alerts-table">
+        <thead>
+          <tr>
+            <th>Severidad</th>
+            <th>Portal</th>
+            <th>Código y Naturaleza</th>
+            <th>Diagnóstico Técnico</th>
+            <th>Detección</th>
+            <th>Informe Técnico</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (al of filteredAlerts(); track al.alert_id) {
+            <tr>
+              <td>
+                <span
+                  class="sev-badge mono"
+                  [class.sev-crit]="al.severity === 'CRITICA'"
+                  [class.sev-high]="al.severity === 'ALTA'"
+                  [class.sev-med]="al.severity === 'MEDIA'"
+                >
+                  {{ al.severity }}
+                </span>
+              </td>
+              <td>
+                <div class="src-col">
+                  <span class="mono font-bold">{{ al.source_id.toUpperCase() }}</span>
+                  <span class="src-sub">{{ al.source_name }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="src-col">
+                  <span class="code-tag mono">{{ al.alert_code }}</span>
+                  <span class="src-sub">{{ formatAlertType(al.alert_code) }}</span>
+                </div>
+              </td>
+              <td class="diag-col">{{ al.diagnostic_summary }}</td>
+              <td class="mono text-xs">{{ al.detected_at | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td>
+                <button type="button" class="btn-report" (click)="onOpenReport(al.source_id)">
+                  Ver Informe
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-cell">
+                No existen alertas activas para el filtro seleccionado.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

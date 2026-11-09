@@ -1,14 +1,13 @@
 <div class="interno-layout">
-  <!-- Top Module Bar -->
   <div class="module-header">
     <div class="module-title-box">
       <div class="system-badge-row">
         <span class="system-name">PROSPECTOR INTERNO</span>
-        <span class="status-live">OPERATIVO</span>
+        <span class="status-live">SERVICIO ACTIVO</span>
       </div>
-      <h1 class="module-title">Custodia Documental, Control Previo y Catálogo de Datos</h1>
+      <h1 class="module-title">Gestión, Catalogación y Autoservicio de Información Consolidada</h1>
       <p class="module-desc">
-        Control de admisión para prevención de descargas redundantes, repositorio físico de custodia original con verificación de integridad y catálogo analítico de activos de datos.
+        Validación previa de solicitudes con prevención de duplicidad, monitoreo de descargas en curso, preservación documental con firma SHA-256 y autoservicio analítico directo para estudios financieros.
       </p>
     </div>
 
@@ -17,27 +16,26 @@
         type="button"
         class="btn-sync"
         [disabled]="store.loading()"
-        (click)="store.loadAll()"
+        (click)="refreshWorkspace()"
       >
         @if (store.loading()) {
-          <span>Verificando...</span>
+          <span>Actualizando...</span>
         } @else {
-          <span>Actualizar Catálogo</span>
+          <span>Actualizar Inventario</span>
         }
       </button>
     </div>
   </div>
 
-  <!-- Module Navigation Sub-Tabs -->
   <nav class="sub-nav-tabs">
     <button
       type="button"
       class="sub-nav-tab"
-      [class.active]="activeTab() === 'curaduria'"
-      (click)="setTab('curaduria')"
+      [class.active]="activeTab() === 'activos'"
+      (click)="setTab('activos')"
     >
-      <span class="tab-label">Curaduría de URLs e Ingesta</span>
-      <span class="tab-badge">3,574 URLs</span>
+      <span class="tab-label">Repositorios Consolidados y Autoservicio</span>
+      <span class="tab-badge">4 Módulos</span>
     </button>
 
     <button
@@ -46,8 +44,18 @@
       [class.active]="activeTab() === 'gatekeeper'"
       (click)="setTab('gatekeeper')"
     >
-      <span class="tab-label">Control Previo (Gatekeeper)</span>
-      <span class="tab-badge">Validación</span>
+      <span class="tab-label">Validación Previa, Cola y Reutilización</span>
+      <span class="tab-badge">{{ formatInt(store.activeDownloadsCount()) }} en curso</span>
+    </button>
+
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'curaduria'"
+      (click)="setTab('curaduria')"
+    >
+      <span class="tab-label">Inventario de Enlaces y Estado de Descarga</span>
+      <span class="tab-badge">{{ formatInt(inventoryStore.totalUrls()) }}</span>
     </button>
 
     <button
@@ -56,35 +64,24 @@
       [class.active]="activeTab() === 'custodia'"
       (click)="setTab('custodia')"
     >
-      <span class="tab-label">Custodia de Archivos Originales</span>
-      <span class="tab-badge">{{ store.totalArtifactsCount() }}</span>
-    </button>
-
-    <button
-      type="button"
-      class="sub-nav-tab"
-      [class.active]="activeTab() === 'activos'"
-      (click)="setTab('activos')"
-    >
-      <span class="tab-label">Activos Analíticos y Datamarts</span>
-      <span class="tab-badge">Capa Gold</span>
+      <span class="tab-label">Custodia Documental y Firma SHA-256</span>
+      <span class="tab-badge">{{ formatInt(store.totalArtifactsCount()) }}</span>
     </button>
   </nav>
 
-  <!-- Main Content Area -->
   <div class="tab-content-area">
     @switch (activeTab()) {
-      @case ('curaduria') {
-        <app-interno-curaduria />
+      @case ('activos') {
+        <app-interno-activos />
       }
       @case ('gatekeeper') {
         <app-interno-gatekeeper />
       }
+      @case ('curaduria') {
+        <app-interno-curaduria />
+      }
       @case ('custodia') {
         <app-interno-custodia />
-      }
-      @case ('activos') {
-        <app-interno-activos />
       }
     }
   </div>
