@@ -1,101 +1,80 @@
-<div class="inventory-container">
-  <div class="proc-kpi-strip">
-    <div class="proc-kpi">
-      <span class="proc-lbl">PENDIENTES DE PROCESAMIENTO</span>
-      <span class="proc-val mono">{{ formatInt(store.processingSummary().pending) }}</span>
-    </div>
-    <div class="proc-kpi">
-      <span class="proc-lbl">EN PROCESO</span>
-      <span class="proc-val mono text-info">{{ formatInt(store.processingSummary().inProcess) }}</span>
-    </div>
-    <div class="proc-kpi">
-      <span class="proc-lbl">PROCESADOS EXITOSAMENTE</span>
-      <span class="proc-val mono text-green">{{ formatInt(store.processingSummary().completed) }}</span>
-    </div>
-    <div class="proc-kpi">
-      <span class="proc-lbl">CON ERROR DE PROCESAMIENTO</span>
-      <span class="proc-val mono text-danger">{{ formatInt(store.processingSummary().errorCount) }}</span>
-    </div>
-  </div>
-
-  <div class="toolbar-card">
-    <div class="search-box">
-      <label class="toolbar-label" for="doc-search">Búsqueda de archivos:</label>
-      <div class="input-wrapper">
+<div class="inventory-view">
+  <section class="filters-card" aria-label="Filtros server-side del catálogo de archivos">
+    <div class="filters-grid">
+      <div class="f-group f-search">
+        <label for="inv-search">Buscar archivo, URL, clave o SHA-256</label>
         <input
-          id="doc-search"
-          type="text"
-          class="search-input"
-          placeholder="Buscar por título, periodo, clave o enlace..."
+          id="inv-search"
+          type="search"
+          class="text-input"
           [value]="store.searchQuery()"
           (input)="onSearchInput($event)"
+          placeholder="Texto libre, nombre declarado, URL o prefijo hash..."
         />
-        @if (store.searchQuery()) {
-          <button type="button" class="btn-clear" (click)="clearSearch()">
-            Limpiar
-          </button>
-        }
       </div>
-    </div>
 
-    <div class="filter-group">
-      <div class="filter-item">
-        <label class="toolbar-label" for="source-filter">Entidad:</label>
+      <div class="f-group">
+        <label for="inv-source">Fuente</label>
         <select
-          id="source-filter"
+          id="inv-source"
           class="select-input"
-          [value]="store.selectedSourceId()"
-          (change)="onSourceChange($event)"
+          [ngModel]="store.selectedSourceId()"
+          (ngModelChange)="onSourceChange($event)"
         >
-          <option value="ALL">Todas las Entidades</option>
+          <option value="ALL">Todas las fuentes</option>
           @for (src of store.sources(); track src.source_id) {
             <option [value]="src.source_id">{{ src.source_id.toUpperCase() }} — {{ src.name }}</option>
           }
         </select>
       </div>
 
-      <div class="filter-item">
-        <label class="toolbar-label" for="format-filter">Formato:</label>
+      <div class="f-group">
+        <label for="inv-ext">Extensión</label>
         <select
-          id="format-filter"
-          class="select-input"
-          [value]="store.extensionFilter()"
-          (change)="onExtensionChange($event)"
+          id="inv-ext"
+          class="select-input mono"
+          [ngModel]="store.extensionFilter()"
+          (ngModelChange)="onExtensionChange($event)"
         >
-          <option value="ALL">Todos los Formatos</option>
-          <option value=".pdf">PDF (.pdf)</option>
-          <option value=".xlsx">Excel (.xlsx)</option>
-          <option value=".xls">Excel Clásico (.xls)</option>
-          <option value=".csv">CSV (.csv)</option>
-          <option value=".zip">Comprimido (.zip)</option>
-          <option value=".docx">Documento (.docx)</option>
+          <option value="ALL">Todas</option>
+          <option value=".xlsx">.xlsx</option>
+          <option value=".xls">.xls</option>
+          <option value=".csv">.csv</option>
+          <option value=".parquet">.parquet</option>
+          <option value=".json">.json</option>
+          <option value=".pdf">.pdf</option>
+          <option value=".zip">.zip</option>
+          <option value=".tar.gz">.tar.gz</option>
+          <option value=".xml">.xml</option>
+          <option value=".sav">.sav</option>
+          <option value=".dta">.dta</option>
         </select>
       </div>
 
-      <div class="filter-item">
-        <label class="toolbar-label" for="status-filter">Ciclo en Portal:</label>
+      <div class="f-group">
+        <label for="inv-cat">Categoría</label>
         <select
-          id="status-filter"
+          id="inv-cat"
           class="select-input"
-          [value]="store.statusFilter()"
-          (change)="onStatusChange($event)"
+          [ngModel]="store.categoryFilter()"
+          (ngModelChange)="onCategoryChange($event)"
         >
-          <option value="ALL">Todos</option>
-          <option value="UNCHANGED">Confirmado</option>
-          <option value="NEW">Nuevo Hallazgo</option>
-          <option value="MODIFIED">Modificado</option>
+          <option value="ALL">Todas</option>
+          <option value="TABULAR_CIENTIFICO">Tabular / Científico</option>
+          <option value="COMPRIMIDO">Comprimido</option>
+          <option value="DOCUMENTAL">Documental</option>
         </select>
       </div>
 
-      <div class="filter-item">
-        <label class="toolbar-label" for="proc-filter">Estado Procesamiento:</label>
+      <div class="f-group">
+        <label for="inv-proc">Estado del Pipeline</label>
         <select
-          id="proc-filter"
+          id="inv-proc"
           class="select-input"
-          [value]="store.processingFilter()"
-          (change)="onProcessingFilterChange($event)"
+          [ngModel]="store.processingFilter()"
+          (ngModelChange)="onProcessingChange($event)"
         >
-          <option value="ALL">Todos los Estados</option>
+          <option value="ALL">Todos los estados</option>
           <option value="PENDIENTE">Pendiente</option>
           <option value="EN_PROCESO">En Proceso</option>
           <option value="PROCESADO_EXITOSAMENTE">Procesado Exitosamente</option>
@@ -103,259 +82,300 @@
         </select>
       </div>
     </div>
-  </div>
 
-  <div class="results-bar">
-    <div class="results-count">
-      Mostrando <strong class="mono">{{ store.paginationRange().start }} – {{ store.paginationRange().end }}</strong> de
-      <strong class="mono">{{ formatInt(store.totalFiltered()) }}</strong> archivos registrados
-      @if (store.totalFiltered() !== store.totalDiscovered()) {
-        <span class="sub-count">(filtrados de {{ formatInt(store.totalDiscovered()) }} en total)</span>
+    <div class="export-bar">
+      <span class="export-label">Exportar manifiesto filtrado:</span>
+      <a class="btn-secondary btn-sm" [href]="getExportHref('jsonl')" download>Manifiesto JSONL</a>
+      <a class="btn-secondary btn-sm" [href]="getExportHref('csv')" download>Manifiesto CSV</a>
+      <a class="btn-secondary btn-sm" [href]="getExportHref('parquet')" download>Manifiesto Parquet</a>
+    </div>
+  </section>
+
+  @if (bulkSummaryMsg()) {
+    <div class="bulk-summary-banner" role="status">
+      <span>{{ bulkSummaryMsg() }}</span>
+      <button type="button" class="btn-ghost btn-sm" (click)="bulkSummaryMsg.set('')">Cerrar</button>
+    </div>
+  }
+
+  <app-data-grid
+    caption="Catálogo externo de archivos descubiertos y trazabilidad"
+    [columns]="columns"
+    [rows]="store.resources()"
+    [rowKey]="rowKeyFn"
+    [loading]="store.resourcesLoading()"
+    [error]="store.resourcesError()"
+    [sortBy]="store.sortBy()"
+    [sortDir]="store.sortDir()"
+    [filterChips]="filterChips()"
+    [selectable]="true"
+    [selectedKeys]="selectedKeys()"
+    [page]="store.currentPage()"
+    [pageSize]="store.pageSize()"
+    [totalItems]="store.totalResources()"
+    (sortChange)="onSortChange($event)"
+    (pageChange)="onPageChange($event)"
+    (pageSizeChange)="onPageSizeChange($event)"
+    (removeChip)="onRemoveChip($event)"
+    (clearAllChips)="onClearAllChips()"
+    (selectionChange)="onSelectionChange($event)"
+    (rowClick)="openDrawer($event)"
+    (retry)="store.loadResourcesPage()"
+  >
+    <ng-container grid-bulk-actions>
+      <button
+        type="button"
+        class="btn-primary btn-sm"
+        [disabled]="bulkDispatching()"
+        (click)="sendSelectedToInterno()"
+      >
+        {{ bulkDispatching() ? 'Validando y encolando...' : 'Validar y Enviar a Descarga Interna' }}
+      </button>
+    </ng-container>
+
+    <ng-template #cellTemplate let-row let-column="column">
+      @switch (column.key) {
+        @case ('source_id') {
+          <span class="src-pill mono">{{ row.source_id.toUpperCase() }}</span>
+        }
+        @case ('title') {
+          <div class="res-title-cell">
+            <div class="res-name">{{ row.title || row.declared_filename || row.resource_key }}</div>
+            <div class="res-url mono" [title]="row.url">{{ row.url }}</div>
+          </div>
+        }
+        @case ('file_extension') {
+          <span class="badge badge-neutral">{{ (row.file_extension || 'N/A').toUpperCase() }}</span>
+        }
+        @case ('current_version') {
+          <span class="badge badge-purple">v{{ row.current_version || 1 }}</span>
+        }
+        @case ('content_length_bytes') {
+          <span>{{ row.content_length_bytes ? formatBytes(row.content_length_bytes) : '—' }}</span>
+        }
+        @case ('processing_status') {
+          <span class="badge" [class]="getProcessingBadgeClass(row.processing_status)">
+            {{ getProcessingLabel(row.processing_status) }}
+          </span>
+        }
+        @case ('discovered_at') {
+          <span class="date-cell">{{ formatDate(row.discovered_at) }}</span>
+        }
+        @case ('actions') {
+          <div class="cell-actions" (click)="$event.stopPropagation()">
+            <button type="button" class="btn-secondary btn-sm" (click)="openDrawer(row)">
+              Inspeccionar
+            </button>
+            <button
+              type="button"
+              class="btn-ghost btn-sm"
+              (click)="toast.copyToClipboard(row.url, 'URL de descarga')"
+            >
+              URL
+            </button>
+          </div>
+        }
       }
-    </div>
+    </ng-template>
+  </app-data-grid>
+</div>
 
-    <div class="page-size-selector">
-      <label class="size-lbl" for="page-size">Filas:</label>
-      <select id="page-size" class="size-select" [value]="store.pageSize()" (change)="onPageSizeChange($event)">
-        <option value="20">20</option>
-        <option value="50">50</option>
-        <option value="100">100</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="table-card">
-    @if (store.loading()) {
-      <div class="table-state-msg">
-        <span class="state-title">Consultando catálogo e historial de archivos...</span>
-        <span class="state-desc">Cargando metadatos, firmas y estados de procesamiento</span>
-      </div>
-    } @else if (store.pagedResources().length === 0) {
-      <div class="table-state-msg">
-        <span class="state-title">No se localizaron archivos</span>
-        <span class="state-desc">Ajuste los filtros seleccionados o el término de búsqueda</span>
-      </div>
-    } @else {
-      <div class="table-scroll-container">
-        <table class="inventory-table">
-          <thead>
-            <tr>
-              <th>Entidad</th>
-              <th>Título y Enlace Directo</th>
-              <th>Periodo</th>
-              <th>Formato</th>
-              <th>Ciclo Portal</th>
-              <th>Estado de Procesamiento</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (res of store.pagedResources(); track res.resource_key) {
-              <tr
-                class="table-row"
-                [class.row-selected]="store.selectedResource()?.resource_key === res.resource_key"
-                (click)="store.selectResource(res)"
-              >
-                <td>
-                  <span class="badge-source">{{ res.source_id.toUpperCase() }}</span>
-                </td>
-                <td>
-                  <div class="doc-title-cell">
-                    <span class="doc-title" [title]="res.title || 'Publicación Oficial'">
-                      {{ res.title || 'Publicación Oficial' }}
-                    </span>
-                    <span class="doc-url mono" [title]="res.url">{{ res.url }}</span>
-                  </div>
-                </td>
-                <td class="mono">{{ res.period_label || 'Periódico' }}</td>
-                <td>
-                  <span
-                    class="badge-ext"
-                    [class.ext-pdf]="res.file_extension?.toLowerCase() === '.pdf'"
-                    [class.ext-excel]="res.file_extension?.toLowerCase() === '.xlsx' || res.file_extension?.toLowerCase() === '.xls' || res.file_extension?.toLowerCase() === '.csv'"
-                    [class.ext-zip]="res.file_extension?.toLowerCase() === '.zip'"
-                  >
-                    {{ (res.file_extension || '.DAT').toUpperCase() }}
-                  </span>
-                </td>
-                <td>
-                  <span
-                    class="status-chip"
-                    [class.status-new]="res.change_status === 'NEW'"
-                    [class.status-unchanged]="res.change_status === 'UNCHANGED'"
-                    [class.status-modified]="res.change_status === 'MODIFIED'"
-                  >
-                    {{ getStatusLabel(res.change_status) }}
-                  </span>
-                </td>
-                <td (click)="$event.stopPropagation()">
-                  <select
-                    class="proc-select mono"
-                    [class.proc-done]="res.processing_status === 'PROCESADO_EXITOSAMENTE'"
-                    [class.proc-run]="res.processing_status === 'EN_PROCESO'"
-                    [class.proc-err]="res.processing_status === 'ERROR'"
-                    [ngModel]="res.processing_status || 'PENDIENTE'"
-                    (ngModelChange)="onUpdateProcessingStatus(res.resource_key, $event)"
-                  >
-                    <option value="PENDIENTE">PENDIENTE</option>
-                    <option value="EN_PROCESO">EN PROCESO</option>
-                    <option value="PROCESADO_EXITOSAMENTE">PROCESADO</option>
-                    <option value="ERROR">ERROR</option>
-                  </select>
-                </td>
-                <td (click)="$event.stopPropagation()">
-                  <button
-                    type="button"
-                    class="btn-detail"
-                    (click)="store.selectResource(res)"
-                  >
-                    Ficha Técnica
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      <div class="pagination-bar">
-        <div class="pagination-info">
-          Página <span class="mono">{{ store.currentPage() }}</span> de <span class="mono">{{ store.totalPages() }}</span>
-        </div>
-
-        <div class="pagination-controls">
-          <button
-            type="button"
-            class="btn-page"
-            [disabled]="store.currentPage() <= 1"
-            (click)="store.setPage(store.currentPage() - 1)"
-          >
-            Anterior
-          </button>
-          <button
-            type="button"
-            class="btn-page"
-            [disabled]="store.currentPage() >= store.totalPages()"
-            (click)="store.setPage(store.currentPage() + 1)"
-          >
-            Siguiente
-          </button>
-        </div>
-      </div>
-    }
-  </div>
-
-  @if (store.selectedResource(); as selected) {
-    <div class="drawer-backdrop" (click)="store.selectResource(null)">
-      <div class="drawer-panel" (click)="$event.stopPropagation()">
-        <div class="drawer-header">
-          <div class="drawer-heading">
-            <span class="drawer-tag">TRAZABILIDAD Y AUDITORÍA DE ARCHIVO</span>
-            <h3 class="drawer-title">{{ selected.title || 'Publicación Oficial' }}</h3>
-          </div>
-          <button type="button" class="btn-close-drawer" (click)="store.selectResource(null)">
-            Cerrar
-          </button>
-        </div>
-
-        <div class="drawer-content">
-          <div class="drawer-section">
-            <span class="drawer-section-title">TRAZABILIDAD DE PROCESAMIENTO</span>
-            <div class="drawer-field">
-              <span class="field-lbl">Estado Actual:</span>
-              <span class="field-val mono font-bold">{{ getProcessingLabel(selected.processing_status) }}</span>
-            </div>
-            <div class="drawer-field">
-              <span class="field-lbl">Actualizar Estado:</span>
-              <select
-                class="proc-select mono"
-                [ngModel]="selected.processing_status || 'PENDIENTE'"
-                (ngModelChange)="onUpdateProcessingStatus(selected.resource_key, $event)"
-              >
-                <option value="PENDIENTE">Pendiente</option>
-                <option value="EN_PROCESO">En Proceso</option>
-                <option value="PROCESADO_EXITOSAMENTE">Procesado Exitosamente</option>
-                <option value="ERROR">Error</option>
-              </select>
-            </div>
-            @if (selected.processing_updated_at) {
-              <div class="drawer-field">
-                <span class="field-lbl">Última Auditoría:</span>
-                <span class="field-val mono">{{ selected.processing_updated_at | slice:0:19 }}</span>
-              </div>
-            }
-          </div>
-
-          <div class="drawer-section">
-            <span class="drawer-section-title">METADATOS Y PRESERVACIÓN</span>
-            <div class="drawer-field">
-              <span class="field-lbl">Entidad Emisora:</span>
-              <span class="field-val highlight">{{ selected.source_id.toUpperCase() }}</span>
-            </div>
-            <div class="drawer-field">
-              <span class="field-lbl">Ciclo en Portal:</span>
-              <span class="field-val mono">{{ getStatusLabel(selected.change_status) }}</span>
-            </div>
-            <div class="drawer-field">
-              <span class="field-lbl">Periodo Asociado:</span>
-              <span class="field-val mono">{{ selected.period_label || 'General' }}</span>
-            </div>
-            <div class="drawer-field">
-              <span class="field-lbl">Formato y Tipo:</span>
-              <span class="field-val mono">{{ selected.file_extension }} ({{ selected.content_type || 'binario oficial' }})</span>
-            </div>
-            <div class="drawer-field">
-              <span class="field-lbl">Tamaño Reportado:</span>
-              <span class="field-val mono">
-                {{ selected.content_length_bytes ? formatBytes(selected.content_length_bytes) : 'Preservado en servidor emisor' }}
-              </span>
-            </div>
-          </div>
-
-          <div class="drawer-section">
-            <span class="drawer-section-title">ENLACE DIRECTO Y HUELLA CRIPTOGRÁFICA</span>
-            <div class="url-block">
-              <span class="field-lbl">URL Canónica de Descarga:</span>
-              <a [href]="selected.url" target="_blank" rel="noopener noreferrer" class="link-url mono">
-                {{ selected.url }}
-              </a>
-            </div>
-            <div class="drawer-field">
-              <span class="field-lbl">Clave de Inventario:</span>
-              <span class="field-val mono snippet">{{ selected.resource_key }}</span>
-            </div>
-            @if (selected.content_hash) {
-              <div class="drawer-field">
-                <span class="field-lbl">Huella SHA-256:</span>
-                <span class="field-val mono snippet">{{ selected.content_hash }}</span>
-              </div>
-            }
-            <div class="drawer-field">
-              <span class="field-lbl">Fecha de Registro:</span>
-              <span class="field-val mono">{{ selected.discovered_at | slice:0:19 }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="drawer-footer">
-          <a
-            [href]="selected.url"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="btn-external"
-          >
-            Abrir Enlace Oficial
+<app-slide-over-drawer
+  [open]="inspectingResource() !== null"
+  [title]="inspectingResource() ? inspectingResource()!.title || inspectingResource()!.resource_key : ''"
+  [subtitle]="inspectingResource() ? inspectingResource()!.url : ''"
+  [badge]="inspectingResource() ? 'v' + (inspectingResource()!.current_version || 1) : ''"
+  size="lg"
+  [tabs]="drawerTabs()"
+  [activeTab]="drawerTab()"
+  (tabChange)="drawerTab.set($event)"
+  (closed)="closeDrawer()"
+>
+  @if (inspectingResource(); as res) {
+    @if (drawerTab() === 'meta') {
+      <div class="drawer-meta-section">
+        <div class="action-strip">
+          <a class="btn-primary btn-sm" [href]="res.url" target="_blank" rel="noopener noreferrer">
+            Abrir URL Origen
           </a>
           <button
             type="button"
-            class="btn-copy-url"
-            [class.copied]="copiedUrl()"
-            (click)="copiarUrl(selected.url)"
+            class="btn-secondary btn-sm"
+            (click)="toast.copyToClipboard(res.url, 'URL')"
           >
-            {{ copiedUrl() ? 'Enlace Copiado' : 'Copiar URL Directa' }}
+            Copiar URL
           </button>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            (click)="toast.copyToClipboard(res.resource_key, 'Clave resource_key')"
+          >
+            Copiar Key
+          </button>
+          @if (res.content_hash) {
+            <button
+              type="button"
+              class="btn-secondary btn-sm"
+              (click)="toast.copyToClipboard(res.content_hash, 'SHA-256')"
+            >
+              Copiar SHA-256
+            </button>
+          }
+        </div>
+
+        <dl class="meta-kv-grid">
+          <div class="mkv">
+            <dt>Fuente / Categoría</dt>
+            <dd class="mono">{{ res.source_id.toUpperCase() }} · {{ res.resource_category || 'DOCUMENTAL' }}</dd>
+          </div>
+          <div class="mkv">
+            <dt>Estado Pipeline</dt>
+            <dd>
+              <span class="badge" [class]="getProcessingBadgeClass(res.processing_status)">
+                {{ res.processing_status || 'PENDIENTE' }}
+              </span>
+            </dd>
+          </div>
+          <div class="mkv">
+            <dt>Nombre Declarado</dt>
+            <dd class="mono">{{ res.declared_filename || '—' }}</dd>
+          </div>
+          <div class="mkv">
+            <dt>Tamaño / HTTP</dt>
+            <dd class="mono tabular-nums">
+              {{ res.content_length_bytes ? formatBytes(res.content_length_bytes) : '—' }} · HTTP
+              {{ res.http_status || '—' }}
+            </dd>
+          </div>
+          <div class="mkv">
+            <dt>ETag</dt>
+            <dd class="mono">{{ res.etag || '—' }}</dd>
+          </div>
+          <div class="mkv">
+            <dt>Last-Modified</dt>
+            <dd class="mono">{{ res.last_modified_header || '—' }}</dd>
+          </div>
+          <div class="mkv mkv-full">
+            <dt>Huella SHA-256</dt>
+            <dd class="mono hash-full">{{ res.content_hash || 'Pendiente de descarga física en Prospector Interno' }}</dd>
+          </div>
+          <div class="mkv mkv-full">
+            <dt>Content-Disposition</dt>
+            <dd class="mono">{{ res.content_disposition || '—' }}</dd>
+          </div>
+        </dl>
+
+        @if (res.archive_entries && res.archive_entries.length > 0) {
+          <div class="archive-box">
+            <h4>Contenido interno del archivo comprimido ({{ res.archive_entries.length }})</h4>
+            <ul class="archive-list mono">
+              @for (entry of res.archive_entries; track entry.filename) {
+                <li>
+                  <span>{{ entry.filename }}</span>
+                  <span class="tabular-nums">{{ entry.size_bytes ? formatBytes(entry.size_bytes) : '—' }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="override-panel">
+          <h4>Ajuste Administrativo Auditado de Estado</h4>
+          <p class="override-hint">
+            El estado se actualiza automáticamente mediante callback desde Prospector Interno.
+            Cualquier ajuste manual exige una justificación registrada en auditoría.
+          </p>
+          <div class="override-controls">
+            <select
+              class="select-input"
+              [(ngModel)]="overrideNextStatus"
+              aria-label="Nuevo estado de procesamiento"
+            >
+              <option value="PENDIENTE">PENDIENTE</option>
+              <option value="EN_PROCESO">EN_PROCESO</option>
+              <option value="PROCESADO_EXITOSAMENTE">PROCESADO_EXITOSAMENTE</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+            <button
+              type="button"
+              class="btn-danger btn-sm"
+              (click)="requestAuditedStatusOverride(res, overrideNextStatus)"
+            >
+              Solicitar Cambio Auditado
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    } @else if (drawerTab() === 'versions') {
+      @if (loadingDrawerData()) {
+        <app-skeleton-loader variant="panel" [rows]="4" label="Cargando historial de versiones..." />
+      } @else if (resourceVersions().length === 0) {
+        <p class="empty-drawer-msg">No se han registrado versiones históricas múltiples para este archivo.</p>
+      } @else {
+        <div class="timeline-list">
+          @for (ver of resourceVersions(); track ver.version_id) {
+            <article class="timeline-card">
+              <div class="tl-head">
+                <span class="badge badge-purple">v{{ ver.version_number }}</span>
+                <span class="mono tl-date">{{ formatDate(ver.detected_at) }}</span>
+              </div>
+              <div class="tl-meta mono">
+                <div><strong>SHA-256:</strong> {{ ver.content_hash || '—' }}</div>
+                <div><strong>ETag:</strong> {{ ver.etag || '—' }} · <strong>Tamaño:</strong> {{ ver.content_length_bytes ? formatBytes(ver.content_length_bytes) : '—' }}</div>
+                <div><strong>Corrida:</strong> {{ ver.run_id }}</div>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    } @else {
+      @if (loadingDrawerData()) {
+        <app-skeleton-loader variant="panel" [rows]="4" label="Cargando bitácora de auditoría..." />
+      } @else if (resourceAudit().length === 0) {
+        <p class="empty-drawer-msg">Sin eventos de transición registrados todavía para este archivo.</p>
+      } @else {
+        <div class="timeline-list">
+          @for (ev of resourceAudit(); track ev.audit_id) {
+            <article class="timeline-card">
+              <div class="tl-head">
+                <span class="badge badge-info">{{ ev.actor }}</span>
+                <span class="mono">{{ ev.previous_status }} → {{ ev.new_status }}</span>
+                <span class="mono tl-date">{{ formatDate(ev.occurred_at) }}</span>
+              </div>
+              @if (ev.override_reason) {
+                <div class="tl-reason"><strong>Motivo:</strong> {{ ev.override_reason }}</div>
+              }
+              @if (ev.download_id || ev.sha256) {
+                <div class="tl-meta mono">
+                  @if (ev.download_id) { <span>Download ID: {{ ev.download_id }}</span> }
+                  @if (ev.sha256) { <span> · SHA-256: {{ ev.sha256.slice(0, 20) }}...</span> }
+                </div>
+              }
+            </article>
+          }
+        </div>
+      }
+    }
   }
-</div>
+</app-slide-over-drawer>
+
+<app-confirm-reason-modal
+  [open]="pendingStatusTarget() !== null"
+  title="Sobreescritura auditada de estado de archivo"
+  [description]="
+    pendingStatusTarget()
+      ? 'Se cambiará el estado de ' +
+        pendingStatusTarget()!.resource.resource_key +
+        ' hacia ' +
+        pendingStatusTarget()!.nextStatus +
+        '. Este cambio quedará registrado en resource_status_audit.'
+      : ''
+  "
+  reasonLabel="Justificación operativa obligatoria"
+  reasonPlaceholder="Indique el motivo técnico de la corrección manual (mínimo 5 caracteres)..."
+  confirmLabel="Registrar Cambio Auditado"
+  tone="warning"
+  [busy]="updatingStatus()"
+  (confirmed)="confirmAuditedStatusOverride($event)"
+  (cancelled)="pendingStatusTarget.set(null)"
+/>

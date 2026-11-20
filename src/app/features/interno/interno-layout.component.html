@@ -3,11 +3,14 @@
     <div class="module-title-box">
       <div class="system-badge-row">
         <span class="system-name">PROSPECTOR INTERNO</span>
-        <span class="status-live">SERVICIO ACTIVO</span>
+        <span class="status-live" [class.status-live-ok]="isServiceOnline()">
+          {{ isServiceOnline() ? 'SERVICIO EN LÍNEA' : 'SIN CONEXIÓN' }}
+        </span>
       </div>
-      <h1 class="module-title">Gestión, Catalogación y Autoservicio de Activos de Datos Multi-Fuente</h1>
+      <h1 class="module-title">Control Previo, Custodia en Bruto y Catálogo de Datos</h1>
       <p class="module-desc">
-        Validación previa de solicitudes con prevención de duplicidad, monitoreo de descargas en curso, custodia de archivos en bruto con firma SHA-256 y autoservicio directo sobre las 52+ fuentes del catálogo.
+        Validación previa sin duplicidad, cola real de descargas en vivo, resguardo de archivos originales con huella SHA-256
+        y descarga directa de conjuntos de datos listos para Python y R.
       </p>
     </div>
 
@@ -27,35 +30,15 @@
     </div>
   </div>
 
-  <nav class="sub-nav-tabs">
-    <button
-      type="button"
-      class="sub-nav-tab"
-      [class.active]="activeTab() === 'activos'"
-      (click)="setTab('activos')"
-    >
-      <span class="tab-label">Repositorios Consolidados y Autoservicio</span>
-      <span class="tab-badge">5 Repositorios</span>
-    </button>
-
+  <nav class="sub-nav-tabs" aria-label="Secciones del Prospector Interno">
     <button
       type="button"
       class="sub-nav-tab"
       [class.active]="activeTab() === 'gatekeeper'"
       (click)="setTab('gatekeeper')"
     >
-      <span class="tab-label">Validación Previa, Cola y Reutilización</span>
-      <span class="tab-badge">{{ formatInt(store.activeDownloadsCount()) }} en curso</span>
-    </button>
-
-    <button
-      type="button"
-      class="sub-nav-tab"
-      [class.active]="activeTab() === 'curaduria'"
-      (click)="setTab('curaduria')"
-    >
-      <span class="tab-label">Inventario de Enlaces y Estado de Descarga</span>
-      <span class="tab-badge">{{ formatInt(inventoryStore.totalUrls()) }}</span>
+      <span class="tab-label">Control Previo, Cola SSE y Reutilización</span>
+      <span class="tab-badge tabular-nums">{{ formatInt(store.activeDownloadsCount()) }} en curso</span>
     </button>
 
     <button
@@ -64,24 +47,44 @@
       [class.active]="activeTab() === 'custodia'"
       (click)="setTab('custodia')"
     >
-      <span class="tab-label">Custodia Documental y Firma SHA-256</span>
-      <span class="tab-badge">{{ formatInt(store.totalArtifactsCount()) }}</span>
+      <span class="tab-label">Custodia Bruta y Perfilado SHA-256</span>
+      <span class="tab-badge tabular-nums">{{ formatInt(store.totalArtifactsCount()) }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'curaduria'"
+      (click)="setTab('curaduria')"
+    >
+      <span class="tab-label">Inventario de Enlaces y Descargas</span>
+      <span class="tab-badge tabular-nums">{{ formatInt(inventoryStore.totalUrls()) }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="sub-nav-tab"
+      [class.active]="activeTab() === 'activos'"
+      (click)="setTab('activos')"
+    >
+      <span class="tab-label">Catálogo de Datos y Descarga</span>
+      <span class="tab-badge">Parquet / CSV</span>
     </button>
   </nav>
 
   <div class="tab-content-area">
     @switch (activeTab()) {
-      @case ('activos') {
-        <app-interno-activos />
-      }
       @case ('gatekeeper') {
         <app-interno-gatekeeper />
+      }
+      @case ('custodia') {
+        <app-interno-custodia />
       }
       @case ('curaduria') {
         <app-interno-curaduria />
       }
-      @case ('custodia') {
-        <app-interno-custodia />
+      @case ('activos') {
+        <app-interno-activos />
       }
     }
   </div>

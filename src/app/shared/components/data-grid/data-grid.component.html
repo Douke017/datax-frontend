@@ -1,0 +1,210 @@
+<div class="dg-container">
+  @if (filterChips().length > 0) {
+    <div class="dg-chips-bar" role="region" aria-label="Filtros activos">
+      <span class="chips-label">Filtros activos:</span>
+      @for (chip of filterChips(); track chip.key) {
+        <span class="filter-chip">
+          <span class="chip-key">{{ chip.label }}:</span>
+          <span class="chip-val mono">{{ chip.value }}</span>
+          <button
+            type="button"
+            class="chip-remove"
+            (click)="removeChip.emit(chip.key)"
+            [attr.aria-label]="'Quitar filtro ' + chip.label"
+          >
+            x
+          </button>
+        </span>
+      }
+      <button type="button" class="btn-ghost btn-sm" (click)="clearAllChips.emit()">
+        Limpiar todos
+      </button>
+    </div>
+  }
+
+  @if (selectable() && selectedCount() > 0) {
+    <div class="dg-bulk-bar" role="region" aria-label="Acciones en lote">
+      <span class="bulk-count mono tabular-nums">
+        {{ formatInt(selectedCount()) }} seleccionados
+      </span>
+      <div class="bulk-actions">
+        <ng-content select="[grid-bulk-actions]" />
+      </div>
+      <button type="button" class="btn-ghost btn-sm" (click)="clearSelection()">
+        Deseleccionar
+      </button>
+    </div>
+  }
+
+  <div class="sr-only" role="status" aria-live="polite">{{ sortStatusMessage() }}</div>
+
+  @if (loading()) {
+    <app-skeleton-loader
+      variant="table"
+      [rows]="8"
+      [columns]="columns().length || 5"
+      label="Cargando tabla de registros..."
+    />
+  } @else if (error()) {
+    <div class="dg-state-box dg-error" role="alert">
+      <div class="dg-state-title">No se pudo cargar la consulta</div>
+      <p class="dg-state-msg">{{ error() }}</p>
+      <button type="button" class="btn-secondary btn-sm" (click)="retry.emit()">
+        Reintentar
+      </button>
+    </div>
+  } @else if (rows().length === 0) {
+    <div class="dg-state-box">
+      <div class="dg-state-title">{{ emptyTitle() }}</div>
+      <p class="dg-state-msg">{{ emptyMessage() }}</p>
+    </div>
+  } @else {
+    <div
+      class="dg-scroll-region"
+      role="region"
+      tabindex="0"
+      [attr.aria-labelledby]="captionId"
+    >
+      <table class="dg-table">
+        <caption [id]="captionId" class="sr-only">{{ caption() }}</caption>
+        <thead>
+          <tr>
+            @if (selectable()) {
+              <th scope="col" class="col-check">
+                <input
+                  type="checkbox"
+                  [checked]="allVisibleSelected()"
+                  (change)="toggleSelectAllVisible()"
+                  aria-label="Seleccionar todas las filas visibles"
+                />
+              </th>
+            }
+            @for (col of columns(); track col.key) {
+              <th
+                scope="col"
+                [attr.aria-sort]="getAriaSort(col)"
+                [style.width]="col.width || null"
+                [class.align-right]="col.align === 'right'"
+                [class.align-center]="col.align === 'center'"
+              >
+                @if (col.sortable) {
+                  <button
+                    type="button"
+                    class="th-sort-btn"
+                    [class.align-right]="col.align === 'right'"
+                    [class.align-center]="col.align === 'center'"
+                    (click)="onHeaderSort(col)"
+                  >
+                    <span>{{ col.label }}</span>
+                    <span class="sort-indicator" aria-hidden="true"></span>
+                  </button>
+                } @else {
+                  <span>{{ col.label }}</span>
+                }
+              </th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track rowKey()(row, $index); let idx = $index) {
+            <tr
+              [class.dg-row-clickable]="clickableRows()"
+              [class.dg-row-selected]="selectable() && isRowSelected(row, idx)"
+              (click)="onRowClick(row)"
+            >
+              @if (selectable()) {
+                <td class="col-check" (click)="$event.stopPropagation()">
+                  <input
+                    type="checkbox"
+                    [checked]="isRowSelected(row, idx)"
+                    (change)="toggleRowSelection(row, idx, $event)"
+                    [attr.aria-label]="'Seleccionar fila ' + (idx + 1)"
+                  />
+                </td>
+              }
+              @for (col of columns(); track col.key) {
+                <td
+                  [class.align-right]="col.align === 'right'"
+                  [class.align-center]="col.align === 'center'"
+                  [class.mono]="col.mono"
+                  [class.tabular-nums]="col.tabular || col.align === 'right'"
+                >
+                  @if (cellTemplate) {
+                    <ng-container
+                      [ngTemplateOutlet]="cellTemplate"
+                      [ngTemplateOutletContext]="{ $implicit: row, row: row, column: col }"
+                    />
+                  } @else {
+                    {{ readRawValue(row, col.key) }}
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (showPagination() && !loading() && !error() && totalItems() > 0) {
+    <footer class="dg-pagination">
+      <div class="dg-page-info mono tabular-nums">
+        Mostrando {{ formatInt(rangeStart()) }}–{{ formatInt(rangeEnd()) }} de
+        {{ formatInt(totalItems()) }} registros
+      </div>
+
+      <div class="dg-page-controls">
+        <label class="dg-size-label">
+          Filas:
+          <select
+            class="dg-size-select mono"
+            [value]="pageSize()"
+            (change)="onPageSizeSelect($event)"
+          >
+            @for (opt of pageSizeOptions(); track opt) {
+              <option [value]="opt">{{ opt }}</option>
+            }
+          </select>
+        </label>
+
+        <div class="dg-nav-btns">
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            [disabled]="page() <= 1"
+            (click)="pageChange.emit(1)"
+          >
+            Primera
+          </button>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            [disabled]="page() <= 1"
+            (click)="pageChange.emit(page() - 1)"
+          >
+            Anterior
+          </button>
+          <span class="dg-page-indicator mono tabular-nums">
+            Pág. {{ formatInt(page()) }} / {{ formatInt(totalPages()) }}
+          </span>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            [disabled]="page() >= totalPages()"
+            (click)="pageChange.emit(page() + 1)"
+          >
+            Siguiente
+          </button>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            [disabled]="page() >= totalPages()"
+            (click)="pageChange.emit(totalPages())"
+          >
+            Última
+          </button>
+        </div>
+      </div>
+    </footer>
+  }
+</div>

@@ -1,57 +1,43 @@
 /**
- * Utilidades de formateo financiero, numérico y documental según estándares DATAX Bolivia.
- * Moneda nacional: 1.234.567,89 Bs.
- * Porcentajes: 1,23%
- * Múltiplos: 2,45x
- * Enteros: 1.234
+ * Utilidades de formateo técnico, numérico y documental para DATAX (Datos en Bruto).
+ * Preserva valores crudos sin imponer conversión financiera prematura; solo aplica
+ * sufijos de unidad cuando el diccionario técnico declara explícitamente una unidad.
  */
 
-const BOLIVIAN_DECIMAL_FMT = new Intl.NumberFormat('es-BO', {
+const DECIMAL_FMT = new Intl.NumberFormat('es-BO', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2
 });
 
-const BOLIVIAN_INT_FMT = new Intl.NumberFormat('es-BO', {
+const INT_FMT = new Intl.NumberFormat('es-BO', {
   maximumFractionDigits: 0
 });
-
-export function formatBolivianos(value: number | null | undefined): string {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return '—';
-  }
-  return `${BOLIVIAN_DECIMAL_FMT.format(Number(value))} Bs.`;
-}
 
 export function formatDecimalBo(value: number | null | undefined, suffix: string = ''): string {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return '—';
   }
-  const formatted = BOLIVIAN_DECIMAL_FMT.format(Number(value));
+  const formatted = DECIMAL_FMT.format(Number(value));
   return suffix ? `${formatted} ${suffix}`.trim() : formatted;
 }
 
-export function formatPercentageBo(value: number | null | undefined, alreadyPercentScale: boolean = false): string {
+export function formatPercentageBo(
+  value: number | null | undefined,
+  alreadyPercentScale: boolean = false
+): string {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return '—';
   }
   const numeric = Number(value);
-  // Si el valor está en escala [0, 1] (ej. 0.0235 -> 2,35%), se multiplica por 100 salvo indicación contraria
-  const scaled = !alreadyPercentScale && Math.abs(numeric) <= 1.5 ? numeric * 100 : numeric;
-  return `${BOLIVIAN_DECIMAL_FMT.format(scaled)}%`;
-}
-
-export function formatMultipleBo(value: number | null | undefined): string {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return '—';
-  }
-  return `${BOLIVIAN_DECIMAL_FMT.format(Number(value))}x`;
+  const scaled = !alreadyPercentScale && Math.abs(numeric) <= 1.0 ? numeric * 100 : numeric;
+  return `${DECIMAL_FMT.format(scaled)}%`;
 }
 
 export function formatIntegerBo(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return '0';
   }
-  return BOLIVIAN_INT_FMT.format(Math.round(Number(value)));
+  return INT_FMT.format(Math.round(Number(value)));
 }
 
 export function formatBytesBo(bytes: number | null | undefined): string {
@@ -62,7 +48,27 @@ export function formatBytesBo(bytes: number | null | undefined): string {
   const k = 1024;
   const idx = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), units.length - 1);
   const val = bytes / Math.pow(k, idx);
-  return `${idx === 0 ? Math.round(val) : BOLIVIAN_DECIMAL_FMT.format(val)} ${units[idx]}`;
+  return `${idx === 0 ? Math.round(val) : DECIMAL_FMT.format(val)} ${units[idx]}`;
+}
+
+export function formatSpeedBps(bps: number | null | undefined): string {
+  if (!bps || bps <= 0) return '—';
+  return `${formatBytesBo(bps)}/s`;
+}
+
+export function formatLatencyMs(ms: number | null | undefined): string {
+  if (ms === null || ms === undefined || Number.isNaN(Number(ms))) return '—';
+  const val = Number(ms);
+  if (val < 1) return `${val.toFixed(2)} ms`;
+  if (val < 1000) return `${Math.round(val)} ms`;
+  return `${(val / 1000).toFixed(2)} s`;
+}
+
+export function formatIsoDateShort(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
 }
 
 export function formatMetricCell(
@@ -76,6 +82,9 @@ export function formatMetricCell(
   if (typeof rawValue === 'string') {
     return rawValue;
   }
+  if (typeof rawValue === 'boolean') {
+    return rawValue ? 'true' : 'false';
+  }
   if (typeof rawValue !== 'number' || Number.isNaN(rawValue)) {
     return String(rawValue);
   }
@@ -83,55 +92,14 @@ export function formatMetricCell(
   const col = columnName.toLowerCase();
   const unit = (unitHint || '').trim();
 
-  if (col === 'gestion' || col === 'mes') {
+  if (col === 'gestion' || col === 'mes' || col === 'year' || col === 'month') {
     return String(Math.trunc(rawValue));
   }
-  if (
-    unit === 'Veces (x)' ||
-    unit.toLowerCase().includes('múltiplo') ||
-    col.includes('cobertura')
-  ) {
-    return formatMultipleBo(rawValue);
+  if (col.includes('bytes') || col === 'size_bytes' || col === 'content_length_bytes') {
+    return formatBytesBo(rawValue);
   }
-  if (
-    unit === '%' ||
-    col.endsWith('_pct') ||
-    col.startsWith('ratio_') ||
-    col.startsWith('tasa_') ||
-    col.startsWith('peso_') ||
-    col.includes('mora') ||
-    col.includes('roe') ||
-    col.includes('roa') ||
-    col.includes('solvencia') ||
-    col.includes('liquidez') ||
-    col.includes('participacion')
-  ) {
-    const isAlreadyPct = col.startsWith('tasa_') || Math.abs(rawValue) > 1.5;
-    return formatPercentageBo(rawValue, isAlreadyPct);
-  }
-  if (unit === 'Bs./USD' || col.includes('tipo_cambio')) {
-    return `${BOLIVIAN_DECIMAL_FMT.format(rawValue)} Bs./USD`;
-  }
-  if (unit === 'Bs./UFV' || col.includes('ufv')) {
-    return new Intl.NumberFormat('es-BO', { minimumFractionDigits: 4, maximumFractionDigits: 5 }).format(rawValue);
-  }
-  if (unit === 'USD' || col.endsWith('_usd')) {
-    return `${BOLIVIAN_DECIMAL_FMT.format(rawValue)} USD`;
-  }
-  if (
-    unit === 'Bs.' ||
-    col.endsWith('_bs') ||
-    col.startsWith('cartera_') ||
-    col.startsWith('prevision') ||
-    col.startsWith('total_') ||
-    col.startsWith('monto_') ||
-    col.includes('activo') ||
-    col.includes('pasivo') ||
-    col.includes('patrimonio') ||
-    col.includes('depositos') ||
-    col.includes('utilidad')
-  ) {
-    return formatBolivianos(rawValue);
+  if (unit === '%' || col.endsWith('_pct')) {
+    return formatPercentageBo(rawValue, true);
   }
   if (Number.isInteger(rawValue)) {
     return formatIntegerBo(rawValue);
@@ -158,39 +126,24 @@ export function isNumericMetricColumn(columnName: string): boolean {
     col.endsWith('_codigo') ||
     col.endsWith('_nombre') ||
     col.includes('sha256') ||
+    col.includes('hash') ||
+    col.includes('url') ||
+    col.includes('path') ||
     col.includes('transformed_at') ||
     col.includes('fecha') ||
-    col.includes('periodo') ||
-    col.includes('moneda') ||
-    col.includes('tipo_mercado') ||
-    col.includes('subsector')
+    col.includes('periodo')
   ) {
     return false;
   }
   return (
     col === 'gestion' ||
     col === 'mes' ||
-    col.startsWith('cartera_') ||
-    col.startsWith('total_') ||
-    col.startsWith('ratio_') ||
-    col.startsWith('tasa_') ||
-    col.startsWith('monto_') ||
-    col.startsWith('numero_') ||
-    col.includes('activo') ||
-    col.includes('pasivo') ||
-    col.includes('patrimonio') ||
-    col.includes('prevision') ||
-    col.includes('depositos') ||
-    col.includes('utilidad') ||
-    col.includes('mora') ||
-    col.includes('roe') ||
-    col.includes('roa') ||
-    col.includes('liquidez') ||
-    col.includes('solvencia') ||
-    col.includes('ufv') ||
-    col.includes('tipo_cambio') ||
-    col.endsWith('_bs') ||
-    col.endsWith('_usd') ||
-    col.endsWith('_pct')
+    col.includes('count') ||
+    col.includes('bytes') ||
+    col.includes('rows') ||
+    col.includes('total_') ||
+    col.endsWith('_pct') ||
+    col.endsWith('_ms') ||
+    col.endsWith('_num')
   );
 }

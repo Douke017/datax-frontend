@@ -1,0 +1,66 @@
+<dialog
+  #confirmDialog
+  class="confirm-dialog"
+  [attr.aria-labelledby]="titleId"
+  (close)="onDialogClosed()"
+>
+  <form class="confirm-form" (ngSubmit)="onSubmit()">
+    <header class="confirm-header">
+      <h2 [id]="titleId" class="confirm-title">{{ title() }}</h2>
+      <button
+        type="button"
+        class="btn-ghost btn-sm"
+        (click)="onCancel()"
+        aria-label="Cerrar diálogo"
+      >
+        Cerrar
+      </button>
+    </header>
+
+    <div class="confirm-body">
+      <p class="confirm-desc">{{ description() }}</p>
+
+      <label class="field-label" [attr.for]="titleId + '-reason'">
+        {{ reasonLabel() }}
+      </label>
+      <textarea
+        [id]="titleId + '-reason'"
+        class="reason-input"
+        rows="4"
+        [placeholder]="reasonPlaceholder()"
+        [ngModel]="reasonText()"
+        (ngModelChange)="reasonText.set($event)"
+        name="overrideReason"
+        required
+      ></textarea>
+
+      @if (errorText()) {
+        <p class="field-error" role="alert">{{ errorText() }}</p>
+      }
+    </div>
+
+    <footer class="confirm-footer">
+      <button
+        type="button"
+        class="btn-secondary"
+        autofocus
+        [disabled]="busy()"
+        (click)="onCancel()"
+      >
+        {{ cancelLabel() }}
+      </button>
+      <button
+        type="submit"
+        [class.btn-primary]="tone() === 'primary'"
+        [class.btn-danger]="tone() === 'danger' || tone() === 'warning'"
+        [disabled]="busy() || reasonText().trim().length < minLength()"
+      >
+        @if (busy()) {
+          Procesando...
+        } @else {
+          {{ confirmLabel() }}
+        }
+      </button>
+    </footer>
+  </form>
+</dialog>

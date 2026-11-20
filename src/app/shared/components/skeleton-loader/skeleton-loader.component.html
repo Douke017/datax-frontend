@@ -1,0 +1,52 @@
+<div class="skeleton-wrapper" role="status" [attr.aria-label]="label()">
+  <span class="sr-only">{{ label() }}</span>
+
+  @switch (variant()) {
+    @case ('kpi') {
+      <div class="sk-kpi-grid">
+        @for (r of rowIndexes(); track r) {
+          <div class="sk-kpi-card">
+            <div class="sk-bar sk-bar-sm"></div>
+            <div class="sk-bar sk-bar-lg"></div>
+            <div class="sk-bar sk-bar-md"></div>
+          </div>
+        }
+      </div>
+    }
+    @case ('cards') {
+      <div class="sk-cards-grid">
+        @for (r of rowIndexes(); track r) {
+          <div class="sk-card">
+            <div class="sk-bar sk-bar-md"></div>
+            <div class="sk-bar sk-bar-full"></div>
+            <div class="sk-bar sk-bar-full"></div>
+            <div class="sk-bar sk-bar-sm"></div>
+          </div>
+        }
+      </div>
+    }
+    @case ('panel') {
+      <div class="sk-panel">
+        @for (r of rowIndexes(); track r) {
+          <div class="sk-bar sk-bar-full"></div>
+        }
+      </div>
+    }
+    @default {
+      <div class="sk-table">
+        <div class="sk-table-head">
+          @for (c of colIndexes(); track c) {
+            <div class="sk-bar sk-bar-head"></div>
+          }
+        </div>
+        @for (r of rowIndexes(); track r) {
+          <div class="sk-table-row">
+            @for (c of colIndexes(); track c) {
+              <div class="sk-bar sk-bar-cell"></div>
+            }
+          </div>
+        }
+      </div>
+    }
+  }
+</div>

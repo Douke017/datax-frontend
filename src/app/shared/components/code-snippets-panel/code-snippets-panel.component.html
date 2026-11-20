@@ -1,0 +1,35 @@
+<section class="snippets-panel" aria-label="Fragmentos de acceso programático">
+  <div class="snippets-header">
+    <div class="snippets-tabs" role="tablist" aria-label="Lenguajes de consumo">
+      @for (tab of primaryTabs; track tab.id) {
+        <button
+          type="button"
+          role="tab"
+          class="snippet-tab"
+          [class.active]="activeLang() === tab.id"
+          [attr.aria-selected]="activeLang() === tab.id"
+          (click)="selectLang(tab.id)"
+        >
+          {{ tab.label }}
+        </button>
+      }
+      <span class="tab-divider" aria-hidden="true"></span>
+      <button
+        type="button"
+        role="tab"
+        class="snippet-tab snippet-tab-secondary"
+        [class.active]="activeLang() === 'power_query'"
+        [attr.aria-selected]="activeLang() === 'power_query'"
+        (click)="selectLang('power_query')"
+      >
+        Power Query (Secundario)
+      </button>
+    </div>
+
+    <button type="button" class="btn-secondary btn-sm" (click)="copySnippet()">
+      Copiar código
+    </button>
+  </div>
+
+  <pre class="snippet-code mono"><code>{{ activeCode() }}</code></pre>
+</section>

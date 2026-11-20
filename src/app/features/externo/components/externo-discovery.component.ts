@@ -1,41 +1,85 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ExternoStore } from '../externo.store';
+import { ToastService } from '../../../core/services/toast.service';
 import {
   OpenDiscoveryCandidate,
   OpenDiscoverySearchRequest,
   PromoteCandidateRequest
 } from '../../../core/models/catalog.model';
+import { ConfirmReasonModalComponent } from '../../../shared/components/confirm-reason-modal/confirm-reason-modal.component';
+import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader.component';
 
 @Component({
   selector: 'app-externo-discovery',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, ConfirmReasonModalComponent, SkeletonLoaderComponent],
   templateUrl: './externo-discovery.component.html',
   styleUrls: ['./externo-discovery.component.css']
 })
 export class ExternoDiscoveryComponent {
   readonly store = inject(ExternoStore);
+  readonly toast = inject(ToastService);
 
-  readonly availableExtensions = ['.xlsx', '.xls', '.csv', '.pdf', '.zip', '.docx'];
+  readonly availableExtensions = [
+    '.xlsx',
+    '.xls',
+    '.csv',
+    '.parquet',
+    '.json',
+    '.xml',
+    '.pdf',
+    '.zip',
+    '.tar.gz',
+    '.sav',
+    '.dta',
+    '.dat',
+    '.txt'
+  ];
 
-  queryText = 'estadísticas cartera tasas boletín financiero';
+  queryText = 'estadísticas series datos abiertos boletín';
   sectorFilter = 'TODOS';
-  trustedDomainsOnly = true;
+  trustedDomainsOnly = false;
+  enableExternalProviders = true;
+  enableBfsExpansion = true;
   minCombinedScore = 45;
   liveProbe = true;
   newSeedUrl = '';
   readonly customSeeds = signal<string[]>([]);
-  readonly selectedExtensions = signal<string[]>(['.xlsx', '.xls', '.csv', '.pdf', '.zip']);
+  readonly selectedExtensions = signal<string[]>([
+    '.xlsx',
+    '.xls',
+    '.csv',
+    '.parquet',
+    '.json',
+    '.pdf',
+    '.zip'
+  ]);
 
-  // Modal de promoción al catálogo oficial
+  // Modal nativo de promoción al catálogo oficial
+  @ViewChild('promoteDialog') promoteDialogRef?: ElementRef<HTMLDialogElement>;
   readonly promotingCandidate = signal<OpenDiscoveryCandidate | null>(null);
   promoteSourceId = '';
   promoteSourceName = '';
   promoteCategory: 'DAILY' | 'WEEKLY' | 'MONTHLY' = 'MONTHLY';
   promoteWorkflow: 'html' | 'javascript' | 'api' = 'html';
-  readonly promoteFeedback = signal<string>('');
   readonly isPromoting = signal<boolean>(false);
+
+  // Modal auditable de descarte con motivo obligatorio
+  readonly discardingCandidate = signal<OpenDiscoveryCandidate | null>(null);
+  readonly isDiscarding = signal<boolean>(false);
+
+  constructor() {
+    effect(() => {
+      const cand = this.promotingCandidate();
+      queueMicrotask(() => {
+        const dialog = this.promoteDialogRef?.nativeElement;
+        if (!dialog) return;
+        if (cand && !dialog.open) dialog.showModal();
+        else if (!cand && dialog.open) dialog.close();
+      });
+    });
+  }
 
   toggleExtension(ext: string): void {
     const current = this.selectedExtensions();
@@ -52,7 +96,7 @@ export class ExternoDiscoveryComponent {
     const u = this.newSeedUrl.trim();
     if (!u) return;
     if (!u.startsWith('http://') && !u.startsWith('https://')) {
-      this.promoteFeedback.set('La dirección semilla debe iniciar con http:// o https://');
+      this.toast.warning('Dirección inválida', 'La URL semilla debe iniciar con http:// o https://');
       return;
     }
     if (!this.customSeeds().includes(u)) {
@@ -66,16 +110,22 @@ export class ExternoDiscoveryComponent {
   }
 
   onExecuteDiscovery(): void {
-    this.promoteFeedback.set('');
     const req: OpenDiscoverySearchRequest = {
-      query: this.queryText.trim() || 'estadísticas financieras',
+      query: this.queryText.trim() || 'estadísticas series datos abiertos',
       sector: this.sectorFilter,
       target_extensions: this.selectedExtensions(),
       seed_urls: this.customSeeds(),
       trusted_domains_only: this.trustedDomainsOnly,
+      enable_external_providers: this.enableExternalProviders,
+      enable_bfs_expansion: this.enableBfsExpansion,
+      include_discarded: this.store.includeDiscardedCandidates(),
       min_combined_score: Number(this.minCombinedScore) || 40
     };
     this.store.runOpenDiscovery(req, this.liveProbe);
+  }
+
+  onToggleIncludeDiscarded(checked: boolean): void {
+    this.store.loadDiscoveryCandidates(checked);
   }
 
   openPromoteModal(cand: OpenDiscoveryCandidate): void {
@@ -89,7 +139,6 @@ export class ExternoDiscoveryComponent {
     this.promoteSourceName = cand.title;
     this.promoteCategory = 'MONTHLY';
     this.promoteWorkflow = 'html';
-    this.promoteFeedback.set('');
   }
 
   closePromoteModal(): void {
@@ -115,30 +164,67 @@ export class ExternoDiscoveryComponent {
       next: (created) => {
         this.isPromoting.set(false);
         this.promotingCandidate.set(null);
-        this.promoteFeedback.set(
-          `Fuente '${created.source_id.toUpperCase()} — ${created.name}' incorporada exitosamente al catálogo oficial.`
+        this.toast.success(
+          `Fuente '${created.source_id.toUpperCase()}' incorporada al catálogo`,
+          created.name
         );
       },
       error: (err) => {
         this.isPromoting.set(false);
-        this.promoteFeedback.set(
-          err.error?.detail || 'No se pudo incorporar la fuente al catálogo.'
+        this.toast.error(
+          'Error al incorporar candidato',
+          err?.error?.detail || 'Verifique que el identificador sea único.'
         );
       }
     });
   }
 
-  formatSectorLabel(sector: string): string {
-    const map: Record<string, string> = {
-      MONETARIO_FINANCIERO: 'Monetario y Cambiario',
-      MERCADO_VALORES: 'Mercado de Valores',
-      MICROFINANZAS_IFD: 'Microfinanzas e IFD',
-      SUPERVISION_FINANCIERA: 'Supervisión Financiera',
-      MACROECONOMIA: 'Macroeconomía Oficial',
-      PENSIONES_SEGUROS: 'Pensiones y Seguros',
-      ORGANISMOS_MULTILATERALES: 'Organismo Multilateral',
-      FISCAL_TESORO: 'Fiscal y Tesoro Público'
-    };
-    return map[sector] || sector;
+  openDiscardModal(cand: OpenDiscoveryCandidate): void {
+    this.discardingCandidate.set(cand);
+  }
+
+  confirmDiscard(reason: string): void {
+    const cand = this.discardingCandidate();
+    if (!cand) return;
+    this.isDiscarding.set(true);
+    this.store.discardCandidate(cand.candidate_id, reason).subscribe({
+      next: () => {
+        this.isDiscarding.set(false);
+        this.discardingCandidate.set(null);
+        this.toast.info(`Candidato '${cand.domain}' descartado`, `Motivo registrado: ${reason}`);
+      },
+      error: (err) => {
+        this.isDiscarding.set(false);
+        this.toast.error('No se pudo descartar', err?.error?.detail || 'Reintente la operación.');
+      }
+    });
+  }
+
+  onReactivateCandidate(cand: OpenDiscoveryCandidate): void {
+    this.store.reactivateCandidate(cand.candidate_id).subscribe({
+      next: () => {
+        this.toast.success(`Candidato '${cand.domain}' reactivado`, 'Disponible nuevamente para evaluación.');
+      },
+      error: (err) => {
+        this.toast.error('No se pudo reactivar', err?.error?.detail || 'Reintente la operación.');
+      }
+    });
+  }
+
+  formatProviderLabel(provider?: string): string {
+    switch (provider) {
+      case 'ckan_open_data':
+        return 'CKAN Datos Abiertos';
+      case 'web_metasearch':
+        return 'Metabuscador Web';
+      case 'bounded_bfs':
+        return 'Exploración BFS';
+      case 'seed_url':
+        return 'Semilla Manual';
+      case 'curated_directory':
+        return 'Directorio Base';
+      default:
+        return provider || 'Web Abierta';
+    }
   }
 }

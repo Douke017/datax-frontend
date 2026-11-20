@@ -1,75 +1,72 @@
-<div class="overview-layout">
-  <section class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-title">LISTA BLANCA — FUENTES OPERATIVAS</span>
-        <span class="badge-whitelist">OPERATIVAS</span>
-      </div>
-      <div class="kpi-value text-green">
-        {{ formatInt(store.activeSourcesCount()) }}
-        <span class="kpi-total">/ {{ formatInt(store.sources().length) }}</span>
-      </div>
-      <p class="kpi-desc">Portales oficiales accesibles sin impedimentos perimetrales bajo monitoreo continuo.</p>
-    </div>
+<div class="overview-view">
+  @if (store.loading() && store.sources().length === 0) {
+    <app-skeleton-loader variant="kpi" [rows]="5" label="Cargando resumen de portales..." />
+    <app-skeleton-loader variant="cards" [rows]="6" label="Cargando tarjetas de fuentes..." />
+  } @else {
+    <section class="kpi-strip" aria-label="Indicadores operativos de fuentes externas">
+      <button
+        type="button"
+        class="kpi-box"
+        [class.kpi-active]="portalFilter() === 'ALL'"
+        (click)="setPortalFilter('ALL')"
+      >
+        <span class="kpi-label">Catálogo de Fuentes</span>
+        <span class="kpi-val mono tabular-nums">{{ formatInt(store.sources().length) }}</span>
+        <span class="kpi-sub">Portales registrados</span>
+      </button>
 
-    <div class="kpi-card highlight-blacklist">
-      <div class="kpi-header">
-        <span class="kpi-title">LISTA NEGRA — FUENTES OBSERVADAS</span>
-        <span class="badge-blacklist">CON INCIDENCIAS</span>
-      </div>
-      <div class="kpi-value text-amber">
-        {{ formatInt(incidentSourcesCount()) }}
-        <span class="kpi-total">/ {{ formatInt(store.sources().length) }}</span>
-      </div>
-      <p class="kpi-desc">Portales con restricciones TLS, bloqueos perimetrales, cambios estructurales o cuotas.</p>
-    </div>
+      <button
+        type="button"
+        class="kpi-box kpi-success"
+        [class.kpi-active]="portalFilter() === 'WHITELIST'"
+        (click)="setPortalFilter('WHITELIST')"
+      >
+        <span class="kpi-label">Lista Blanca (Operativas)</span>
+        <span class="kpi-val mono tabular-nums">{{ formatInt(store.activeSourcesCount()) }}</span>
+        <span class="kpi-sub">Sin impedimentos de acceso</span>
+      </button>
 
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-title">PUBLICACIONES CATALOGADAS</span>
-        <span class="badge-info">INVENTARIO</span>
+      <button
+        type="button"
+        class="kpi-box kpi-danger"
+        [class.kpi-active]="portalFilter() === 'BLACKLIST'"
+        (click)="setPortalFilter('BLACKLIST')"
+      >
+        <span class="kpi-label">Lista Negra (Incidencias)</span>
+        <span class="kpi-val mono tabular-nums">{{ formatInt(incidentSourcesCount()) }}</span>
+        <span class="kpi-sub">TLS, WAF, DOM o cuota</span>
+      </button>
+
+      <button
+        type="button"
+        class="kpi-box kpi-warning"
+        [class.kpi-active]="portalFilter() === 'RESILIENCE_SPOF'"
+        (click)="setPortalFilter('RESILIENCE_SPOF')"
+      >
+        <span class="kpi-label">Cobertura de Resiliencia</span>
+        <span class="kpi-val mono tabular-nums">
+          {{ resilienceSummary() ? formatPct(resilienceSummary()!.coverage_pct) : '—' }}
+        </span>
+        <span class="kpi-sub mono tabular-nums">
+          {{ resilienceSummary() ? formatInt(resilienceSummary()!.zero_backup_sources) : '0' }}
+          fuentes sin respaldo activo
+        </span>
+      </button>
+
+      <div class="kpi-box kpi-info-static">
+        <span class="kpi-label">Archivos Indexados</span>
+        <span class="kpi-val mono tabular-nums">{{ formatInt(store.totalDiscovered()) }}</span>
+        <span class="kpi-sub mono tabular-nums">
+          {{ formatInt(store.failoverEvents().length) }} failovers registrados
+        </span>
       </div>
-      <div class="kpi-value">{{ formatInt(store.totalDiscovered()) }}</div>
-      <p class="kpi-desc">Archivos documentales registrados y auditados a nivel de enlace oficial.</p>
-    </div>
-  </section>
+    </section>
 
-  @if (store.runTriggerMessage(); as msg) {
-    <div class="run-notice-banner">
-      <span class="run-notice-tag font-mono">EXTRACCIÓN DIRIGIDA</span>
-      <span>{{ msg }}</span>
-    </div>
-  }
-
-  <section class="main-card">
-    <header class="card-header-bar">
-      <div>
-        <h2 class="card-heading">Auditoría de Portales y Estado de Acceso</h2>
-        <p class="card-subheading">
-          Supervisión operativa de los {{ formatInt(store.sources().length) }} portales del catálogo institucional: disponibilidad, causas de bloqueo y respaldo de contingencia.
-        </p>
-      </div>
-      <span class="total-badge">{{ formatInt(store.sources().length) }} Fuentes Registradas</span>
-    </header>
-
-    <div class="toolbar">
-      <div class="search-wrap">
-        <input
-          type="text"
-          class="search-input"
-          placeholder="Buscar por código, entidad o código diagnóstico (ej. BCB, ASFI, TLS_HOLD)..."
-          [value]="searchPortal()"
-          (input)="onSearchInput($event)"
-        />
-        @if (searchPortal()) {
-          <button type="button" class="btn-clear" (click)="clearSearch()">Limpiar</button>
-        }
-      </div>
-
-      <div class="filter-pills">
+    <section class="filter-toolbar" aria-label="Filtros del directorio de fuentes">
+      <div class="filter-tabs">
         <button
           type="button"
-          class="pill"
+          class="ftab"
           [class.active]="portalFilter() === 'ALL'"
           (click)="setPortalFilter('ALL')"
         >
@@ -77,216 +74,380 @@
         </button>
         <button
           type="button"
-          class="pill pill-white"
+          class="ftab"
           [class.active]="portalFilter() === 'WHITELIST'"
           (click)="setPortalFilter('WHITELIST')"
         >
-          Lista Blanca: Operativas ({{ formatInt(store.activeSourcesCount()) }})
+          Lista Blanca ({{ formatInt(store.activeSourcesCount()) }})
         </button>
         <button
           type="button"
-          class="pill pill-black"
+          class="ftab"
           [class.active]="portalFilter() === 'BLACKLIST'"
           (click)="setPortalFilter('BLACKLIST')"
         >
-          Lista Negra: Con Incidencias ({{ formatInt(incidentSourcesCount()) }})
+          Lista Negra — Auditoría ({{ formatInt(incidentSourcesCount()) }})
+        </button>
+        <button
+          type="button"
+          class="ftab"
+          [class.active]="portalFilter() === 'RESILIENCE_SPOF'"
+          (click)="setPortalFilter('RESILIENCE_SPOF')"
+        >
+          Matriz de Cobertura y Respaldos
         </button>
       </div>
-    </div>
+
+      <div class="search-box">
+        <input
+          type="search"
+          class="search-input"
+          placeholder="Filtrar por código, nombre, código de error..."
+          [value]="searchPortal()"
+          (input)="onSearchInput($event)"
+          aria-label="Filtrar portales"
+        />
+        @if (searchPortal() || portalFilter() !== 'ALL') {
+          <button type="button" class="btn-secondary btn-sm" (click)="resetFilters()">
+            Limpiar
+          </button>
+        }
+      </div>
+    </section>
 
     @if (portalFilter() === 'BLACKLIST') {
-      <div class="blacklist-report">
-        <div class="report-header">
-          <span class="report-title">TABLA DE AUDITORÍA E INCIDENCIAS TÉCNICAS (LISTA NEGRA)</span>
-          <span class="report-sub">Detalle de portales observados, diagnóstico técnico de la causa y acciones de mitigación</span>
+      <section class="audit-section" aria-label="Tabla de auditoría técnica de Lista Negra">
+        <div class="section-head">
+          <h2>Tabla de Auditoría e Incidencias Técnicas (Lista Negra)</h2>
+          <p>
+            Fuentes observadas o suspendidas por fallos de protocolo, bloqueo perimetral o cambios estructurales.
+          </p>
         </div>
 
-        <div class="table-scroll">
-          <table class="report-table">
+        <div class="table-container" role="region" tabindex="0" aria-label="Portales en Lista Negra">
+          <table class="data-table">
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Denominación Oficial</th>
-                <th>Código de Error</th>
-                <th>Diagnóstico Técnico de la Causa</th>
-                <th>Estado Operativo</th>
-                <th>Mitigación</th>
+                <th scope="col">Código</th>
+                <th scope="col">Portal</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Código Diagnóstico</th>
+                <th scope="col">Diagnóstico Técnico</th>
+                <th scope="col">Respaldos</th>
+                <th scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              @for (source of filteredSources(); track source.source_id) {
+              @for (src of filteredSources(); track src.source_id) {
                 <tr>
-                  <td class="font-mono font-bold text-main">
-                    {{ source.source_id.toUpperCase() }}
-                  </td>
+                  <td class="mono">{{ src.source_id.toUpperCase() }}</td>
                   <td>
-                    <div class="source-name-cell">
-                      <span class="name-text">{{ source.name }}</span>
-                      <a [href]="source.entrypoint" target="_blank" rel="noopener noreferrer" class="link-url font-mono" [title]="source.entrypoint">
-                        {{ source.entrypoint }}
-                      </a>
-                    </div>
+                    <div class="cell-title">{{ src.name }}</div>
+                    <div class="cell-url mono">{{ src.entrypoint }}</div>
                   </td>
                   <td>
                     <span
-                      class="error-badge font-mono"
-                      [class.error-suspended]="source.health_status === 'SUSPENDED'"
-                      [class.error-warning]="source.health_status === 'WARNING'"
+                      class="badge"
+                      [class.badge-danger]="src.health_status === 'SUSPENDED'"
+                      [class.badge-warning]="src.health_status !== 'SUSPENDED'"
                     >
-                      {{ source.audit_code || 'OBSERVADO' }}
-                    </span>
-                  </td>
-                  <td class="audit-note-cell">
-                    {{ source.audit_note || 'Requiere inspección técnica de selectores o conectividad.' }}
-                  </td>
-                  <td>
-                    <span
-                      class="health-tag"
-                      [class.tag-warning]="source.health_status === 'WARNING'"
-                      [class.tag-suspended]="source.health_status === 'SUSPENDED'"
-                    >
-                      {{ source.health_status === 'SUSPENDED' ? 'Suspendido' : 'En Advertencia' }}
+                      {{ src.health_status }}
                     </span>
                   </td>
                   <td>
-                    <div class="blacklist-actions">
+                    <span class="badge badge-danger">{{ src.audit_code || 'INCIDENCIA' }}</span>
+                  </td>
+                  <td class="diag-cell">{{ src.audit_note || 'Requiere inspección estructural.' }}</td>
+                  <td class="mono tabular-nums">{{ getBackupCount(src) }}</td>
+                  <td>
+                    <div class="row-actions">
                       <button
                         type="button"
-                        class="btn-action-config"
-                        (click)="onConfigureSource(source.source_id)"
+                        class="btn-secondary btn-sm"
+                        (click)="onInspectReport(src.source_id)"
                       >
-                        Contingencia
+                        Informe Técnico
                       </button>
                       <button
                         type="button"
-                        class="btn-action-config"
-                        (click)="onInspectReport(source.source_id)"
+                        class="btn-secondary btn-sm"
+                        (click)="onConfigureSource(src.source_id)"
                       >
-                        Informe Técnico
+                        Contingencia
                       </button>
                     </div>
                   </td>
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6" class="empty-table-cell">
-                    No se encontraron fuentes con incidencias bajo los criterios indicados.
+                  <td colspan="7" class="empty-td">
+                    No se registran portales con incidencias para el filtro aplicado.
                   </td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
+    } @else if (portalFilter() === 'RESILIENCE_SPOF') {
+      <section class="audit-section" aria-label="Matriz de cobertura de resiliencia">
+        <div class="section-head">
+          <h2>Matriz de Cobertura de Resiliencia y Puntos Únicos de Fallo</h2>
+          <p>
+            Audita qué fuentes cuentan con espejos vivos elegibles para failover automático frente a fuentes sin respaldo activo.
+          </p>
+        </div>
+
+        <div class="table-container" role="region" tabindex="0" aria-label="Matriz de resiliencia">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Fuente</th>
+                <th scope="col">Periodicidad</th>
+                <th scope="col">Nivel de Riesgo</th>
+                <th scope="col" class="num-col">Espejos Vivos</th>
+                <th scope="col" class="num-col">Históricos</th>
+                <th scope="col">Contingencia Activa</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of filteredResilienceEntries(); track entry.source_id) {
+                <tr>
+                  <td>
+                    <div class="cell-title">
+                      <span class="mono">{{ entry.source_id.toUpperCase() }}</span> — {{ entry.name }}
+                    </div>
+                    <div class="cell-url mono">{{ entry.entrypoint }}</div>
+                  </td>
+                  <td class="mono">{{ entry.update_category }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      [class.badge-danger]="entry.risk_level === 'PUNTO_UNICO_DE_FALLO'"
+                      [class.badge-warning]="entry.risk_level === 'SOLO_HISTORICO'"
+                      [class.badge-success]="entry.risk_level === 'PROTEGIDA'"
+                    >
+                      {{ formatRiskLabel(entry.risk_level) }}
+                    </span>
+                  </td>
+                  <td class="mono tabular-nums num-col">{{ entry.live_backup_count }}</td>
+                  <td class="mono tabular-nums num-col">{{ entry.historical_backup_count }}</td>
+                  <td class="mono cell-url">{{ entry.active_contingency_url || 'Primaria en uso' }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn-primary btn-sm"
+                      (click)="onConfigureSource(entry.source_id)"
+                    >
+                      Configurar Respaldos
+                    </button>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="empty-td">Sin registros de resiliencia cargados.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
     } @else {
-      <div class="sources-grid">
-        @for (source of filteredSources(); track source.source_id) {
-          <div class="portal-card" [class.is-incident]="source.health_status !== 'ACTIVE'">
-            <div class="card-top">
-              <div class="portal-ident">
-                <span class="portal-id font-mono">{{ source.source_id.toUpperCase() }}</span>
-                <span class="portal-name">{{ source.name }}</span>
+      <section class="portals-grid" aria-label="Directorio operativo de fuentes">
+        @for (src of filteredSources(); track src.source_id) {
+          <article class="portal-card" [class.portal-incident]="src.health_status !== 'ACTIVE'">
+            <header class="card-top">
+              <div class="card-id-group">
+                <span class="source-code mono">{{ src.source_id.toUpperCase() }}</span>
+                <span
+                  class="badge"
+                  [class.badge-success]="src.health_status === 'ACTIVE'"
+                  [class.badge-warning]="src.health_status === 'WARNING'"
+                  [class.badge-danger]="src.health_status === 'SUSPENDED' || src.health_status === 'FAILED'"
+                >
+                  {{ src.health_status === 'ACTIVE' ? 'LISTA BLANCA' : src.health_status }}
+                </span>
               </div>
+              <span class="badge badge-neutral">{{ src.update_category }}</span>
+            </header>
+
+            <h3 class="portal-name">{{ src.name }}</h3>
+            <p class="portal-url mono" [title]="src.entrypoint">{{ src.entrypoint }}</p>
+
+            <div class="portal-meta-row">
+              <span class="meta-pill">{{ formatWorkflowLabel(src.workflow) }}</span>
+              <span class="meta-pill mono tabular-nums">
+                {{ formatInt(getSourceResourceCount(src)) }} archivos
+              </span>
               <span
-                class="status-indicator font-mono"
-                [class.status-active]="source.health_status === 'ACTIVE'"
-                [class.status-warning]="source.health_status === 'WARNING'"
-                [class.status-suspended]="source.health_status === 'SUSPENDED'"
+                class="meta-pill mono tabular-nums"
+                [class.meta-pill-warn]="getBackupCount(src) === 0"
               >
-                {{ source.health_status === 'ACTIVE' ? 'OPERATIVO' : (source.health_status === 'WARNING' ? 'ADVERTENCIA' : 'SUSPENDIDO') }}
+                {{ getBackupCount(src) }} respaldos
               </span>
             </div>
 
-            @if (source.health_status !== 'ACTIVE' && source.audit_code) {
-              <div class="incident-callout" [class.incident-suspended]="source.health_status === 'SUSPENDED'">
-                <div class="incident-code-row">
-                  <span class="incident-code font-mono">[{{ source.audit_code }}]</span>
-                </div>
-                <p class="incident-text">{{ source.audit_note }}</p>
+            @if (src.active_contingency_url) {
+              <div class="contingency-active-note mono">
+                Failover activo: {{ src.active_contingency_url }}
               </div>
             }
 
-            <div class="portal-meta">
-              <div class="meta-row">
-                <span class="meta-label">Punto de entrada:</span>
-                <a [href]="source.entrypoint" target="_blank" rel="noopener noreferrer" class="meta-link font-mono" [title]="source.entrypoint">
-                  {{ source.entrypoint }}
-                </a>
+            @if (src.audit_code && src.health_status !== 'ACTIVE') {
+              <div class="incident-note">
+                <strong class="mono">{{ src.audit_code }}:</strong>
+                {{ src.audit_note || 'Incidencia operativa registrada.' }}
               </div>
+            }
 
-              @if (source.contingency_url || (source.contingency_urls && source.contingency_urls.length > 0)) {
-                <div class="meta-row">
-                  <span class="meta-label text-blue">Respaldo activo:</span>
-                  <span class="meta-val font-mono text-blue">
-                    {{ source.contingency_urls && source.contingency_urls.length > 1 ? (source.contingency_urls.length + ' URLs alternativas') : (source.contingency_url || source.contingency_urls?.[0]) }}
-                  </span>
-                </div>
-              }
-
-              <div class="meta-row">
-                <span class="meta-label">Módulo y Frecuencia:</span>
-                <span class="meta-val font-mono">
-                  {{ formatWorkflowLabel(source.workflow) }} · {{ source.update_category === 'DAILY' ? 'Diario' : (source.update_category === 'WEEKLY' ? 'Semanal' : 'Mensual') }}
-                </span>
-              </div>
-
-              <div class="meta-row">
-                <span class="meta-label">Archivos catalogados:</span>
-                <span class="meta-val font-bold">
-                  {{ formatInt(getSourceResourceCount(source.source_id)) }} documentos
-                </span>
-              </div>
-            </div>
-
-            <div class="card-actions">
-              @if (getSourceResourceCount(source.source_id) > 0) {
-                <button
-                  type="button"
-                  class="btn-view-resources"
-                  (click)="filterBySource(source.source_id)"
-                >
-                  Ver Catálogo ({{ formatInt(getSourceResourceCount(source.source_id)) }})
-                </button>
-              } @else {
-                <button
-                  type="button"
-                  class="btn-configure"
-                  [disabled]="store.triggeringSourceId() === source.source_id"
-                  (click)="onTriggerRun(source.source_id)"
-                >
-                  {{ store.triggeringSourceId() === source.source_id ? 'Iniciando...' : 'Ejecutar Rastreo' }}
-                </button>
-              }
-
-              <div class="right-card-btns">
-                @if (getSourceResourceCount(source.source_id) > 0) {
-                  <button
-                    type="button"
-                    class="btn-configure"
-                    [disabled]="store.triggeringSourceId() === source.source_id"
-                    (click)="onTriggerRun(source.source_id)"
-                    title="Ejecutar extracción dirigida sobre este portal"
-                  >
-                    Extraer
-                  </button>
-                }
-                <button
-                  type="button"
-                  class="btn-configure"
-                  (click)="onConfigureSource(source.source_id)"
-                >
-                  Parámetros
-                </button>
-              </div>
-            </div>
-          </div>
+            <footer class="card-actions">
+              <button
+                type="button"
+                class="btn-primary btn-sm"
+                (click)="filterBySource(src.source_id)"
+              >
+                Ver Catálogo
+              </button>
+              <button
+                type="button"
+                class="btn-secondary btn-sm"
+                (click)="openSourceDrawer(src)"
+              >
+                Inspeccionar
+              </button>
+              <button
+                type="button"
+                class="btn-secondary btn-sm"
+                (click)="onConfigureSource(src.source_id)"
+              >
+                Política
+              </button>
+              <button
+                type="button"
+                class="btn-ghost btn-sm"
+                [disabled]="store.triggeringSourceId() === src.source_id"
+                (click)="onTriggerRun(src.source_id)"
+              >
+                Rastrear
+              </button>
+            </footer>
+          </article>
         } @empty {
-          <div class="empty-state">
-            <p>No se encontraron portales que coincidan con el filtro aplicado.</p>
-            <button type="button" class="btn-reset" (click)="resetFilters()">Restablecer Filtros</button>
+          <div class="empty-grid-msg">
+            No se encontraron fuentes para los criterios de búsqueda actuales.
           </div>
         }
-      </div>
+      </section>
     }
-  </section>
+  }
 </div>
+
+<app-slide-over-drawer
+  [open]="inspectingSource() !== null"
+  [title]="inspectingSource() ? inspectingSource()!.name : ''"
+  [subtitle]="inspectingSource() ? inspectingSource()!.entrypoint : ''"
+  [badge]="inspectingSource() ? inspectingSource()!.source_id.toUpperCase() : ''"
+  [tabs]="drawerTabs()"
+  [activeTab]="drawerTab()"
+  (tabChange)="drawerTab.set($event)"
+  (closed)="closeSourceDrawer()"
+>
+  @if (inspectingSource(); as src) {
+    @if (drawerTab() === 'summary') {
+      <dl class="kv-grid">
+        <div class="kv-item">
+          <dt>Estado Operativo</dt>
+          <dd class="mono">{{ src.health_status }}</dd>
+        </div>
+        <div class="kv-item">
+          <dt>Workflow</dt>
+          <dd class="mono">{{ src.workflow }}</dd>
+        </div>
+        <div class="kv-item">
+          <dt>Frecuencia</dt>
+          <dd class="mono">{{ src.update_category }}</dd>
+        </div>
+        <div class="kv-item">
+          <dt>Fallos Consecutivos</dt>
+          <dd class="mono tabular-nums">{{ src.consecutive_failures ?? 0 }}</dd>
+        </div>
+        <div class="kv-item">
+          <dt>Firma DOM / API</dt>
+          <dd class="mono">{{ (src.dom_structural_hash || src.api_schema_hash || 'Sin línea base').slice(0, 24) }}</dd>
+        </div>
+        <div class="kv-item">
+          <dt>Última Corrida</dt>
+          <dd class="mono">{{ formatDate(src.last_run_at) }}</dd>
+        </div>
+      </dl>
+
+      <div class="drawer-block">
+        <h4>URLs de Contingencia Configuradas ({{ getBackupCount(src) }})</h4>
+        @if ((src.contingency_urls || []).length > 0) {
+          <ul class="url-list mono">
+            @for (u of src.contingency_urls || []; track u; let i = $index) {
+              <li>
+                <span class="prio-num">#{{ i + 1 }}</span>
+                <span class="url-text">{{ u }}</span>
+                <button
+                  type="button"
+                  class="btn-ghost btn-sm"
+                  (click)="toast.copyToClipboard(u, 'URL de contingencia')"
+                >
+                  Copiar
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="muted-note">
+            Esta fuente opera como punto único de fallo (0 respaldos configurados).
+          </p>
+        }
+      </div>
+
+      <div class="drawer-actions-row">
+        <button type="button" class="btn-primary btn-sm" (click)="closeSourceDrawer(); filterBySource(src.source_id)">
+          Abrir Catálogo de Archivos
+        </button>
+        <button type="button" class="btn-secondary btn-sm" (click)="closeSourceDrawer(); onConfigureSource(src.source_id)">
+          Editar Política y Respaldos
+        </button>
+        <button type="button" class="btn-secondary btn-sm" (click)="closeSourceDrawer(); onInspectReport(src.source_id)">
+          Ver Alertas / Informe Técnico
+        </button>
+      </div>
+    } @else {
+      @if (loadingFailovers()) {
+        <app-skeleton-loader variant="panel" [rows]="4" label="Cargando bitácora de failover..." />
+      } @else if (sourceFailovers().length === 0) {
+        <p class="muted-note">
+          No se han registrado conmutaciones automáticas de contingencia para esta fuente.
+        </p>
+      } @else {
+        <div class="failover-list">
+          @for (ev of sourceFailovers(); track ev.event_id) {
+            <article class="failover-card">
+              <div class="failover-top">
+                <span class="badge" [class.badge-success]="ev.succeeded" [class.badge-danger]="!ev.succeeded">
+                  {{ ev.succeeded ? 'CONMUTACIÓN EXITOSA' : 'FALLO DE CONMUTACIÓN' }}
+                </span>
+                <span class="badge badge-info">{{ ev.freshness_class }}</span>
+                <span class="mono tabular-nums failover-lat">{{ formatMs(ev.latency_ms) }}</span>
+              </div>
+              <div class="failover-urls mono">
+                <div><strong>Falló:</strong> {{ ev.failed_url }}</div>
+                <div><strong>Resuelta:</strong> {{ ev.resolved_url || 'Ninguna disponible' }}</div>
+              </div>
+              <div class="failover-foot mono">
+                <span>Código: {{ ev.failure_code || ev.http_status || '—' }}</span>
+                <span>{{ formatDate(ev.occurred_at) }}</span>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    }
+  }
+</app-slide-over-drawer>

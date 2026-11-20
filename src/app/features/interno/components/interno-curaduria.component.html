@@ -1,216 +1,195 @@
-<div class="curaduria-container">
-  <div class="kpi-row">
-    <div class="kpi-mini">
-      <span class="kpi-mini-label">TOTAL ENLACES CATALOGADOS</span>
-      <span class="kpi-mini-value mono">{{ formatInt(store.totalUrls()) }}</span>
+<div class="curaduria-view">
+  <section class="inv-kpi-strip" aria-label="Resumen global del inventario de enlaces">
+    <div class="ikpi">
+      <span class="ik-lbl">Total Enlaces Catalogados</span>
+      <span class="ik-val mono tabular-nums">{{ formatInt(store.totalUrls()) }}</span>
     </div>
-    <div class="kpi-mini">
-      <span class="kpi-mini-label">EN CUSTODIA DOCUMENTAL</span>
-      <span class="kpi-mini-value mono text-emerald">{{ formatInt(store.totalDownloaded()) }}</span>
-      <span class="kpi-mini-sub mono">{{ formatPct(store.downloadRate()) }}</span>
+    <div class="ikpi ikpi-info">
+      <span class="ik-lbl">Descargados en Custodia</span>
+      <span class="ik-val mono tabular-nums">{{ formatInt(store.totalDownloaded()) }}</span>
+      <span class="ik-sub mono tabular-nums">{{ formatPct(store.downloadRate()) }}</span>
     </div>
-    <div class="kpi-mini">
-      <span class="kpi-mini-label">CONSOLIDADOS PARA ANÁLISIS</span>
-      <span class="kpi-mini-value mono text-cyan">{{ formatInt(store.totalProcessed()) }}</span>
-      <span class="kpi-mini-sub mono">{{ formatPct(store.processingRate()) }}</span>
+    <div class="ikpi ikpi-ok">
+      <span class="ik-lbl">Consolidados / Procesados</span>
+      <span class="ik-val mono tabular-nums">{{ formatInt(store.totalProcessed()) }}</span>
+      <span class="ik-sub mono tabular-nums">{{ formatPct(store.processingRate()) }}</span>
     </div>
-    <div class="kpi-mini">
-      <span class="kpi-mini-label">PENDIENTES DE DESCARGA</span>
-      <span class="kpi-mini-value mono text-amber">
-        {{ formatInt(store.totalUrls() - store.totalDownloaded()) }}
-      </span>
-    </div>
-  </div>
+  </section>
 
-  <div class="filter-bar">
-    <div class="filter-item">
-      <label for="curaduria-src" class="filter-label">Institución Emisora:</label>
-      <select
-        id="curaduria-src"
-        class="select-control"
-        [value]="store.selectedSource()"
-        (change)="onSourceChange($event)"
+  <section class="filter-bar" aria-label="Filtros server-side del inventario de URLs">
+    <input
+      type="search"
+      class="text-input search-wide"
+      placeholder="Buscar por URL, archivo, código o SHA-256..."
+      [value]="store.searchQuery()"
+      (input)="onSearchInput($event)"
+      aria-label="Buscar en inventario de enlaces"
+    />
+
+    <select
+      class="select-input"
+      [ngModel]="store.selectedSource()"
+      (ngModelChange)="onSourceChange($event)"
+      aria-label="Filtrar por fuente"
+    >
+      <option value="ALL">Todas las fuentes</option>
+      @for (s of store.sourcesList(); track s) {
+        <option [value]="s">{{ s.toUpperCase() }}</option>
+      }
+    </select>
+
+    <select
+      class="select-input"
+      [ngModel]="store.selectedStatus()"
+      (ngModelChange)="onStatusChange($event)"
+      aria-label="Filtrar por estado"
+    >
+      <option value="ALL">Todos los estados</option>
+      <option value="DISPONIBLE_WEB_NUEVO">Nuevo en Portal</option>
+      <option value="CATALOGADO_BDD">Catalogado</option>
+      <option value="DESCARGADO_BRONZE">En Custodia Bruta</option>
+      <option value="DESCARGA_HISTORICA_LEGACY">Histórico Previo</option>
+    </select>
+
+    <select
+      class="select-input"
+      [ngModel]="store.downloadFilter() === null ? 'ALL' : store.downloadFilter() ? 'YES' : 'NO'"
+      (ngModelChange)="onDownloadFilterChange($event)"
+      aria-label="Filtrar por descarga"
+    >
+      <option value="ALL">Descarga: Todos</option>
+      <option value="YES">Descargados: SÍ</option>
+      <option value="NO">Pendientes: NO</option>
+    </select>
+
+    <select
+      class="select-input"
+      [ngModel]="store.processedFilter() === null ? 'ALL' : store.processedFilter() ? 'YES' : 'NO'"
+      (ngModelChange)="onProcessedFilterChange($event)"
+      aria-label="Filtrar por procesamiento"
+    >
+      <option value="ALL">Procesado: Todos</option>
+      <option value="YES">Procesados: SÍ</option>
+      <option value="NO">Sin Procesar: NO</option>
+    </select>
+  </section>
+
+  <app-data-grid
+    caption="Inventario centralizado de enlaces y estado de descarga"
+    [columns]="columns"
+    [rows]="store.items()"
+    [rowKey]="rowKeyFn"
+    [loading]="store.loading()"
+    [error]="store.error()"
+    [filterChips]="filterChips()"
+    [selectable]="true"
+    [selectedKeys]="selectedKeys()"
+    [clickableRows]="false"
+    [page]="store.currentPage()"
+    [pageSize]="store.pageSize()"
+    [totalItems]="store.totalItems()"
+    [pageSizeOptions]="[25, 50, 100]"
+    (pageChange)="onPageChange($event)"
+    (pageSizeChange)="onPageSizeChange($event)"
+    (removeChip)="onRemoveChip($event)"
+    (clearAllChips)="onClearAllChips()"
+    (selectionChange)="onSelectionChange($event)"
+    (retry)="store.loadUrls()"
+  >
+    <ng-container grid-bulk-actions>
+      <button
+        type="button"
+        class="btn-primary btn-sm"
+        [disabled]="bulkEnqueuing()"
+        (click)="enqueueSelected()"
       >
-        <option value="ALL">Todas las instituciones</option>
-        @for (src of store.sourcesList(); track src) {
-          <option [value]="src">{{ src.toUpperCase() }}</option>
+        {{ bulkEnqueuing() ? 'Encolando...' : 'Encolar Descarga Real' }}
+      </button>
+    </ng-container>
+
+    <ng-template #cellTemplate let-row let-column="column">
+      @switch (column.key) {
+        @case ('source_id') {
+          <span class="src-code">{{ row.source_id.toUpperCase() }}</span>
         }
-      </select>
-    </div>
-
-    <div class="filter-item">
-      <label for="curaduria-status" class="filter-label">Ciclo Documental:</label>
-      <select
-        id="curaduria-status"
-        class="select-control"
-        [value]="store.selectedStatus()"
-        (change)="onStatusChange($event)"
-      >
-        <option value="ALL">Todos los estados</option>
-        <option value="DISPONIBLE_WEB_NUEVO">Nuevo en Portal Institucional</option>
-        <option value="CATALOGADO_BDD">Registrado en Catálogo</option>
-        <option value="DESCARGA_HISTORICA_LEGACY">Histórico Previo</option>
-        <option value="DESCARGADO_BRONZE">En Custodia Documental</option>
-      </select>
-    </div>
-
-    <div class="filter-item">
-      <label for="curaduria-dl" class="filter-label">Estado de Descarga:</label>
-      <select id="curaduria-dl" class="select-control" (change)="onDownloadFilterChange($event)">
-        <option value="ALL">Todos</option>
-        <option value="YES">Descargados en Custodia</option>
-        <option value="NO">Pendientes de Descarga</option>
-      </select>
-    </div>
-
-    <div class="filter-item">
-      <label for="curaduria-pr" class="filter-label">Estado de Consolidación:</label>
-      <select id="curaduria-pr" class="select-control" (change)="onProcessedFilterChange($event)">
-        <option value="ALL">Todos</option>
-        <option value="YES">Consolidados</option>
-        <option value="NO">Pendientes de Consolidación</option>
-      </select>
-    </div>
-
-    <div class="filter-item search-item">
-      <label for="curaduria-search" class="filter-label">Búsqueda:</label>
-      <input
-        id="curaduria-search"
-        type="text"
-        class="input-control mono"
-        placeholder="Filtrar por enlace, archivo o código..."
-        [value]="store.searchQuery()"
-        (input)="onSearchInput($event)"
-      />
-    </div>
-  </div>
-
-  <div class="table-card">
-    @if (store.loading()) {
-      <div class="loading-state">
-        <span class="loading-spinner"></span>
-        <span>Consultando inventario centralizado de enlaces...</span>
-      </div>
-    } @else {
-      <div class="table-responsive">
-        <table class="inventory-table">
-          <thead>
-            <tr>
-              <th class="th-src">Entidad</th>
-              <th class="th-code">Código</th>
-              <th class="th-name">Documento / Publicación</th>
-              <th class="th-url">Enlace Canónico</th>
-              <th class="th-switch">Estado en Custodia</th>
-              <th class="th-switch">Estado Consolidado</th>
-              <th class="th-status">Clasificación</th>
-              <th class="th-updated">Actualizado</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (item of store.items(); track item.id) {
-              <tr
-                class="item-row"
-                [class.row-downloaded]="item.is_downloaded"
-                [class.row-processed]="item.is_processed"
-              >
-                <td class="td-src">
-                  <span class="source-tag mono">{{ item.source_id.toUpperCase() }}</span>
-                </td>
-                <td class="td-code mono">{{ item.file_code || '#' + item.id }}</td>
-                <td class="td-name">
-                  <div class="file-name" [title]="item.file_name || 'Sin denominación'">
-                    {{ item.file_name || 'Sin denominación asignada' }}
-                  </div>
-                </td>
-                <td class="td-url">
-                  <a
-                    [href]="item.canonical_url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="url-link mono"
-                    [title]="item.canonical_url"
-                  >
-                    {{ item.canonical_url }}
-                  </a>
-                </td>
-                <td class="td-switch">
-                  <button
-                    type="button"
-                    class="toggle-btn toggle-download"
-                    [class.active]="item.is_downloaded"
-                    [disabled]="store.updatingId() === item.id"
-                    (click)="store.toggleDownloaded(item)"
-                  >
-                    <span class="toggle-dot"></span>
-                    <span class="toggle-text">
-                      {{ item.is_downloaded ? 'EN CUSTODIA' : 'PENDIENTE' }}
-                    </span>
-                  </button>
-                </td>
-                <td class="td-switch">
-                  <button
-                    type="button"
-                    class="toggle-btn toggle-process"
-                    [class.active]="item.is_processed"
-                    [disabled]="store.updatingId() === item.id"
-                    (click)="store.toggleProcessed(item)"
-                  >
-                    <span class="toggle-dot"></span>
-                    <span class="toggle-text">
-                      {{ item.is_processed ? 'CONSOLIDADO' : 'PENDIENTE' }}
-                    </span>
-                  </button>
-                </td>
-                <td class="td-status">
-                  <span
-                    class="status-pill mono"
-                    [class.status-bronze]="
-                      item.status === 'DESCARGADO_BRONZE' || item.status === 'COMPLETED'
-                    "
-                    [class.status-new]="item.status === 'DISPONIBLE_WEB_NUEVO'"
-                  >
-                    {{ formatStatus(item.status) }}
-                  </span>
-                </td>
-                <td class="td-updated mono">{{ item.updated_at || '-' }}</td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="8" class="empty-state">
-                  No se encontraron registros para los criterios seleccionados.
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      <div class="pagination-bar">
-        <span class="pagination-info mono">
-          Página {{ store.currentPage() }} de {{ store.totalPages() }} ({{
-            formatInt(store.totalItems())
-          }}
-          registros encontrados)
-        </span>
-        <div class="pagination-actions">
+        @case ('canonical_url') {
+          <div class="url-cell">
+            <div class="file-name">{{ row.file_name || row.file_code || 'Archivo sin título' }}</div>
+            <div class="url-line mono" [title]="row.canonical_url">{{ row.canonical_url }}</div>
+          </div>
+        }
+        @case ('status') {
+          <span class="badge badge-neutral">{{ formatStatus(row.status) }}</span>
+        }
+        @case ('is_downloaded') {
           <button
             type="button"
-            class="btn-page"
-            [disabled]="store.currentPage() <= 1"
-            (click)="store.setPage(store.currentPage() - 1)"
+            class="toggle-pill mono"
+            [class.pill-yes]="row.is_downloaded"
+            [disabled]="store.updatingId() === row.id"
+            (click)="requestAuditedToggle(row, 'is_downloaded')"
+            title="Requiere justificación escrita en auditoría"
           >
-            Anterior
+            {{ row.is_downloaded ? 'SÍ' : 'NO' }}
           </button>
+        }
+        @case ('is_processed') {
           <button
             type="button"
-            class="btn-page"
-            [disabled]="store.currentPage() >= store.totalPages()"
-            (click)="store.setPage(store.currentPage() + 1)"
+            class="toggle-pill mono"
+            [class.pill-yes]="row.is_processed"
+            [disabled]="store.updatingId() === row.id"
+            (click)="requestAuditedToggle(row, 'is_processed')"
+            title="Requiere justificación escrita en auditoría"
           >
-            Siguiente
+            {{ row.is_processed ? 'SÍ' : 'NO' }}
           </button>
-        </div>
-      </div>
-    }
-  </div>
+        }
+        @case ('sha256_hash') {
+          @if (row.sha256_hash) {
+            <button
+              type="button"
+              class="btn-ghost btn-sm mono"
+              (click)="toast.copyToClipboard(row.sha256_hash, 'SHA-256')"
+            >
+              {{ row.sha256_hash.slice(0, 12) }}...
+            </button>
+          } @else {
+            <span>—</span>
+          }
+        }
+        @case ('actions') {
+          <div class="row-btns">
+            <button
+              type="button"
+              class="btn-primary btn-sm"
+              (click)="enqueueSingle(row)"
+            >
+              Encolar
+            </button>
+            <button
+              type="button"
+              class="btn-ghost btn-sm"
+              (click)="toast.copyToClipboard(row.canonical_url, 'URL')"
+            >
+              Copiar
+            </button>
+          </div>
+        }
+      }
+    </ng-template>
+  </app-data-grid>
 </div>
+
+<app-confirm-reason-modal
+  [open]="pendingToggle() !== null"
+  title="Ajuste administrativo auditable de inventario"
+  [description]="getModalDescription()"
+  reasonLabel="Justificación técnica obligatoria"
+  reasonPlaceholder="Explique por qué se sobrescribe manualmente el indicador del pipeline..."
+  confirmLabel="Aplicar Cambio Auditado"
+  tone="warning"
+  [busy]="submittingToggle()"
+  (confirmed)="confirmAuditedToggle($event)"
+  (cancelled)="pendingToggle.set(null)"
+/>

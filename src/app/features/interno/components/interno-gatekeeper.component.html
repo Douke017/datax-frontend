@@ -1,412 +1,548 @@
-<div class="gatekeeper-container">
-  <!-- PANEL 1: VALIDACIÓN PREVIA DE SOLICITUDES Y DETECCIÓN DE DUPLICIDAD -->
-  <section class="panel-card">
-    <div class="panel-header">
-      <div>
-        <span class="panel-tag mono">CONTROL PREVIO Y DETECCIÓN DE DUPLICIDAD</span>
-        <h2 class="panel-title">Validación de Solicitudes de Procesamiento</h2>
-        <p class="panel-desc">
-          Verifica automáticamente la existencia previa de información en reportes consolidados, la disponibilidad del archivo en custodia y el estado de descargas en curso antes de autorizar cualquier procesamiento.
-        </p>
-      </div>
-      @if (store.evaluationElapsedMs() !== null) {
-        <span class="speed-pill mono">Tiempo de control: {{ store.evaluationElapsedMs() }} ms</span>
-      }
+<div class="gk-view">
+  <section class="telemetry-strip" aria-label="Telemetría real del Pre-Flight Gatekeeper">
+    <div class="tel-card">
+      <span class="tel-label">Evaluaciones</span>
+      <span class="tel-val mono tabular-nums">
+        {{ formatInt(store.gatekeeperMetrics()?.total_evaluations ?? 0) }}
+      </span>
+      <span class="tel-sub">Modo DRY_RUN seguro</span>
     </div>
 
-    <div class="presets-bar">
-      <span class="presets-lbl">Escenarios rápidos de verificación:</span>
-      <div class="presets-list">
-        @for (p of presets; track p.id) {
+    <div class="tel-card">
+      <span class="tel-label">Latencia p50 / p95 / p99</span>
+      <span class="tel-val mono tabular-nums">
+        {{ formatMs(store.gatekeeperMetrics()?.p50_ms ?? 0) }} /
+        {{ formatMs(store.gatekeeperMetrics()?.p95_ms ?? 0) }}
+      </span>
+      <span class="tel-sub mono tabular-nums">
+        p99: {{ formatMs(store.gatekeeperMetrics()?.p99_ms ?? 0) }}
+      </span>
+    </div>
+
+    <div class="tel-card tel-success">
+      <span class="tel-label">Descargas Evitadas</span>
+      <span class="tel-val mono tabular-nums">
+        {{ formatInt(store.gatekeeperMetrics()?.saved_downloads ?? 0) }}
+      </span>
+      <span class="tel-sub">Caché + Deduplicación + Reutilización</span>
+    </div>
+
+    <div class="tel-card tel-purple">
+      <span class="tel-label">Ahorro Binario SHA-256</span>
+      <span class="tel-val mono tabular-nums">
+        {{ formatSize(store.dedupAudit()?.summary?.total_bytes_saved ?? 0) }}
+      </span>
+      <span class="tel-sub mono tabular-nums">
+        {{ formatInt(store.dedupAudit()?.summary?.total_aliases ?? 0) }} alias registrados
+      </span>
+    </div>
+
+    <div class="tel-card tel-info">
+      <span class="tel-label">Cola Real (Workers SSE)</span>
+      <span class="tel-val mono tabular-nums">{{ formatInt(store.activeDownloadsCount()) }}</span>
+      <span class="tel-sub">
+        {{ sseConnected() ? 'Stream SSE conectado' : 'Reconectando SSE...' }}
+      </span>
+    </div>
+  </section>
+
+  <nav class="sub-pills" aria-label="Secciones de control previo y cola">
+    <button type="button" class="pill-btn" [class.active]="subTab() === 'evaluate'" (click)="subTab.set('evaluate')">
+      Control Previo (Individual y Lote)
+    </button>
+    <button type="button" class="pill-btn" [class.active]="subTab() === 'queue'" (click)="subTab.set('queue')">
+      Cola Real de Descargas (SSE)
+      <span class="badge badge-info">{{ store.downloadsQueue().length }}</span>
+    </button>
+    <button type="button" class="pill-btn" [class.active]="subTab() === 'reuse'" (click)="subTab.set('reuse')">
+      Reutilización y Solicitud Delta
+    </button>
+    <button type="button" class="pill-btn" [class.active]="subTab() === 'dedup'" (click)="subTab.set('dedup')">
+      Auditoría de Deduplicación
+      <span class="badge badge-purple">{{ store.dedupAudit()?.summary?.total_intercepted ?? 0 }}</span>
+    </button>
+  </nav>
+
+  @switch (subTab()) {
+    @case ('evaluate') {
+      <div class="two-col-grid">
+        <section class="panel-card">
+          <div class="card-head">
+            <div>
+              <h3>Evaluación Individual (Inspección DRY_RUN)</h3>
+              <p class="muted-text">
+                Verifica existencia previa en Bronze, Gold o cola activa sin crear locks fantasma.
+              </p>
+            </div>
+            <span class="badge badge-success">DRY_RUN SEGURO</span>
+          </div>
+
+          <div class="form-grid">
+            <div class="f-item">
+              <label for="gk-src">Fuente</label>
+              <select id="gk-src" class="select-input" [ngModel]="selectedSource" (ngModelChange)="onSourceChange($event)">
+                @for (s of sources(); track s) {
+                  <option [value]="s">{{ s.toUpperCase() }}</option>
+                }
+              </select>
+            </div>
+            <div class="f-item">
+              <label for="gk-ds">Código de Dataset</label>
+              <input id="gk-ds" type="text" class="text-input mono" [(ngModel)]="datasetCode" />
+            </div>
+            <div class="f-item">
+              <label for="gk-period">Periodo</label>
+              <input id="gk-period" type="text" class="text-input mono" [(ngModel)]="period" placeholder="2025-12 o 2025-Q1" />
+            </div>
+            <div class="f-item">
+              <label for="gk-etag">ETag (opcional)</label>
+              <input id="gk-etag" type="text" class="text-input mono" [(ngModel)]="etag" placeholder='W/"..."' />
+            </div>
+          </div>
+
+          <div class="f-item">
+            <label for="gk-url">URL Objetivo del Archivo</label>
+            <input
+              id="gk-url"
+              type="url"
+              class="text-input mono"
+              [(ngModel)]="targetUrl"
+              placeholder="https://portal.gob.bo/datos/boletin_2025_12.xlsx"
+            />
+          </div>
+
+          <div class="actions-row">
+            <label class="checkbox-inline">
+              <input type="checkbox" [(ngModel)]="forceRefresh" />
+              <span>Forzar re-descarga (ignorar caché)</span>
+            </label>
+            <button
+              type="button"
+              class="btn-primary btn-sm"
+              [disabled]="store.isEvaluating()"
+              (click)="onEvaluateSingle()"
+            >
+              {{ store.isEvaluating() ? 'Evaluando...' : 'Evaluar Pre-Vuelo' }}
+            </button>
+          </div>
+
+          @if (store.lastEvaluation(); as ev) {
+            <div class="verdict-box">
+              <div class="verdict-top">
+                <span class="badge" [class]="getVerdictBadgeClass(ev.verdict)">{{ ev.verdict }}</span>
+                <span class="mono tabular-nums verdict-lat">{{ formatMs(ev.latency_ms ?? store.evaluationElapsedMs()) }}</span>
+                <span class="badge badge-neutral">
+                  {{ ev.lock_acquired ? 'LOCK ADQUIRIDO' : 'SIN LOCK (DRY_RUN)' }}
+                </span>
+              </div>
+              <p class="verdict-reason">{{ ev.reason }}</p>
+              <div class="verdict-meta mono">
+                <span>Clave: {{ ev.idempotency_key.slice(0, 24) }}...</span>
+                @if (ev.dedup_criterion) {
+                  <span>· Criterio: {{ ev.dedup_criterion }}</span>
+                }
+              </div>
+
+              <div class="verdict-actions">
+                @if (ev.cached_artifact_id) {
+                  <a
+                    class="btn-primary btn-sm"
+                    [href]="internoService.buildAssetDownloadUrl(ev.cached_artifact_id)"
+                    download
+                  >
+                    Descargar Archivo Bruto
+                  </a>
+                }
+                @if (ev.action_links?.['export_parquet']) {
+                  <a
+                    class="btn-secondary btn-sm"
+                    [href]="resolveActionLink(ev.action_links!['export_parquet'])"
+                    download
+                  >
+                    Abrir Parquet
+                  </a>
+                }
+                @if (ev.verdict === 'IN_PROGRESS' || ev.verdict === 'IN_FLIGHT_LOCKED') {
+                  <button type="button" class="btn-secondary btn-sm" (click)="subTab.set('queue')">
+                    Ver en Cola SSE
+                  </button>
+                }
+                @if (ev.verdict === 'PROCEED_DOWNLOAD') {
+                  <button type="button" class="btn-primary btn-sm" (click)="onEnqueueEvaluatedSingle()">
+                    Encolar Descarga Real
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </section>
+
+        <section class="panel-card">
+          <div class="card-head">
+            <div>
+              <h3>Evaluación por Lotes (hasta 500 solicitudes)</h3>
+              <p class="muted-text">
+                Pegue una URL por línea o el formato <code class="mono">source_id|url|periodo</code> para clasificar en bloque.
+              </p>
+            </div>
+          </div>
+
+          <textarea
+            class="batch-textarea mono"
+            rows="7"
+            [(ngModel)]="batchInputText"
+            placeholder="https://portal.gob.bo/datos/serie_2025_01.csv&#10;bcb|https://www.bcb.gob.bo/datos/boletin_2025_02.xlsx|2025-02"
+            aria-label="Lista de URLs para evaluación en lote"
+          ></textarea>
+
+          <div class="actions-row">
+            <button
+              type="button"
+              class="btn-primary btn-sm"
+              [disabled]="store.isEvaluatingBatch()"
+              (click)="onEvaluateBatch()"
+            >
+              {{ store.isEvaluatingBatch() ? 'Clasificando lote...' : 'Evaluar Lote (DRY_RUN)' }}
+            </button>
+            @if (batchProceedCount() > 0) {
+              <button
+                type="button"
+                class="btn-secondary btn-sm"
+                [disabled]="enqueuingBatchProceed()"
+                (click)="onEnqueueBatchProceeds()"
+              >
+                {{
+                  enqueuingBatchProceed()
+                    ? 'Encolando...'
+                    : 'Encolar solo nuevos (' + batchProceedCount() + ')'
+                }}
+              </button>
+            }
+          </div>
+
+          @if (store.batchEvaluation(); as batch) {
+            <div class="batch-result-box">
+              <div class="batch-kpis mono tabular-nums">
+                <span>Total: <strong>{{ batch.total }}</strong></span>
+                <span>Latencia: <strong>{{ formatMs(batch.elapsed_ms) }}</strong></span>
+                <span>Evitadas: <strong>{{ batch.saved_downloads }}</strong></span>
+              </div>
+              <div class="batch-badges">
+                @for (kv of verdictKeys(); track kv[0]) {
+                  <span class="badge" [class]="getVerdictBadgeClass(kv[0])">
+                    {{ kv[0] }}: {{ kv[1] }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+        </section>
+      </div>
+    }
+
+    @case ('queue') {
+      <section class="panel-card">
+        <div class="card-head">
+          <div>
+            <h3>Encolar Descarga Física Real (Worker Pool SKIP LOCKED)</h3>
+            <p class="muted-text">
+              Envía la URL al pool asíncrono real: descarga por streaming, valida SHA-256, deduplica binarios y ejecuta callback al Prospector Externo.
+            </p>
+          </div>
+          <span class="badge" [class.badge-success]="sseConnected()" [class.badge-warning]="!sseConnected()">
+            {{ sseConnected() ? 'SSE EN VIVO' : 'SIN SSE' }}
+          </span>
+        </div>
+
+        <div class="enqueue-grid">
+          <select class="select-input" [(ngModel)]="queueSourceId" aria-label="Fuente de descarga">
+            @for (s of sources(); track s) {
+              <option [value]="s">{{ s.toUpperCase() }}</option>
+            }
+          </select>
+          <input
+            type="url"
+            class="text-input mono"
+            [(ngModel)]="queueUrl"
+            placeholder="URL directa del archivo a descargar (https://...)"
+          />
+          <input
+            type="text"
+            class="text-input mono"
+            [(ngModel)]="queueDatasetCode"
+            placeholder="Dataset (opcional)"
+          />
+          <input
+            type="number"
+            min="1"
+            max="10"
+            class="text-input mono tabular-nums"
+            [(ngModel)]="queuePriority"
+            title="Prioridad (1=alta, 10=baja)"
+          />
+          <button type="button" class="btn-primary btn-sm" (click)="onEnqueueManualReal()">
+            Encolar Descarga Real
+          </button>
+        </div>
+
+        @if (store.circuitBreakers().length > 0) {
+          <div class="cb-strip">
+            <span class="cb-label">Disyuntores por dominio:</span>
+            @for (cb of store.circuitBreakers(); track cb.domain) {
+              <span
+                class="cb-pill mono"
+                [class.cb-open]="cb.status === 'OPEN'"
+                [class.cb-half]="cb.status === 'HALF_OPEN'"
+              >
+                {{ cb.domain }}: {{ cb.status }} ({{ cb.failure_count }})
+                @if (cb.status !== 'CLOSED') {
+                  <button type="button" class="cb-reset" (click)="store.resetDomainCircuit(cb.domain)">
+                    Restablecer
+                  </button>
+                }
+              </span>
+            }
+          </div>
+        }
+
+        <div class="table-container" role="region" tabindex="0" aria-label="Cola de descargas físicas">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Estado</th>
+                <th scope="col">Fuente / URL</th>
+                <th scope="col">Progreso</th>
+                <th scope="col" class="num-col">Velocidad</th>
+                <th scope="col" class="num-col">Suscriptores</th>
+                <th scope="col">SHA-256 / Error</th>
+                <th scope="col">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (dl of store.downloadsQueue(); track dl.download_id) {
+                <tr>
+                  <td>
+                    <span class="badge" [class]="getDownloadBadgeClass(dl.status)">{{ dl.status }}</span>
+                  </td>
+                  <td>
+                    <div class="dl-src mono">{{ dl.source_id.toUpperCase() }} · {{ dl.download_id }}</div>
+                    <div class="dl-url mono" [title]="dl.canonical_url">{{ dl.canonical_url }}</div>
+                  </td>
+                  <td>
+                    <div class="prog-wrap">
+                      <div class="prog-bar">
+                        <div class="prog-fill" [style.width.%]="dl.progress_pct ?? 0"></div>
+                      </div>
+                      <span class="mono tabular-nums prog-text">
+                        {{ dl.progress_pct ?? 0 }}% ({{ formatSize(dl.bytes_downloaded) }})
+                      </span>
+                    </div>
+                  </td>
+                  <td class="mono tabular-nums num-col">{{ formatSpeed(dl.speed_bps) }}</td>
+                  <td class="mono tabular-nums num-col">{{ dl.subscribers_count }}</td>
+                  <td class="mono sha-col">
+                    @if (dl.sha256_checksum) {
+                      <button
+                        type="button"
+                        class="btn-ghost btn-sm mono"
+                        (click)="toast.copyToClipboard(dl.sha256_checksum!, 'SHA-256')"
+                      >
+                        {{ dl.sha256_checksum.slice(0, 14) }}...
+                      </button>
+                    } @else if (dl.last_error_code) {
+                      <span class="err-code">{{ dl.last_error_code }}</span>
+                    } @else {
+                      <span>—</span>
+                    }
+                  </td>
+                  <td>
+                    <div class="row-btns">
+                      @if (dl.status === 'FAILED' || dl.status === 'CANCELLED') {
+                        <button type="button" class="btn-secondary btn-sm" (click)="onRetryDownload(dl.download_id)">
+                          Reintentar
+                        </button>
+                      }
+                      @if (dl.status === 'QUEUED' || dl.status === 'PENDING' || dl.status === 'DOWNLOADING') {
+                        <button type="button" class="btn-danger btn-sm" (click)="onCancelDownload(dl.download_id)">
+                          Cancelar
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="empty-td">No existen transferencias registradas en la cola.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
+    @case ('reuse') {
+      <section class="panel-card">
+        <div class="card-head">
+          <div>
+            <h3>Motor de Reutilización de Insumos y Solicitud Delta</h3>
+            <p class="muted-text">
+              Evalúa rangos temporales arbitrarios (ej. <code class="mono">2025</code>, <code class="mono">2025-Q1</code>,
+              <code class="mono">2024-06..2025-03</code>) y encola exclusivamente los cortes faltantes.
+            </p>
+          </div>
+        </div>
+
+        <div class="reuse-form">
+          <div class="f-item">
+            <label for="rev-ds">Dataset</label>
+            <input id="rev-ds" type="text" class="text-input mono" [(ngModel)]="derivationDataset" />
+          </div>
+          <div class="f-item">
+            <label for="rev-per">Periodo o Rango (YYYY, YYYY-Qn, YYYY-MM..YYYY-MM)</label>
+            <input id="rev-per" type="text" class="text-input mono" [(ngModel)]="derivationPeriod" />
+          </div>
+          <div class="f-item">
+            <label for="rev-tpl">Plantilla URL Delta opcional (con &#123;period&#125;)</label>
+            <input
+              id="rev-tpl"
+              type="url"
+              class="text-input mono"
+              [(ngModel)]="derivationUrlTemplate"
+              placeholder="https://portal.gob.bo/datos/{period}.xlsx"
+            />
+          </div>
           <button
             type="button"
-            class="preset-chip"
-            [class.active]="activePresetId() === p.id"
-            (click)="applyPreset(p)"
+            class="btn-primary btn-sm"
+            [disabled]="store.isInspectingDerivation()"
+            (click)="onInspectDerivation()"
           >
-            {{ p.label }}
+            {{ store.isInspectingDerivation() ? 'Analizando...' : 'Evaluar Cobertura' }}
           </button>
-        }
-      </div>
-    </div>
-
-    <div class="eval-form-grid">
-      <div class="form-group">
-        <label class="form-lbl" for="gk-source">Entidad Emisora</label>
-        <select
-          id="gk-source"
-          class="form-select mono"
-          [ngModel]="selectedSource"
-          (ngModelChange)="onSourceChange($event)"
-        >
-          @for (src of sources(); track src) {
-            <option [value]="src">{{ src.toUpperCase() }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-lbl" for="gk-dataset">Repositorio o Serie (D_BO_* / DB_BO_*)</label>
-        <input
-          id="gk-dataset"
-          type="text"
-          class="form-input mono"
-          [(ngModel)]="datasetCode"
-          placeholder="catalogo_series_files, D_BO_000000101 o DB_BO_000001"
-        />
-      </div>
-
-      <div class="form-group">
-        <label class="form-lbl" for="gk-period">Período / Corte Contable</label>
-        <input
-          id="gk-period"
-          type="text"
-          class="form-input mono"
-          [(ngModel)]="period"
-          placeholder="2025-01, 2025-Q1 o 2025"
-        />
-      </div>
-
-      <div class="form-group span-2">
-        <label class="form-lbl" for="gk-url">Enlace del Archivo Fuente (Opcional)</label>
-        <input
-          id="gk-url"
-          type="url"
-          class="form-input mono"
-          [(ngModel)]="targetUrl"
-          placeholder="https://www.asfi.gob.bo/boletines/reporte.xlsx"
-        />
-      </div>
-
-      <div class="form-group action-col">
-        <label class="checkbox-lbl">
-          <input type="checkbox" [(ngModel)]="forceRefresh" />
-          <span>Forzar revalidación en origen</span>
-        </label>
-        <button
-          type="button"
-          class="btn-primary"
-          [disabled]="store.isEvaluating()"
-          (click)="onEvaluate()"
-        >
-          @if (store.isEvaluating()) {
-            <span>Verificando...</span>
-          } @else {
-            <span>Evaluar Solicitud</span>
-          }
-        </button>
-      </div>
-    </div>
-
-    @if (store.lastEvaluation(); as evalResult) {
-      <div
-        class="verdict-card"
-        [class.verdict-hit]="
-          evalResult.verdict === 'CACHE_HIT_BRONZE' ||
-          evalResult.verdict === 'CACHE_HIT_GOLD' ||
-          evalResult.verdict === 'REUSE_DERIVATION'
-        "
-        [class.verdict-permit]="evalResult.verdict === 'PROCEED_DOWNLOAD'"
-        [class.verdict-lock]="
-          evalResult.verdict === 'IN_FLIGHT_LOCKED' || evalResult.verdict === 'IN_PROGRESS'
-        "
-      >
-        <div class="verdict-top">
-          <div>
-            <span class="verdict-tag mono">DICTAMEN DEL CONTROL PREVIO</span>
-            <h3 class="verdict-title mono">{{ getVerdictTitle(evalResult.verdict) }}</h3>
-          </div>
-          <div class="verdict-meta mono">
-            <span>Huella de Solicitud: {{ evalResult.idempotency_key | slice:0:16 }}...</span>
-            <span>Solicitudes Suscritas: {{ evalResult.subscribers_count }}</span>
-          </div>
         </div>
 
-        <div class="eval-criteria-grid">
-          <div class="criteria-card">
-            <span class="criteria-num mono">1</span>
-            <div class="criteria-body">
-              <span class="criteria-title">Existencia en Reportes Consolidados</span>
+        @if (store.derivationResult(); as drv) {
+          <div class="drv-box">
+            <div class="drv-top">
               <span
-                class="criteria-status mono"
-                [class.text-emerald]="
-                  evalResult.verdict === 'CACHE_HIT_GOLD' ||
-                  evalResult.verdict === 'REUSE_DERIVATION'
-                "
+                class="badge"
+                [class.badge-success]="drv.coverage_ratio >= 1"
+                [class.badge-warning]="drv.coverage_ratio > 0 && drv.coverage_ratio < 1"
+                [class.badge-danger]="drv.coverage_ratio === 0"
               >
-                {{
-                  evalResult.verdict === 'CACHE_HIT_GOLD' ||
-                  evalResult.verdict === 'REUSE_DERIVATION'
-                    ? 'Disponible sin reprocesar'
-                    : 'No consolidado aún'
-                }}
+                {{ drv.status }} — {{ formatPct(drv.coverage_ratio * 100) }}
               </span>
+              <span class="mono">{{ drv.granularity }} · {{ drv.target_period }}</span>
             </div>
-          </div>
 
-          <div class="criteria-card">
-            <span class="criteria-num mono">2</span>
-            <div class="criteria-body">
-              <span class="criteria-title">Disponibilidad en Custodia Documental</span>
-              <span
-                class="criteria-status mono"
-                [class.text-emerald]="evalResult.verdict === 'CACHE_HIT_BRONZE'"
-              >
-                {{
-                  evalResult.verdict === 'CACHE_HIT_BRONZE'
-                    ? 'Archivo verificado en servidor'
-                    : 'No resguardado localmente'
-                }}
-              </span>
+            <p class="verdict-reason">{{ drv.explanation }}</p>
+
+            <div class="periods-split">
+              <div>
+                <h4 class="mini-h">Cortes Disponibles ({{ drv.available_periods.length }})</h4>
+                <div class="period-chips">
+                  @for (p of drv.available_periods; track p) {
+                    <span class="badge badge-success">{{ p }}</span>
+                  } @empty {
+                    <span class="muted-text">Ninguno</span>
+                  }
+                </div>
+              </div>
+              <div>
+                <h4 class="mini-h">Cortes Faltantes ({{ drv.missing_periods.length }})</h4>
+                <div class="period-chips">
+                  @for (p of drv.missing_periods; track p) {
+                    <span class="badge badge-danger">{{ p }}</span>
+                  } @empty {
+                    <span class="muted-text">Cobertura completa</span>
+                  }
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div class="criteria-card">
-            <span class="criteria-num mono">3</span>
-            <div class="criteria-body">
-              <span class="criteria-title">Estado en Cola o Proceso de Descarga</span>
-              <span
-                class="criteria-status mono"
-                [class.text-amber]="
-                  evalResult.verdict === 'IN_PROGRESS' ||
-                  evalResult.verdict === 'IN_FLIGHT_LOCKED'
-                "
-              >
-                {{
-                  evalResult.verdict === 'IN_PROGRESS' ||
-                  evalResult.verdict === 'IN_FLIGHT_LOCKED'
-                    ? 'En descarga activa (' + (evalResult.task_id || 'Tarea activa') + ')'
-                    : 'Sin transferencia concurrente'
-                }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <p class="verdict-reason">{{ evalResult.reason }}</p>
-
-        <div class="verdict-recommendation">
-          <span class="rec-title">Acción Recomendada:</span>
-          <p class="rec-body">{{ getVerdictRecommendation(evalResult.verdict) }}</p>
-        </div>
-      </div>
-    }
-  </section>
-
-  <!-- PANEL 2: EVALUACIÓN DE REUTILIZACIÓN DE INSUMOS YA CONSOLIDADOS -->
-  <section class="panel-card">
-    <div class="panel-header">
-      <div>
-        <span class="panel-tag mono">REUTILIZACIÓN DE INSUMOS</span>
-        <h2 class="panel-title">Evaluación de Construcción desde Fuentes Consolidadas</h2>
-        <p class="panel-desc">
-          Evalúa si un requerimiento trimestral, semestral o anual puede construirse directamente a partir de los cortes mensuales ya consolidados, evitando descargas y procesamientos innecesarios.
-        </p>
-      </div>
-    </div>
-
-    <div class="derivation-form-row">
-      <div class="form-group">
-        <label class="form-lbl" for="deriv-dm">Repositorio Consolidado Base</label>
-        <select id="deriv-dm" class="form-select" [(ngModel)]="derivationDataset">
-          <option value="catalogo_series_files">Catálogo Maestro de Series y Archivos (D_BO_* / A_*)</option>
-          <option value="mapa_web_52_fuentes">Mapa Unificado de las 52 Fuentes</option>
-          <option value="historial_descargas_bruto">Archivos Descargados en Bruto (Download & DAGs)</option>
-          <option value="reportes_conversiones">Reportes Extraídos y Conversiones (D_BO_*_xx)</option>
-          <option value="bases_datos_cubos">Bases de Datos Consolidadas (DB_BO_* / S_BO*)</option>
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-lbl" for="deriv-period">Período Agregado Solicitado</label>
-        <input
-          id="deriv-period"
-          type="text"
-          class="form-input mono"
-          [(ngModel)]="derivationPeriod"
-          placeholder="Ej. 2025-Q1, 2025-S1 o 2025"
-        />
-      </div>
-
-      <div class="form-group">
-        <label class="form-lbl" for="deriv-inst">Entidad Específica (Opcional)</label>
-        <input
-          id="deriv-inst"
-          type="text"
-          class="form-input mono"
-          [(ngModel)]="derivationInstitution"
-          placeholder="Todas las entidades"
-        />
-      </div>
-
-      <button
-        type="button"
-        class="btn-primary"
-        [disabled]="store.isInspectingDerivation()"
-        (click)="onInspectDerivation()"
-      >
-        @if (store.isInspectingDerivation()) {
-          <span>Evaluando cobertura...</span>
-        } @else {
-          <span>Evaluar Reutilización</span>
-        }
-      </button>
-    </div>
-
-    @if (store.derivationResult(); as deriv) {
-      <div class="derivation-result-box" [class.deriv-ok]="deriv.is_derivable">
-        <div class="deriv-summary-row">
-          <div>
-            <span
-              class="deriv-status-pill mono"
-              [class.pill-ok]="deriv.is_derivable"
-              [class.pill-warn]="!deriv.is_derivable"
-            >
-              {{
-                deriv.is_derivable
-                  ? '100% CONSTRUIBLE DESDE INSUMOS EXISTENTES'
-                  : 'COBERTURA PARCIAL — REQUIERE CORTES FALTANTES'
-              }}
-            </span>
-            <p class="deriv-exp">{{ deriv.explanation }}</p>
-          </div>
-          <div class="deriv-kpi-box mono">
-            <span class="deriv-kpi-lbl">COBERTURA DISPONIBLE</span>
-            <span class="deriv-kpi-val">{{ formatPct(deriv.coverage_ratio * 100) }}</span>
-            <span class="deriv-kpi-sub">{{ formatGranularity(deriv.granularity) }}</span>
-          </div>
-        </div>
-
-        <div class="periods-breakdown">
-          <div class="period-col">
-            <span class="period-col-title">
-              Cortes Consolidados Disponibles ({{ deriv.available_periods.length }} /
-              {{ deriv.required_periods.length }})
-            </span>
-            <div class="period-chips">
-              @for (ap of deriv.available_periods; track ap) {
-                <span class="p-chip p-chip-ok mono">{{ ap }}</span>
-              } @empty {
-                <span class="empty-note">Sin cortes consolidados para este rango.</span>
+            <div class="verdict-actions">
+              @if (drv.is_derivable) {
+                <a class="btn-primary btn-sm" [href]="getDirectParquetExportUrl(derivationDataset)" download>
+                  Exportar Parquet desde Insumos Existentes
+                </a>
               }
-            </div>
-          </div>
-
-          <div class="period-col">
-            <span class="period-col-title">
-              Cortes Faltantes ({{ deriv.missing_periods.length }})
-            </span>
-            <div class="period-chips">
-              @for (mp of deriv.missing_periods; track mp) {
-                <span class="p-chip p-chip-miss mono">{{ mp }}</span>
-              } @empty {
-                <span class="p-chip p-chip-ok mono">Ninguno — Serie completa</span>
-              }
-            </div>
-          </div>
-        </div>
-      </div>
-    }
-  </section>
-
-  <!-- PANEL 3: ESTADO DE DESCARGA Y COLA DE ADQUISICIÓN EN TIEMPO REAL -->
-  <section class="panel-card">
-    <div class="panel-header">
-      <div>
-        <span class="panel-tag mono">ESTADO DE DESCARGA EN TIEMPO REAL</span>
-        <h2 class="panel-title">Cola y Procesos de Descarga de Archivos Fuente</h2>
-        <p class="panel-desc">
-          Confirme si un archivo fuente ya se encuentra en cola o en proceso de descarga activa y verifique la suscripción concurrente de solicitudes sin duplicar transferencias.
-        </p>
-      </div>
-      <button
-        type="button"
-        class="btn-secondary"
-        [disabled]="store.downloadsLoading()"
-        (click)="store.loadDownloads()"
-      >
-        Actualizar Cola
-      </button>
-    </div>
-
-    <div class="queue-add-bar">
-      <select class="form-select queue-src mono" [(ngModel)]="queueSourceId">
-        @for (src of sources(); track src) {
-          <option [value]="src">{{ src.toUpperCase() }}</option>
-        }
-      </select>
-      <input
-        type="url"
-        class="form-input queue-url mono"
-        [(ngModel)]="queueUrl"
-        placeholder="https://www.asfi.gob.bo/boletines/nuevo_reporte.xlsx"
-      />
-      <select class="form-select queue-state" [(ngModel)]="queueStatus">
-        <option value="PENDING">En Cola</option>
-        <option value="DOWNLOADING">En Descarga</option>
-      </select>
-      <button
-        type="button"
-        class="btn-secondary"
-        [disabled]="store.downloadsLoading()"
-        (click)="onEnqueueDownload()"
-      >
-        Registrar en Cola
-      </button>
-    </div>
-
-    <div class="queue-table-wrap">
-      <table class="queue-table">
-        <thead>
-          <tr>
-            <th>Entidad</th>
-            <th>Archivo Fuente (URL Canónica)</th>
-            <th>Estado de Descarga</th>
-            <th>Identificador Tarea</th>
-            <th>Suscriptores</th>
-            <th>Volumen</th>
-            <th>Verificación</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (dl of store.downloadsQueue(); track dl.download_id) {
-            <tr>
-              <td>
-                <span class="src-pill mono">{{ dl.source_id.toUpperCase() }}</span>
-              </td>
-              <td class="cell-url mono" [title]="dl.canonical_url">{{ dl.canonical_url }}</td>
-              <td>
-                <span
-                  class="dl-status mono"
-                  [class.dl-active]="dl.status === 'PENDING' || dl.status === 'DOWNLOADING'"
-                  [class.dl-done]="dl.status === 'COMPLETED'"
-                  [class.dl-fail]="dl.status === 'FAILED'"
-                >
-                  {{ formatDownloadStatus(dl.status) }}
-                </span>
-              </td>
-              <td class="mono">{{ dl.task_id || '-' }}</td>
-              <td class="mono text-center">{{ dl.subscribers_count }}</td>
-              <td class="mono">{{ formatSize(dl.bytes_downloaded) }}</td>
-              <td>
+              @if (drv.missing_periods.length > 0) {
                 <button
                   type="button"
-                  class="btn-mini-check"
-                  (click)="testQueuedUrlInControl(dl.source_id, dl.canonical_url)"
+                  class="btn-primary btn-sm"
+                  [disabled]="store.isEnqueuingDelta()"
+                  (click)="onEnqueueMissingDelta()"
                 >
-                  Probar Control Previo
+                  {{
+                    store.isEnqueuingDelta()
+                      ? 'Generando delta...'
+                      : 'Encolar solo cortes faltantes (' + drv.missing_periods.length + ')'
+                  }}
                 </button>
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="7" class="empty-queue">
-                No existen descargas en cola ni transferencias recientes registradas.
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  </section>
+              }
+            </div>
+          </div>
+        }
+
+        @if (store.deltaResult(); as delta) {
+          <div class="delta-banner mono">
+            <strong>{{ delta.action }}:</strong> {{ delta.message }}
+          </div>
+        }
+      </section>
+    }
+
+    @case ('dedup') {
+      <section class="panel-card">
+        <div class="card-head">
+          <div>
+            <h3>Auditoría de Deduplicación en Doble Capa y Alias SHA-256</h3>
+            <p class="muted-text">
+              Registro histórico de descargas evitadas (pre-descarga URL/ETag y post-descarga SHA-256 binario idéntico).
+            </p>
+          </div>
+          <button type="button" class="btn-secondary btn-sm" (click)="store.loadTelemetry()">
+            Refrescar Auditoría
+          </button>
+        </div>
+
+        <div class="table-container" role="region" tabindex="0" aria-label="Eventos de deduplicación">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Criterio</th>
+                <th scope="col">Fuente / Dataset</th>
+                <th scope="col">URL Interceptada</th>
+                <th scope="col">Activo Canónico / SHA-256</th>
+                <th scope="col" class="num-col">Bytes Ahorrados</th>
+                <th scope="col">Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (ev of store.dedupAudit()?.events || []; track ev.audit_id) {
+                <tr>
+                  <td><span class="badge badge-purple">{{ ev.criterion }}</span></td>
+                  <td class="mono">{{ ev.source_id || '—' }} / {{ ev.dataset_code || '—' }}</td>
+                  <td class="mono dl-url">{{ ev.requested_url || '—' }}</td>
+                  <td class="mono">
+                    {{ ev.matched_asset_id || '—' }}
+                    @if (ev.matched_sha256) {
+                      <span class="muted-text">({{ ev.matched_sha256.slice(0, 12) }}...)</span>
+                    }
+                  </td>
+                  <td class="mono tabular-nums num-col">{{ formatSize(ev.bytes_saved) }}</td>
+                  <td class="mono">{{ formatDate(ev.occurred_at) }}</td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="6" class="empty-td">Sin eventos de deduplicación registrados aún.</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+  }
 </div>

@@ -1,214 +1,132 @@
-<div class="alerts-layout">
-  <div class="kpi-row">
-    <div class="kpi-box">
-      <span class="kpi-lbl">ALERTAS DE MANTENIMIENTO</span>
-      <span class="kpi-val mono">{{ store.alerts().length }}</span>
-      <span class="kpi-sub">Incidencias estructurales y de acceso activas</span>
-    </div>
-
-    <div class="kpi-box kpi-danger">
-      <span class="kpi-lbl">SEVERIDAD CRÍTICA</span>
-      <span class="kpi-val mono text-danger">{{ store.criticalAlertsCount() }}</span>
-      <span class="kpi-sub">Atención prioritaria requerida por ingeniería</span>
-    </div>
-
-    <div class="kpi-box">
-      <span class="kpi-lbl">CAMBIOS ESTRUCTURALES</span>
-      <span class="kpi-val mono text-amber">{{ domApiAlertsCount() }}</span>
-      <span class="kpi-sub">Mutaciones en rutas XPath, selectores CSS o servicios</span>
-    </div>
-
-    <div class="kpi-box">
-      <span class="kpi-lbl">INCIDENCIAS DE ACCESO</span>
-      <span class="kpi-val mono text-info">{{ protocolAlertsCount() }}</span>
-      <span class="kpi-sub">Certificados TLS, bloqueos perimetrales o cuotas</span>
-    </div>
-  </div>
-
-  <section class="verify-bar">
-    <div>
-      <h2 class="section-title">Verificación Estructural en Tiempo Real e Informe de Mantenimiento</h2>
-      <p class="section-desc">
-        Inspecciona la firma estructural del portal (selectores CSS, rutas XPath de documentos o esquema de servicio)
-        y emite el informe técnico estructurado listo para gestión de incidencias en Taiga.
-      </p>
-    </div>
-
-    <div class="verify-controls">
-      <select class="source-select" [(ngModel)]="selectedSourceToVerify">
+<div class="alerts-view">
+  <section class="verify-bar" aria-label="Inspección estructural en vivo">
+    <div class="verify-left">
+      <label for="verify-src">Verificar estructura DOM / API en vivo:</label>
+      <select id="verify-src" class="select-input" [(ngModel)]="selectedSourceToVerify">
         @for (src of store.sources(); track src.source_id) {
           <option [value]="src.source_id">{{ src.source_id.toUpperCase() }} — {{ src.name }}</option>
         }
       </select>
       <button
         type="button"
-        class="btn-verify-live"
+        class="btn-primary btn-sm"
         [disabled]="store.alertsLoading()"
         (click)="onVerifyLive()"
       >
-        {{ store.alertsLoading() ? 'Inspeccionando...' : 'Verificar Estructura y Emitir Informe' }}
+        {{ store.alertsLoading() ? 'Verificando...' : 'Inspeccionar Ahora' }}
       </button>
+    </div>
+
+    <div class="filter-pills">
+      <select
+        class="select-input select-sm"
+        [ngModel]="severityFilter()"
+        (ngModelChange)="severityFilter.set($event)"
+        aria-label="Filtrar por severidad"
+      >
+        <option value="ALL">Todas las severidades</option>
+        <option value="CRITICA">CRÍTICA</option>
+        <option value="ALTA">ALTA</option>
+        <option value="MEDIA">MEDIA</option>
+      </select>
+
+      <select
+        class="select-input select-sm"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($event)"
+        aria-label="Filtrar por ciclo de vida"
+      >
+        <option value="ALL">Todos los estados</option>
+        <option value="ABIERTA">ABIERTA</option>
+        <option value="RECONOCIDA">RECONOCIDA</option>
+        <option value="EN_MANTENIMIENTO">EN_MANTENIMIENTO</option>
+        <option value="SILENCIADA">SILENCIADA</option>
+        <option value="RESUELTA">RESUELTA</option>
+      </select>
     </div>
   </section>
 
-  @if (store.activeTechnicalReport(); as rep) {
-    <section class="report-panel">
-      <div class="report-top">
-        <div>
-          <span class="rep-tag mono">INFORME TÉCNICO DE MANTENIMIENTO · {{ rep.report_id }}</span>
-          <h3 class="rep-title">{{ rep.source_id.toUpperCase() }} — {{ rep.source_name }}</h3>
-        </div>
-        <div class="rep-actions">
-          <button type="button" class="btn-action-sm" (click)="copyMarkdownReport(rep.taiga_markdown)">
-            {{ copiedMarkdown() ? 'Copiado al Portapapeles' : 'Copiar Informe para Taiga' }}
-          </button>
-          <button
-            type="button"
-            class="btn-action-sm"
-            (click)="downloadMarkdownReport(rep.source_id, rep.report_id, rep.taiga_markdown)"
-          >
-            Descargar Informe (.md)
-          </button>
-          <button type="button" class="btn-close-sm" (click)="store.clearTechnicalReport()">
-            Cerrar
-          </button>
-        </div>
-      </div>
-
-      <div class="rep-grid">
-        <div class="rep-meta-box">
-          <div class="meta-line">
-            <span class="m-lbl">Código Diagnóstico:</span>
-            <span class="m-val mono font-bold">{{ rep.alert_code }} ({{ rep.severity }})</span>
-          </div>
-          <div class="meta-line">
-            <span class="m-lbl">Punto de Entrada:</span>
-            <span class="m-val mono">{{ rep.entrypoint }}</span>
-          </div>
-          <div class="meta-line">
-            <span class="m-lbl">Firma Estructural Previa:</span>
-            <span class="m-val mono">{{ rep.previous_signature ? (rep.previous_signature | slice:0:24) + '...' : 'Línea base inicial' }}</span>
-          </div>
-          <div class="meta-line">
-            <span class="m-lbl">Firma Estructural Actual:</span>
-            <span class="m-val mono">{{ rep.current_signature ? (rep.current_signature | slice:0:24) + '...' : 'No disponible' }}</span>
-          </div>
-          <div class="meta-line">
-            <span class="m-lbl">Respaldo de Contingencia:</span>
-            <span class="m-val mono">
-              {{ rep.contingency_urls.length > 0 ? rep.contingency_urls.length + ' URL(s) configuradas' : 'Sin respaldo registrado' }}
-            </span>
-          </div>
-
-          <div class="steps-block">
-            <span class="m-lbl">Plan de Mitigación Recomendado:</span>
-            <ol class="steps-list">
-              @for (step of rep.remediation_steps; track step) {
-                <li>{{ step }}</li>
-              }
-            </ol>
-          </div>
-        </div>
-
-        <div class="rep-markdown-box">
-          <span class="m-lbl">Documento Estructurado (Formato Historia / Incidente Taiga):</span>
-          <pre class="md-preview mono">{{ rep.taiga_markdown }}</pre>
-        </div>
-      </div>
-    </section>
-  }
-
-  <section class="table-section">
-    <div class="table-head-bar">
-      <div class="sev-pills">
-        <button
-          type="button"
-          class="sev-pill"
-          [class.active]="severityFilter() === 'ALL'"
-          (click)="severityFilter.set('ALL')"
-        >
-          Todas ({{ store.alerts().length }})
-        </button>
-        <button
-          type="button"
-          class="sev-pill"
-          [class.active]="severityFilter() === 'CRITICA'"
-          (click)="severityFilter.set('CRITICA')"
-        >
-          Críticas
-        </button>
-        <button
-          type="button"
-          class="sev-pill"
-          [class.active]="severityFilter() === 'ALTA'"
-          (click)="severityFilter.set('ALTA')"
-        >
-          Altas
-        </button>
-        <button
-          type="button"
-          class="sev-pill"
-          [class.active]="severityFilter() === 'MEDIA'"
-          (click)="severityFilter.set('MEDIA')"
-        >
-          Medias
-        </button>
-      </div>
-
-      <button type="button" class="btn-action-sm" (click)="store.refreshAlerts()">
-        Actualizar Alertas
-      </button>
-    </div>
-
-    <div class="table-scroll">
-      <table class="alerts-table">
+  <section class="alerts-list-section" aria-label="Centro de alertas estructurales">
+    <div class="table-container" role="region" tabindex="0" aria-label="Tabla de alertas">
+      <table class="data-table">
         <thead>
           <tr>
-            <th>Severidad</th>
-            <th>Portal</th>
-            <th>Código y Naturaleza</th>
-            <th>Diagnóstico Técnico</th>
-            <th>Detección</th>
-            <th>Informe Técnico</th>
+            <th scope="col">Severidad</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Fuente / Código</th>
+            <th scope="col">Diagnóstico y Diff</th>
+            <th scope="col" class="num-col">Ocurrencias</th>
+            <th scope="col">Última Detección</th>
+            <th scope="col">Acciones</th>
           </tr>
         </thead>
         <tbody>
-          @for (al of filteredAlerts(); track al.alert_id) {
-            <tr>
+          @for (alrt of filteredAlerts(); track alrt.alert_id) {
+            <tr class="clickable-row" (click)="openAlertDrawer(alrt)">
               <td>
                 <span
-                  class="sev-badge mono"
-                  [class.sev-crit]="al.severity === 'CRITICA'"
-                  [class.sev-high]="al.severity === 'ALTA'"
-                  [class.sev-med]="al.severity === 'MEDIA'"
+                  class="badge"
+                  [class.badge-danger]="alrt.severity === 'CRITICA'"
+                  [class.badge-warning]="alrt.severity === 'ALTA'"
+                  [class.badge-info]="alrt.severity === 'MEDIA'"
                 >
-                  {{ al.severity }}
+                  {{ alrt.severity }}
                 </span>
               </td>
               <td>
-                <div class="src-col">
-                  <span class="mono font-bold">{{ al.source_id.toUpperCase() }}</span>
-                  <span class="src-sub">{{ al.source_name }}</span>
-                </div>
+                <span
+                  class="badge"
+                  [class.badge-danger]="(alrt.status || 'ABIERTA') === 'ABIERTA'"
+                  [class.badge-warning]="alrt.status === 'RECONOCIDA' || alrt.status === 'SILENCIADA'"
+                  [class.badge-info]="alrt.status === 'EN_MANTENIMIENTO'"
+                  [class.badge-success]="alrt.status === 'RESUELTA' || alrt.resolved"
+                >
+                  {{ alrt.status || (alrt.resolved ? 'RESUELTA' : 'ABIERTA') }}
+                </span>
               </td>
               <td>
-                <div class="src-col">
-                  <span class="code-tag mono">{{ al.alert_code }}</span>
-                  <span class="src-sub">{{ formatAlertType(al.alert_code) }}</span>
+                <div class="alrt-src">
+                  <span class="mono">{{ alrt.source_id.toUpperCase() }}</span> — {{ alrt.source_name }}
                 </div>
+                <div class="alrt-type mono">{{ formatAlertType(alrt.alert_code) }}</div>
               </td>
-              <td class="diag-col">{{ al.diagnostic_summary }}</td>
-              <td class="mono text-xs">{{ al.detected_at | date:'dd/MM/yyyy HH:mm' }}</td>
               <td>
-                <button type="button" class="btn-report" (click)="onOpenReport(al.source_id)">
-                  Ver Informe
-                </button>
+                <div class="diag-text">{{ alrt.diagnostic_summary }}</div>
+                @if (alrt.structural_diff; as diff) {
+                  <div class="diff-pills mono">
+                    @if (diff.added_selectors.length > 0) {
+                      <span class="diff-add">+{{ diff.added_selectors.length }} selectores</span>
+                    }
+                    @if (diff.removed_selectors.length > 0) {
+                      <span class="diff-rem">-{{ diff.removed_selectors.length }} selectores</span>
+                    }
+                    @if (diff.changed_fields.length > 0) {
+                      <span class="diff-chg">~{{ diff.changed_fields.length }} campos</span>
+                    }
+                  </div>
+                }
+              </td>
+              <td class="mono tabular-nums num-col">{{ alrt.occurrences || 1 }}</td>
+              <td class="mono date-col">{{ formatDate(alrt.last_seen_at || alrt.detected_at) }}</td>
+              <td (click)="$event.stopPropagation()">
+                <div class="row-btns">
+                  <button type="button" class="btn-primary btn-sm" (click)="openAlertDrawer(alrt)">
+                    Diff y Gestión
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-secondary btn-sm"
+                    (click)="onOpenReport(alrt.source_id)"
+                  >
+                    Taiga MD
+                  </button>
+                </div>
               </td>
             </tr>
           } @empty {
             <tr>
-              <td colspan="6" class="empty-cell">
-                No existen alertas activas para el filtro seleccionado.
+              <td colspan="7" class="empty-td">
+                No se registran alertas estructurales para los filtros seleccionados.
               </td>
             </tr>
           }
@@ -216,4 +134,274 @@
       </table>
     </div>
   </section>
+
+  @if (store.activeTechnicalReport(); as rep) {
+    <section class="report-card" aria-label="Informe Técnico para Taiga">
+      <header class="rep-header">
+        <div>
+          <h3>Informe Técnico de Mantenimiento — {{ rep.source_id.toUpperCase() }}</h3>
+          <p class="mono rep-sub">{{ rep.report_id }} · {{ rep.alert_code }} ({{ rep.severity }})</p>
+        </div>
+        <div class="row-btns">
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            (click)="toast.copyToClipboard(rep.taiga_markdown, 'Informe Markdown Taiga')"
+          >
+            Copiar Markdown
+          </button>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            (click)="downloadMarkdownReport(rep.source_id, rep.report_id, rep.taiga_markdown)"
+          >
+            Descargar .md
+          </button>
+          <button type="button" class="btn-ghost btn-sm" (click)="store.clearTechnicalReport()">
+            Cerrar
+          </button>
+        </div>
+      </header>
+      <pre class="md-preview mono"><code>{{ rep.taiga_markdown }}</code></pre>
+    </section>
+  }
+
+  <section class="channels-section" aria-label="Canales de notificación push">
+    <div class="channels-header">
+      <div>
+        <h3>Canales de Notificación Push (Webhook, Slack, Teams, SMTP, Taiga)</h3>
+        <p class="muted-text">
+          Los secretos se resuelven por nombre de variable de entorno; nunca se almacenan credenciales planas.
+        </p>
+      </div>
+    </div>
+
+    <div class="channel-form-grid">
+      <input
+        type="text"
+        class="text-input"
+        [(ngModel)]="channelName"
+        placeholder="Nombre del canal (ej. Alertas Ingeniería Slack)"
+      />
+      <select class="select-input" [(ngModel)]="channelType">
+        <option value="WEBHOOK">Webhook JSON (HMAC)</option>
+        <option value="SLACK">Slack Incoming Webhook</option>
+        <option value="TEAMS">Microsoft Teams</option>
+        <option value="SMTP">Correo SMTP</option>
+        <option value="TAIGA">API Taiga</option>
+      </select>
+      <select class="select-input" [(ngModel)]="channelMinSeverity">
+        <option value="MEDIA">Desde MEDIA</option>
+        <option value="ALTA">Desde ALTA</option>
+        <option value="CRITICA">Solo CRÍTICA</option>
+      </select>
+
+      @if (channelType === 'SMTP') {
+        <input
+          type="text"
+          class="text-input mono"
+          [(ngModel)]="channelSmtpHost"
+          placeholder="Host SMTP (smtp.empresa.bo)"
+        />
+        <input
+          type="text"
+          class="text-input mono"
+          [(ngModel)]="channelSmtpRecipients"
+          placeholder="Destinatarios separados por coma"
+        />
+      } @else {
+        <input
+          type="url"
+          class="text-input mono"
+          [(ngModel)]="channelEndpointUrl"
+          placeholder="URL de destino (https://...)"
+        />
+        <input
+          type="text"
+          class="text-input mono"
+          [(ngModel)]="channelSecretEnvVar"
+          placeholder="Variable env secreto (ej. DATAX_WEBHOOK_SECRET)"
+        />
+      }
+
+      <button
+        type="button"
+        class="btn-primary btn-sm"
+        [disabled]="savingChannel()"
+        (click)="onSaveChannel()"
+      >
+        {{ savingChannel() ? 'Guardando...' : 'Registrar Canal' }}
+      </button>
+    </div>
+
+    <div class="channels-list">
+      @for (ch of store.alertChannels(); track ch.channel_id) {
+        <article class="channel-item">
+          <div class="ch-main">
+            <span class="badge badge-info">{{ ch.channel_type }}</span>
+            <strong>{{ ch.name }}</strong>
+            <span class="badge badge-neutral">>= {{ ch.min_severity }}</span>
+            <span class="mono ch-target">{{ ch.endpoint_url || ch.smtp_host || '—' }}</span>
+          </div>
+          <div class="row-btns">
+            <button
+              type="button"
+              class="btn-secondary btn-sm"
+              [disabled]="testingChannelId() === ch.channel_id"
+              (click)="onTestChannel(ch.channel_id!)"
+            >
+              {{ testingChannelId() === ch.channel_id ? 'Enviando...' : 'Probar Canal' }}
+            </button>
+            <button
+              type="button"
+              class="btn-danger btn-sm"
+              (click)="onDeleteChannel(ch.channel_id!)"
+            >
+              Eliminar
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <p class="muted-text">No hay canales push registrados todavía.</p>
+      }
+    </div>
+  </section>
 </div>
+
+<app-slide-over-drawer
+  [open]="selectedAlert() !== null"
+  [title]="selectedAlert() ? selectedAlert()!.source_name : ''"
+  [subtitle]="selectedAlert() ? formatAlertType(selectedAlert()!.alert_code) : ''"
+  [badge]="selectedAlert() ? selectedAlert()!.alert_code : ''"
+  size="lg"
+  [tabs]="drawerTabs()"
+  [activeTab]="drawerTab()"
+  (tabChange)="drawerTab.set($event)"
+  (closed)="closeAlertDrawer()"
+>
+  @if (selectedAlert(); as alrt) {
+    @if (drawerTab() === 'diff') {
+      <div class="diff-drawer-body">
+        <p class="diag-highlight">{{ alrt.diagnostic_summary }}</p>
+
+        <div class="sig-compare mono">
+          <div><strong>Firma Previa:</strong> {{ alrt.previous_signature || 'Sin línea base' }}</div>
+          <div><strong>Firma Actual:</strong> {{ alrt.current_signature || '—' }}</div>
+        </div>
+
+        @if (alrt.structural_diff; as diff) {
+          <div class="diff-columns">
+            <div class="diff-box diff-box-rem">
+              <h4>Eliminados (-{{ diff.removed_selectors.length }})</h4>
+              @if (diff.removed_selectors.length > 0) {
+                <ul class="mono">
+                  @for (s of diff.removed_selectors; track s) {
+                    <li>- {{ s }}</li>
+                  }
+                </ul>
+              } @else {
+                <p class="muted-text">Ninguno</p>
+              }
+            </div>
+
+            <div class="diff-box diff-box-add">
+              <h4>Agregados (+{{ diff.added_selectors.length }})</h4>
+              @if (diff.added_selectors.length > 0) {
+                <ul class="mono">
+                  @for (s of diff.added_selectors; track s) {
+                    <li>+ {{ s }}</li>
+                  }
+                </ul>
+              } @else {
+                <p class="muted-text">Ninguno</p>
+              }
+            </div>
+          </div>
+
+          @if (diff.changed_fields.length > 0) {
+            <div class="diff-box diff-box-chg">
+              <h4>Campos / Rutas JSON Alterados ({{ diff.changed_fields.length }})</h4>
+              <ul class="mono">
+                @for (f of diff.changed_fields; track f) {
+                  <li>~ {{ f }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          @if (diff.evidence_snippet) {
+            <div class="evidence-box">
+              <h4>Evidencia Capturada</h4>
+              <pre class="mono"><code>{{ diff.evidence_snippet }}</code></pre>
+            </div>
+          }
+        } @else if (alrt.affected_selectors.length > 0) {
+          <div class="diff-box">
+            <h4>Selectores Afectados ({{ alrt.affected_selectors.length }})</h4>
+            <ul class="mono">
+              @for (s of alrt.affected_selectors; track s) {
+                <li>{{ s }}</li>
+              }
+            </ul>
+          </div>
+        } @else {
+          <p class="muted-text">Sin diff de selectores adicional registrado para esta incidencia.</p>
+        }
+      </div>
+    } @else if (drawerTab() === 'lifecycle') {
+      <div class="lifecycle-form">
+        <div class="lc-field">
+          <label for="lc-assignee">Responsable técnico</label>
+          <input id="lc-assignee" type="text" class="text-input" [(ngModel)]="assigneeInput" placeholder="Ej: ing.datos" />
+        </div>
+        <div class="lc-field">
+          <label for="lc-ticket">URL de Ticket (Taiga / Jira)</label>
+          <input id="lc-ticket" type="url" class="text-input mono" [(ngModel)]="ticketUrlInput" placeholder="https://taiga.local/project/issue/..." />
+        </div>
+        <div class="lc-field">
+          <label for="lc-note">Nota de seguimiento o resolución</label>
+          <textarea id="lc-note" rows="3" class="text-input" [(ngModel)]="resolutionNoteInput"></textarea>
+        </div>
+        <div class="lc-field">
+          <label for="lc-mute">Horas de silenciamiento (para estado SILENCIADA)</label>
+          <input id="lc-mute" type="number" min="1" max="720" class="text-input mono" [(ngModel)]="muteHours" />
+        </div>
+
+        <div class="lc-buttons">
+          <button type="button" class="btn-secondary btn-sm" [disabled]="updatingLifecycle()" (click)="transitionAlert('RECONOCIDA')">
+            Reconocer
+          </button>
+          <button type="button" class="btn-secondary btn-sm" [disabled]="updatingLifecycle()" (click)="transitionAlert('EN_MANTENIMIENTO')">
+            En Mantenimiento
+          </button>
+          <button type="button" class="btn-secondary btn-sm" [disabled]="updatingLifecycle()" (click)="transitionAlert('SILENCIADA')">
+            Silenciar ({{ muteHours }}h)
+          </button>
+          <button type="button" class="btn-primary btn-sm" [disabled]="updatingLifecycle()" (click)="transitionAlert('RESUELTA')">
+            Marcar Resuelta
+          </button>
+        </div>
+      </div>
+    } @else {
+      @if ((alrt.delivery_logs || []).length === 0) {
+        <p class="muted-text">No hay despachos push registrados aún para esta alerta.</p>
+      } @else {
+        <div class="delivery-list">
+          @for (dl of alrt.delivery_logs || []; track dl.attempted_at + dl.channel_id) {
+            <article class="delivery-card">
+              <div class="dl-head">
+                <span class="badge" [class.badge-success]="dl.delivered" [class.badge-danger]="!dl.delivered">
+                  {{ dl.delivered ? 'ENTREGADO' : 'ERROR' }}
+                </span>
+                <strong>{{ dl.channel_name }}</strong>
+                <span class="badge badge-neutral">{{ dl.channel_type }}</span>
+                <span class="mono dl-time">{{ formatDate(dl.attempted_at) }}</span>
+              </div>
+              <p class="mono dl-detail">{{ dl.detail || ('HTTP ' + (dl.http_status || '—')) }}</p>
+            </article>
+          }
+        </div>
+      }
+    }
+  }
+</app-slide-over-drawer>

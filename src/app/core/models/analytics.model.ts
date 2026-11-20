@@ -46,6 +46,22 @@ export interface AnalyticsQueryResponse {
   records: Record<string, unknown>[];
 }
 
+export interface ReadOnlySqlRequest {
+  sql: string;
+  limit?: number;
+  format?: 'json' | 'parquet' | 'csv' | 'jsonl';
+}
+
+export interface ReadOnlySqlResponse {
+  columns: string[];
+  column_types: string[];
+  rows: Record<string, unknown>[];
+  row_count: number;
+  truncated: boolean;
+  elapsed_ms: number;
+  available_tables: string[];
+}
+
 export interface PredefinedViewMetadata {
   view_id: string;
   title: string;
@@ -154,6 +170,8 @@ export interface SelfServiceApiKey {
   raw_api_key?: string;
   api_key?: string;
   allowed_datamarts: string;
+  allowed_layers?: string[];
+  expires_at?: string | null;
   is_active: boolean;
   usage_count: number;
   created_at: string;
@@ -163,6 +181,9 @@ export interface SelfServiceApiKey {
 export interface CreateApiKeyRequest {
   label: string;
   allowed_datamarts: string;
+  allowed_layers?: string[];
+  expires_in_days?: number | null;
+  expires_at?: string | null;
 }
 
 export interface SelfServiceAccessLog {
@@ -172,6 +193,8 @@ export interface SelfServiceAccessLog {
   datamart_name: string;
   export_format: string;
   rows_returned: number;
+  status?: 'ALLOWED' | 'DENIED';
+  denied_reason?: string | null;
   client_agent?: string | null;
   accessed_at: string;
 }

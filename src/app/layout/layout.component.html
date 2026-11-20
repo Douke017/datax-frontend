@@ -1,9 +1,9 @@
 <div class="layout-container">
+  <a class="skip-link" href="#main-content">Ir al contenido principal</a>
   <app-header />
-  <div class="layout-body">
-    <app-sidebar />
-    <main class="layout-content">
-      <router-outlet />
-    </main>
-  </div>
+  <main id="main-content" class="layout-content" tabindex="-1">
+    <router-outlet />
+  </main>
+  <app-command-palette />
+  <app-toast-container />
 </div>

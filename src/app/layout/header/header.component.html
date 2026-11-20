@@ -1,69 +1,85 @@
 <header class="app-header">
   <div class="brand">
-    <div class="brand-badge">DATAX</div>
+    <span class="brand-badge mono">DATAX</span>
     <div class="brand-info">
-      <span class="brand-title">Plataforma de Prospección e Inteligencia Financiera</span>
-      <span class="brand-subtitle">Supervisión Documental, Custodia Institucional y Autoservicio Analítico</span>
+      <span class="brand-title">Plataforma de Prospección de Datos en Bruto</span>
+      <span class="brand-subtitle">Descubrimiento Web, Custodia SHA-256 y Autoservicio Técnico</span>
     </div>
   </div>
 
-  <nav class="system-switcher" aria-label="Selector de Espacios de Trabajo">
-    <a routerLink="/externo" routerLinkActive="active" class="switcher-tab">
-      <span class="tab-step">1</span>
-      <span class="tab-title">Prospector Externo</span>
+  <nav class="primary-nav" aria-label="Módulos principales de DATAX">
+    <a routerLink="/externo" routerLinkActive="active" class="nav-tab">
+      <span class="tab-index mono">01</span>
+      <span>Prospector Externo</span>
     </a>
 
-    <a routerLink="/interno" routerLinkActive="active" class="switcher-tab">
-      <span class="tab-step">2</span>
-      <span class="tab-title">Prospector Interno</span>
+    <a routerLink="/interno" routerLinkActive="active" class="nav-tab">
+      <span class="tab-index mono">02</span>
+      <span>Prospector Interno</span>
     </a>
 
-    <a routerLink="/bridge" routerLinkActive="active" class="switcher-tab">
-      <span class="tab-step">3</span>
-      <span class="tab-title">Conciliación Documental</span>
+    <a routerLink="/bridge" routerLinkActive="active" class="nav-tab">
+      <span class="tab-index mono">03</span>
+      <span>Conciliación & Bridge</span>
     </a>
   </nav>
 
   <div class="header-right">
-    <div class="institution-context">
-      <label class="ctx-label" for="global-inst-select">Entidad Activa:</label>
-      <select
-        id="global-inst-select"
-        class="ctx-select"
-        [ngModel]="institutionState.currentInstitutionId()"
-        (ngModelChange)="onInstitutionChange($event)"
-      >
-        @for (inst of institutions; track inst.id) {
-          <option [value]="inst.id">{{ inst.code }} — {{ inst.name }}</option>
-        }
-      </select>
-    </div>
-
-    <div
-      class="system-status"
-      [class.online]="monitor.isAllOperational()"
-      [class.warning]="!monitor.isAllOperational()"
-      [title]="'Externo: ' + (monitor.externoHealth().status === 'UP' ? 'En línea' : 'Sin respuesta') + ' | Interno: ' + (monitor.internoHealth().status === 'UP' ? 'En línea' : 'Sin respuesta')"
-    >
-      <span class="status-dot"></span>
-      <span class="status-label">
-        @if (monitor.isAllOperational()) {
-          Servicios en Línea
-        } @else if (monitor.operationalCount() > 0) {
-          Conexión Parcial
-        } @else {
-          Sin Conexión
-        }
-      </span>
-    </div>
-
     <button
       type="button"
-      class="btn-refresh"
-      (click)="monitor.refreshAll()"
-      title="Actualizar estado de conexión de los servicios"
+      class="cmd-trigger"
+      (click)="openGlobalSearch()"
+      aria-label="Abrir búsqueda global (Ctrl+K)"
     >
-      Verificar
+      <span class="cmd-placeholder">Buscar fuentes, columnas, SHA-256...</span>
+      <kbd class="cmd-kbd mono">Ctrl K</kbd>
     </button>
+
+    <div class="health-group" aria-label="Estado en vivo de servicios">
+      <span
+        class="service-pill mono tabular-nums"
+        [class.pill-up]="monitor.externoHealth().status === 'UP'"
+        [class.pill-down]="monitor.externoHealth().status !== 'UP'"
+        [title]="
+          'Prospector Externo (:8000): ' +
+          (monitor.externoHealth().status === 'UP'
+            ? 'Operativo (' + monitor.externoHealth().latencyMs + ' ms)'
+            : 'Sin conexión')
+        "
+      >
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>Ext :8000</span>
+        @if (monitor.externoHealth().status === 'UP') {
+          <span class="pill-lat">{{ monitor.externoHealth().latencyMs }}ms</span>
+        }
+      </span>
+
+      <span
+        class="service-pill mono tabular-nums"
+        [class.pill-up]="monitor.internoHealth().status === 'UP'"
+        [class.pill-down]="monitor.internoHealth().status !== 'UP'"
+        [title]="
+          'Prospector Interno (:8001): ' +
+          (monitor.internoHealth().status === 'UP'
+            ? 'Operativo (' + monitor.internoHealth().latencyMs + ' ms)'
+            : 'Sin conexión')
+        "
+      >
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>Int :8001</span>
+        @if (monitor.internoHealth().status === 'UP') {
+          <span class="pill-lat">{{ monitor.internoHealth().latencyMs }}ms</span>
+        }
+      </span>
+
+      <button
+        type="button"
+        class="btn-refresh"
+        (click)="monitor.refreshAll()"
+        title="Comprobar conectividad de ambos servicios"
+      >
+        Verificar
+      </button>
+    </div>
   </div>
 </header>

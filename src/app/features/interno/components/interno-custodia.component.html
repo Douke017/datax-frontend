@@ -1,243 +1,302 @@
-<div class="custodia-container">
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-title">ARCHIVOS RESGUARDADOS</span>
-        <span class="kpi-badge badge-success">INMUTABLES</span>
-      </div>
-      <div class="kpi-value">{{ formatInt(store.totalArtifactsCount()) }}</div>
-      <div class="kpi-caption">Documentos originales en custodia institucional</div>
+<div class="custodia-view">
+  <section class="cust-kpi-row" aria-label="Indicadores de custodia documental en bruto">
+    <div class="ckpi">
+      <span class="ck-label">Archivos en Custodia Bruta</span>
+      <span class="ck-val mono tabular-nums">{{ formatInt(store.totalArtifactsCount()) }}</span>
+      <span class="ck-sub">Binarios originales intactos</span>
+    </div>
+    <div class="ckpi">
+      <span class="ck-label">Volumen Total Resguardado</span>
+      <span class="ck-val mono tabular-nums">{{ store.totalBytesCustodyFormatted() }}</span>
+      <span class="ck-sub">Almacenamiento Bronze inmutable</span>
+    </div>
+    <div class="ckpi ckpi-ok">
+      <span class="ck-label">Integridad SHA-256</span>
+      <span class="ck-val mono tabular-nums">{{ store.integrityRate() }}</span>
+      <span class="ck-sub">Validación en streaming en descarga</span>
     </div>
 
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-title">VOLUMEN EN CUSTODIA</span>
-        <span class="kpi-badge badge-info">ALMACENAMIENTO</span>
+    <div class="sync-quick-card">
+      <label for="cust-sync-src">Sincronizar lote desde Externo:</label>
+      <div class="sync-row">
+        <select
+          id="cust-sync-src"
+          class="select-input"
+          [ngModel]="selectedSourceForSync()"
+          (ngModelChange)="selectedSourceForSync.set($event)"
+        >
+          @for (src of availableSyncSources(); track src) {
+            <option [value]="src">{{ src.toUpperCase() }}</option>
+          }
+        </select>
+        <button
+          type="button"
+          class="btn-primary btn-sm"
+          [disabled]="store.syncing()"
+          (click)="onExecuteSync()"
+        >
+          {{ store.syncing() ? 'Descargando...' : 'Resguardar Lote' }}
+        </button>
       </div>
-      <div class="kpi-value">{{ store.totalBytesCustodyFormatted() }}</div>
-      <div class="kpi-caption">Espacio físico auditado en repositorio</div>
     </div>
+  </section>
 
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-title">INTEGRIDAD CRIPTOGRÁFICA</span>
-        <span class="kpi-badge badge-purple">SHA-256</span>
-      </div>
-      <div class="kpi-value">{{ store.integrityRate() }}</div>
-      <div class="kpi-caption">Firmas digitales validadas contra alteración</div>
-    </div>
+  <section class="filter-bar" aria-label="Filtros de custodia documental">
+    <input
+      type="search"
+      class="text-input search-wide"
+      placeholder="Buscar por archivo, dataset, dominio o huella SHA-256..."
+      [value]="store.searchQuery()"
+      (input)="onSearchInput($event)"
+      aria-label="Buscar artefactos en custodia"
+    />
 
-    <div class="kpi-card">
-      <div class="kpi-header">
-        <span class="kpi-title">DISYUNTORES DE RED</span>
-        <span class="kpi-badge badge-success">RESILIENCIA</span>
-      </div>
-      <div class="kpi-value">
-        {{ store.allCircuitsOperational() ? 'OPERATIVOS' : 'EN AISLAMIENTO' }}
-      </div>
-      <div class="kpi-caption">Protección automática de servidores emisores</div>
-    </div>
-  </div>
+    <select
+      class="select-input"
+      [ngModel]="store.sourceFilter()"
+      (ngModelChange)="onSourceChange($event)"
+      aria-label="Filtrar por dataset o fuente"
+    >
+      <option value="ALL">Todos los datasets</option>
+      @for (s of store.uniqueSources(); track s) {
+        <option [value]="s">{{ s }}</option>
+      }
+    </select>
 
-  <div class="circuit-banner">
-    <div class="circuit-header">
-      <span class="circuit-title">Estado de Disyuntores de Protección por Dominio Institucional:</span>
-      <span class="circuit-sub">
-        Aislamiento preventivo ante fallas consecutivas en origen
-      </span>
-    </div>
-    <div class="circuits-list">
-      @for (cb of store.circuitBreakers(); track cb.domain) {
-        <div class="circuit-chip" [class.circuit-closed]="cb.status === 'CLOSED'">
-          <span class="circuit-dot" [class.dot-open]="cb.status !== 'CLOSED'"></span>
-          <span class="circuit-domain mono">{{ cb.domain }}</span>
-          <span class="circuit-state mono" [class.state-open]="cb.status !== 'CLOSED'">
-            {{
-              cb.status === 'CLOSED'
-                ? 'HABILITADO (' + cb.failure_count + ' fallos)'
-                : 'AISLADO (' + cb.failure_count + ' fallos)'
-            }}
-          </span>
-          @if (cb.status !== 'CLOSED' || cb.failure_count > 0) {
+    <select
+      class="select-input mono"
+      [ngModel]="store.periodFilter()"
+      (ngModelChange)="onPeriodChange($event)"
+      aria-label="Filtrar por periodo"
+    >
+      <option value="ALL">Todos los periodos</option>
+      @for (p of store.uniquePeriods(); track p) {
+        <option [value]="p">{{ p }}</option>
+      }
+    </select>
+  </section>
+
+  <app-data-grid
+    caption="Repositorio de custodia documental en bruto con verificación SHA-256"
+    [columns]="columns"
+    [rows]="store.pagedArtifacts()"
+    [rowKey]="rowKeyFn"
+    [loading]="store.loading()"
+    [error]="store.error()"
+    [filterChips]="filterChips()"
+    [page]="store.currentPage()"
+    [pageSize]="store.pageSize()"
+    [totalItems]="store.totalFiltered()"
+    (pageChange)="store.setPage($event)"
+    (pageSizeChange)="store.setPageSize($event)"
+    (removeChip)="onRemoveChip($event)"
+    (clearAllChips)="onClearAllChips()"
+    (rowClick)="openArtifactDrawer($event)"
+    (retry)="store.loadArtifacts()"
+  >
+    <ng-template #cellTemplate let-row let-column="column">
+      @switch (column.key) {
+        @case ('dataset_code') {
+          <div class="ds-cell">
+            <span class="ds-code">{{ row.dataset_code }}</span>
+            <span class="ds-dom">{{ row.domain }}</span>
+          </div>
+        }
+        @case ('file_path') {
+          <span class="path-cell" [title]="row.file_path">{{ row.file_path }}</span>
+        }
+        @case ('period') {
+          <span>{{ row.period || '—' }}</span>
+        }
+        @case ('size_bytes') {
+          <span>{{ formatSize(row.size_bytes) }}</span>
+        }
+        @case ('sha256_hash') {
+          <button
+            type="button"
+            class="hash-btn mono"
+            (click)="$event.stopPropagation(); toast.copyToClipboard(row.sha256_hash, 'SHA-256')"
+            [title]="'Copiar SHA-256 completo: ' + row.sha256_hash"
+          >
+            {{ row.sha256_hash.slice(0, 16) }}...
+          </button>
+        }
+        @case ('downloaded_at') {
+          <span class="date-col">{{ formatDate(row.downloaded_at) }}</span>
+        }
+        @case ('actions') {
+          <div class="row-btns" (click)="$event.stopPropagation()">
+            <a
+              class="btn-primary btn-sm dl-link"
+              [href]="internoService.buildAssetDownloadUrl(row.artifact_id)"
+              download
+            >
+              Descargar Original
+            </a>
             <button
               type="button"
-              class="btn-reset-cb"
-              (click)="onResetCircuit(cb.domain)"
+              class="btn-secondary btn-sm"
+              (click)="openArtifactDrawer(row)"
             >
-              Restablecer
+              Perfilar
             </button>
-          }
-        </div>
+          </div>
+        }
       }
-    </div>
-  </div>
+    </ng-template>
+  </app-data-grid>
+</div>
 
-  <div class="toolbar-card">
-    <div class="search-box">
-      <label class="toolbar-label" for="artifact-search">Búsqueda en repositorio de custodia:</label>
-      <input
-        id="artifact-search"
-        type="text"
-        class="search-input mono"
-        placeholder="Filtrar por código de serie, dominio o huella SHA-256..."
-        [value]="store.searchQuery()"
-        (input)="onSearchInput($event)"
-      />
-    </div>
-
-    <div class="filter-group">
-      <div class="filter-item">
-        <label class="toolbar-label" for="source-filter">Serie Documental:</label>
-        <select
-          id="source-filter"
-          class="select-input"
-          [value]="store.sourceFilter()"
-          (change)="onSourceChange($event)"
+<app-slide-over-drawer
+  [open]="inspectingArtifact() !== null"
+  [title]="inspectingArtifact() ? inspectingArtifact()!.dataset_code : ''"
+  [subtitle]="inspectingArtifact() ? inspectingArtifact()!.file_path : ''"
+  [badge]="profile() ? profile()!.detected_format.toUpperCase() : 'BRUTO'"
+  size="xl"
+  [tabs]="drawerTabs()"
+  [activeTab]="drawerTab()"
+  (tabChange)="drawerTab.set($event)"
+  (closed)="closeDrawer()"
+>
+  @if (inspectingArtifact(); as art) {
+    <div class="drawer-action-bar">
+      <a
+        class="btn-primary btn-sm dl-link"
+        [href]="internoService.buildAssetDownloadUrl(art.artifact_id)"
+        download
+      >
+        Descargar Archivo Original (SHA-256)
+      </a>
+      @if (art.sha256_hash || profile()?.sha256_hash) {
+        <button
+          type="button"
+          class="btn-secondary btn-sm"
+          (click)="toast.copyToClipboard(art.sha256_hash || profile()!.sha256_hash!, 'Huella SHA-256')"
         >
-          <option value="ALL">Todas las Series</option>
-          @for (src of store.uniqueSources(); track src) {
-            <option [value]="src">{{ src }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="filter-item">
-        <label class="toolbar-label" for="period-filter">Período:</label>
-        <select
-          id="period-filter"
-          class="select-input"
-          [value]="store.periodFilter()"
-          (change)="onPeriodChange($event)"
-        >
-          <option value="ALL">Todos los Períodos</option>
-          @for (p of store.uniquePeriods(); track p) {
-            <option [value]="p">{{ p }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="filter-item">
-        <label class="toolbar-label" for="sync-source">Fuente para Resguardo:</label>
-        <select
-          id="sync-source"
-          class="select-input select-sync"
-          [value]="selectedSourceForSync()"
-          (change)="selectedSourceForSync.set($any($event.target).value)"
-        >
-          @for (s of availableSyncSources(); track s) {
-            <option [value]="s">{{ s.toUpperCase() }}</option>
-          }
-        </select>
-      </div>
-
+          Copiar SHA-256
+        </button>
+      }
       <button
         type="button"
-        class="btn-sync-action"
-        [disabled]="store.syncing()"
-        (click)="onExecuteSync()"
+        class="btn-secondary btn-sm"
+        [disabled]="profileLoading()"
+        (click)="loadProfile(art.artifact_id, true)"
       >
-        @if (store.syncing()) {
-          <span>Resguardando lote...</span>
-        } @else {
-          <span>Resguardar Lote Oficial</span>
-        }
+        {{ profileLoading() ? 'Perfilando...' : 'Re-perfilar desde disco' }}
       </button>
     </div>
-  </div>
 
-  @if (store.lastSyncResult(); as syncRes) {
-    <div class="sync-banner">
-      <div class="sync-heading">
-        <span class="sync-tag">RESGUARDO COMPLETADO</span>
-        <span class="sync-summary">{{ formatSyncSummary(syncRes) }}</span>
-      </div>
-      <div class="sync-stats mono">
-        <span>
-          Archivos verificados: <strong>{{ syncRes.completed_tasks }}</strong> de
-          {{ syncRes.total_tasks }}
-        </span>
-      </div>
-    </div>
-  }
+    @if (drawerTab() === 'profile') {
+      @if (profileLoading()) {
+        <app-skeleton-loader variant="table" [rows]="6" [columns]="5" label="Ejecutando perfilado técnico..." />
+      } @else if (profileError()) {
+        <div class="error-box" role="alert">
+          <p>{{ profileError() }}</p>
+          <button type="button" class="btn-secondary btn-sm" (click)="loadProfile(art.artifact_id, true)">
+            Reintentar
+          </button>
+        </div>
+      } @else if (profile(); as prof) {
+        <dl class="prof-meta mono tabular-nums">
+          <div><dt>Formato</dt><dd>{{ prof.detected_format.toUpperCase() }}</dd></div>
+          <div><dt>Filas</dt><dd>{{ formatInt(prof.row_count) }}</dd></div>
+          <div><dt>Columnas</dt><dd>{{ formatInt(prof.column_count) }}</dd></div>
+          <div><dt>Encoding</dt><dd>{{ prof.detected_encoding || '—' }}</dd></div>
+          <div><dt>Delimitador</dt><dd>{{ prof.detected_delimiter || '—' }}</dd></div>
+          <div><dt>Tamaño</dt><dd>{{ formatSize(prof.size_bytes ?? art.size_bytes) }}</dd></div>
+        </dl>
 
-  <div class="table-card">
-    <div class="table-scroll-container">
-      <table class="custodia-table">
-        <thead>
-          <tr>
-            <th>Serie Documental</th>
-            <th>Período</th>
-            <th>Dominio Emisor</th>
-            <th>Tamaño</th>
-            <th>Fecha de Resguardo</th>
-            <th>Huella SHA-256 e Inmutabilidad</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (art of store.pagedArtifacts(); track art.artifact_id) {
-            <tr class="table-row">
-              <td class="mono font-bold">{{ art.dataset_code }}</td>
-              <td class="mono">{{ art.period || ' Institucional' }}</td>
-              <td class="mono text-muted-subtle">{{ art.domain }}</td>
-              <td class="mono">{{ formatSize(art.size_bytes) }}</td>
-              <td class="mono">{{ art.downloaded_at | slice:0:19 }}</td>
-              <td class="integrity-cell">
-                <span class="sha-snippet mono" [title]="art.sha256_hash">
-                  {{ art.sha256_hash | slice:0:16 }}...
-                </span>
-                <span class="badge-integrity-ok">Certificado</span>
-                <button
-                  type="button"
-                  class="btn-copy-hash"
-                  (click)="copyHash(art.sha256_hash, art.artifact_id)"
-                  title="Copiar firma completa SHA-256"
-                >
-                  @if (copiedHashId() === art.artifact_id) {
-                    <span>Copiada</span>
-                  } @else {
-                    <span>Copiar Firma</span>
+        @if (prof.sheets && prof.sheets.length > 0) {
+          <div class="sheets-row">
+            <span class="sub-lbl">Hojas detectadas ({{ prof.sheets.length }}):</span>
+            @for (sh of prof.sheets; track sh) {
+              <span class="badge badge-info">{{ sh }}</span>
+            }
+          </div>
+        }
+
+        @if (prof.archive_entries && prof.archive_entries.length > 0) {
+          <div class="archive-section">
+            <h4>Archivos internos del paquete ZIP ({{ prof.archive_entries.length }})</h4>
+            <ul class="mono archive-ul">
+              @for (e of prof.archive_entries; track e.filename) {
+                <li>
+                  <span>{{ e.filename }}</span>
+                  <span class="tabular-nums">{{ formatSize(e.size_bytes) }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        @if (prof.columns_summary && prof.columns_summary.length > 0) {
+          <div class="table-container" role="region" tabindex="0" aria-label="Diccionario de columnas perfiladas">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th scope="col">Columna</th>
+                  <th scope="col">Tipo Inferido</th>
+                  <th scope="col" class="num-col">% Nulos</th>
+                  <th scope="col" class="num-col">Cardinalidad</th>
+                  <th scope="col">Muestra de Valores</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (col of prof.columns_summary; track col.column_name + (col.sheet_name || '')) {
+                  <tr>
+                    <td class="mono col-name">{{ col.column_name }}</td>
+                    <td><span class="badge badge-neutral">{{ col.inferred_type }}</span></td>
+                    <td class="mono tabular-nums num-col">{{ formatPct(col.null_pct) }}</td>
+                    <td class="mono tabular-nums num-col">{{ formatInt(col.distinct_count) }}</td>
+                    <td class="mono sample-vals">
+                      {{ (col.sample_values || []).slice(0, 3).join(' · ') || '—' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="muted-note">
+            {{ prof.warning || 'Este formato binario no expone columnas tabulares planas.' }}
+          </p>
+        }
+      }
+    } @else if (drawerTab() === 'sample') {
+      @if (profileLoading()) {
+        <app-skeleton-loader variant="table" [rows]="6" [columns]="5" label="Cargando muestra cruda..." />
+      } @else if (profile()?.sample_rows?.length) {
+        <div class="table-container" role="region" tabindex="0" aria-label="Muestra cruda de 20 filas">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col" class="num-col">#</th>
+                @for (col of sampleColumns(); track col) {
+                  <th scope="col" class="mono">{{ col }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (srow of profile()!.sample_rows; track $index; let idx = $index) {
+                <tr>
+                  <td class="mono tabular-nums num-col">{{ idx + 1 }}</td>
+                  @for (col of sampleColumns(); track col) {
+                    <td class="mono sample-cell">{{ formatCellValue(srow[col]) }}</td>
                   }
-                </button>
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="6" class="empty-custodia">
-                No existen archivos en custodia para el filtro actual.
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-
-    <div class="pagination-bar">
-      <div class="pagination-info">
-        Mostrando
-        <span class="mono"
-          >{{ store.paginationRange().start }} – {{ store.paginationRange().end }}</span
-        >
-        de <span class="mono">{{ formatInt(store.totalFiltered()) }}</span> archivos resguardados
-      </div>
-
-      <div class="pagination-controls">
-        <button
-          type="button"
-          class="btn-page"
-          [disabled]="store.currentPage() <= 1"
-          (click)="store.setPage(store.currentPage() - 1)"
-        >
-          Anterior
-        </button>
-        <button
-          type="button"
-          class="btn-page"
-          [disabled]="store.currentPage() >= store.totalPages()"
-          (click)="store.setPage(store.currentPage() + 1)"
-        >
-          Siguiente
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="muted-note">No hay filas tabulares de muestra disponibles para este artefacto.</p>
+      }
+    } @else {
+      <app-code-snippets-panel
+        mode="raw-asset"
+        [assetId]="art.artifact_id"
+        [rawDownloadUrl]="internoService.buildAssetDownloadUrl(art.artifact_id)"
+      />
+    }
+  }
+</app-slide-over-drawer>

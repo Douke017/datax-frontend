@@ -1,533 +1,436 @@
-<div class="config-layout">
-  <header class="config-header">
-    <div class="header-main">
-      <div class="header-title-group">
-        <h1 class="header-title">Parámetros de Rastreo y Resiliencia</h1>
-        <p class="header-desc">
-          Configure enlaces oficiales, descubrimiento automático de URLs de contingencia, dominios autorizados, rutas de exclusión y políticas de extracción dirigida por portal.
-        </p>
+<div class="config-view">
+  <section class="source-picker-bar" aria-label="Selector de fuente a configurar">
+    <div class="picker-left">
+      <label for="cfg-source-select">Fuente del Catálogo</label>
+      <select
+        id="cfg-source-select"
+        class="select-input"
+        [ngModel]="selectedSourceId()"
+        (ngModelChange)="onSelectSource($event)"
+      >
+        @for (src of store.sources(); track src.source_id) {
+          <option [value]="src.source_id">
+            {{ src.source_id.toUpperCase() }} — {{ src.name }} ({{ src.health_status }})
+          </option>
+        }
+      </select>
+    </div>
+
+    <div class="picker-actions">
+      <button
+        type="button"
+        class="btn-secondary"
+        [disabled]="dryRunning()"
+        (click)="onRunDryRun()"
+      >
+        {{ dryRunning() ? 'Simulando extracción...' : 'Probar Extracción (Dry-Run)' }}
+      </button>
+      <button
+        type="button"
+        class="btn-secondary"
+        [disabled]="store.contingencyLoading()"
+        (click)="onDiscoverContingencies()"
+      >
+        {{ store.contingencyLoading() ? 'Buscando respaldos...' : 'Buscar Contingencias Automáticas' }}
+      </button>
+    </div>
+  </section>
+
+  @if (validationError()) {
+    <div class="error-banner" role="alert">{{ validationError() }}</div>
+  }
+
+  @if (dryRunResult(); as dr) {
+    <section class="dry-run-card" aria-label="Resultado de simulación Dry-Run">
+      <header class="dr-header">
+        <div class="dr-title-row">
+          <h3>Resultado de Simulación Dry-Run</h3>
+          <span class="badge" [class.badge-success]="dr.success" [class.badge-danger]="!dr.success">
+            {{ dr.success ? 'ÉXITO' : dr.failure_code || 'FALLO' }}
+          </span>
+          <span class="badge badge-info">SIN MUTAR CATÁLOGO</span>
+        </div>
+        <button type="button" class="btn-ghost btn-sm" (click)="dryRunResult.set(null)">Cerrar</button>
+      </header>
+
+      <div class="dr-kpis mono tabular-nums">
+        <span>Latencia: <strong>{{ formatMs(dr.elapsed_ms) }}</strong></span>
+        <span>Páginas: <strong>{{ dr.pages_visited }}</strong></span>
+        <span>URLs descubiertas: <strong>{{ dr.urls_discovered }}</strong></span>
+        <span>Recursos detectados: <strong>{{ dr.total_resources_detected }}</strong></span>
+        <span>Motivo paro: <strong>{{ dr.stop_reason || '—' }}</strong></span>
       </div>
 
-      <div class="source-picker">
-        <label for="portal-select" class="picker-label">Portal Institucional Seleccionado:</label>
-        <select
-          id="portal-select"
-          class="form-select picker-select"
-          [ngModel]="selectedSourceId()"
-          (ngModelChange)="onSelectSource($event)"
-        >
-          @for (src of store.sources(); track src.source_id) {
-            <option [value]="src.source_id">
-              {{ src.source_id.toUpperCase() }} — {{ src.name }}
-            </option>
+      @if (dr.sample_resources.length > 0) {
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Archivo Detectado</th>
+                <th scope="col">Extensión</th>
+                <th scope="col">Categoría</th>
+                <th scope="col">Método</th>
+                <th scope="col">Tamaño</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of dr.sample_resources; track item.resource_key) {
+                <tr>
+                  <td>
+                    <div class="dr-res-title">{{ item.title || item.resource_key }}</div>
+                    <div class="dr-res-url mono">{{ item.url }}</div>
+                  </td>
+                  <td class="mono">{{ item.file_extension || '—' }}</td>
+                  <td class="mono">{{ item.resource_category }}</td>
+                  <td class="mono">{{ item.discovery_method }}</td>
+                  <td class="mono tabular-nums">
+                    {{ item.content_length_bytes ? formatBytes(item.content_length_bytes) : '—' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="muted-text">La simulación no detectó archivos descargables con las reglas actuales.</p>
+      }
+    </section>
+  }
+
+  <div class="config-sections-grid">
+    <section class="cfg-card">
+      <h3>Parámetros Generales de Rastreo</h3>
+      <div class="field-stack">
+        <div class="f-item">
+          <label for="cfg-entry">URL Principal de Entrada (Entrypoint)</label>
+          <input id="cfg-entry" type="url" class="text-input mono" [(ngModel)]="formEntrypoint" />
+        </div>
+
+        <div class="two-col">
+          <div class="f-item">
+            <label for="cfg-cat">Frecuencia de Actualización</label>
+            <select id="cfg-cat" class="select-input" [(ngModel)]="formCategory">
+              <option value="DAILY">Diaria (DAILY)</option>
+              <option value="WEEKLY">Semanal (WEEKLY)</option>
+              <option value="MONTHLY">Mensual (MONTHLY)</option>
+            </select>
+          </div>
+          <div class="f-item">
+            <label for="cfg-health">Estado Operativo</label>
+            <select id="cfg-health" class="select-input" [(ngModel)]="formHealth">
+              <option value="ACTIVE">Lista Blanca (ACTIVE)</option>
+              <option value="WARNING">Observada (WARNING)</option>
+              <option value="SUSPENDED">Lista Negra (SUSPENDED)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="three-col">
+          <div class="f-item">
+            <label for="cfg-rate">Pausa entre Peticiones (s)</label>
+            <input
+              id="cfg-rate"
+              type="number"
+              step="0.25"
+              min="0"
+              max="60"
+              class="text-input mono tabular-nums"
+              [(ngModel)]="formRateLimit"
+            />
+          </div>
+          <div class="f-item">
+            <label for="cfg-max-urls">Máximo de Páginas</label>
+            <input
+              id="cfg-max-urls"
+              type="number"
+              min="1"
+              max="5000"
+              class="text-input mono tabular-nums"
+              [(ngModel)]="formMaxUrls"
+            />
+          </div>
+          <div class="f-item">
+            <label for="cfg-max-res">Máximo de Archivos</label>
+            <input
+              id="cfg-max-res"
+              type="number"
+              min="1"
+              max="20000"
+              class="text-input mono tabular-nums"
+              [(ngModel)]="formMaxResources"
+            />
+          </div>
+        </div>
+
+        <label class="checkbox-row">
+          <input type="checkbox" [(ngModel)]="formIgnoreRobots" />
+          <span>Omitir restricciones de robots.txt (solo si el portal institucional lo requiere)</span>
+        </label>
+
+        <div class="two-col">
+          <div class="f-item">
+            <label for="cfg-audit-code">Código de Diagnóstico (si aplica)</label>
+            <input id="cfg-audit-code" type="text" class="text-input mono" [(ngModel)]="formAuditCode" />
+          </div>
+          <div class="f-item">
+            <label for="cfg-audit-note">Nota Técnica de Auditoría</label>
+            <input id="cfg-audit-note" type="text" class="text-input" [(ngModel)]="formAuditNote" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cfg-card">
+      <h3>Extensiones Permitidas y Filtros de Alcance</h3>
+      <div class="ext-chips">
+        @for (ext of availableExtensions; track ext) {
+          <button
+            type="button"
+            class="ext-chip mono"
+            [class.active]="formExtensions().includes(ext)"
+            (click)="toggleExtension(ext)"
+          >
+            {{ ext }}
+          </button>
+        }
+      </div>
+
+      <div class="list-editor">
+        <label for="cfg-seed-in">Semillas de Rastreo (Seeds)</label>
+        <div class="add-row">
+          <input
+            id="cfg-seed-in"
+            type="url"
+            class="text-input mono"
+            [(ngModel)]="newSeedUrl"
+            placeholder="https://..."
+            (keyup.enter)="addSeed()"
+          />
+          <button type="button" class="btn-secondary btn-sm" (click)="addSeed()">Añadir</button>
+        </div>
+        <ul class="chip-list">
+          @for (s of formSeeds(); track s; let i = $index) {
+            <li class="mono">
+              <span class="li-text">{{ s }}</span>
+              <button type="button" class="btn-ghost btn-sm" (click)="removeSeed(i)">Quitar</button>
+            </li>
           }
-        </select>
+        </ul>
+      </div>
+
+      <div class="two-col">
+        <div class="list-editor">
+          <label for="cfg-host-in">Dominios Autorizados</label>
+          <div class="add-row">
+            <input
+              id="cfg-host-in"
+              type="text"
+              class="text-input mono"
+              [(ngModel)]="newAllowedHost"
+              placeholder="datos.gob.bo"
+              (keyup.enter)="addAllowedHost()"
+            />
+            <button type="button" class="btn-secondary btn-sm" (click)="addAllowedHost()">+</button>
+          </div>
+          <div class="mini-tags">
+            @for (h of formAllowedHosts(); track h; let i = $index) {
+              <span class="mini-tag mono">
+                {{ h }}
+                <button type="button" (click)="removeAllowedHost(i)" aria-label="Quitar dominio">x</button>
+              </span>
+            }
+          </div>
+        </div>
+
+        <div class="list-editor">
+          <label for="cfg-excl-in">Palabras Clave Excluidas</label>
+          <div class="add-row">
+            <input
+              id="cfg-excl-in"
+              type="text"
+              class="text-input mono"
+              [(ngModel)]="newExcludedKeyword"
+              placeholder="login, prensa"
+              (keyup.enter)="addExcludedKeyword()"
+            />
+            <button type="button" class="btn-secondary btn-sm" (click)="addExcludedKeyword()">+</button>
+          </div>
+          <div class="mini-tags">
+            @for (kw of formExcludedKeywords(); track kw; let i = $index) {
+              <span class="mini-tag mono">
+                {{ kw }}
+                <button type="button" (click)="removeExcludedKeyword(i)" aria-label="Quitar exclusión">x</button>
+              </span>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="cfg-card" aria-label="Gestión de URLs de contingencia con prioridad y health-check">
+    <div class="cont-head">
+      <div>
+        <h3>URLs de Contingencia y Prioridad de Failover</h3>
+        <p class="muted-text">
+          Ordene los respaldos por prioridad. Solo los espejos clasificados como <strong>ESPEJO_VIVO</strong>
+          se usan para conmutación automática en fuentes vigentes; los archivos históricos nunca reemplazan datos actuales.
+        </p>
       </div>
     </div>
 
-    @if (currentSource(); as src) {
-      <div class="source-summary-bar">
-        <div class="summary-item">
-          <span class="summary-label">ENTIDAD</span>
-          <span class="summary-val">{{ src.name }}</span>
+    <div class="add-row">
+      <input
+        type="url"
+        class="text-input mono"
+        [(ngModel)]="newContingencyUrl"
+        placeholder="Agregar URL alternativa o espejo de respaldo (https://...)..."
+        (keyup.enter)="addContingencyUrl()"
+      />
+      <button type="button" class="btn-secondary btn-sm" (click)="addContingencyUrl()">
+        Añadir Respaldo
+      </button>
+    </div>
+
+    <div class="contingency-list">
+      @for (url of formContingencyUrls(); track url; let i = $index) {
+        <div class="cont-row">
+          <span class="prio-badge mono">#{{ i + 1 }}</span>
+          <div class="cont-info">
+            <div class="cont-url mono">{{ url }}</div>
+            @if (probeResults()[url]; as probe) {
+              <div class="probe-line mono tabular-nums">
+                <span
+                  class="badge"
+                  [class.badge-success]="probe.freshness_class !== 'HISTORICO_SOLO_LECTURA'"
+                  [class.badge-warning]="probe.freshness_class === 'HISTORICO_SOLO_LECTURA'"
+                >
+                  {{ probe.freshness_class || 'ESPEJO_VIVO' }}
+                </span>
+                <span
+                  class="badge"
+                  [class.badge-success]="probe.reachable"
+                  [class.badge-danger]="!probe.reachable"
+                >
+                  {{ probe.reachable ? 'HTTP ' + probe.http_status : 'INACCESIBLE' }}
+                </span>
+                <span>{{ formatMs(probe.latency_ms) }}</span>
+                <span>TLS: {{ probe.tls_valid ? 'OK' : probe.tls_error_code || 'N/A' }}</span>
+                <span>{{ probe.detected_resources_count }} archivos</span>
+              </div>
+            }
+          </div>
+
+          <div class="cont-controls">
+            <button
+              type="button"
+              class="btn-secondary btn-sm"
+              [disabled]="probingUrl() === url"
+              (click)="onProbeContingencyUrl(url)"
+            >
+              {{ probingUrl() === url ? 'Probando...' : 'Verificar Respaldo' }}
+            </button>
+            <button
+              type="button"
+              class="btn-ghost btn-sm"
+              [disabled]="i === 0"
+              (click)="moveContingency(i, -1)"
+              title="Subir prioridad"
+            >
+              Subir
+            </button>
+            <button
+              type="button"
+              class="btn-ghost btn-sm"
+              [disabled]="i === formContingencyUrls().length - 1"
+              (click)="moveContingency(i, 1)"
+              title="Bajar prioridad"
+            >
+              Bajar
+            </button>
+            <button
+              type="button"
+              class="btn-danger btn-sm"
+              (click)="removeContingencyUrl(i)"
+            >
+              Quitar
+            </button>
+          </div>
         </div>
-        <div class="summary-item">
-          <span class="summary-label">CÓDIGO</span>
-          <span class="summary-val font-mono">{{ src.source_id.toUpperCase() }}</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">MÓDULO DE EXTRACCIÓN</span>
-          <span class="summary-val font-mono">{{ src.workflow }}</span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">CLASIFICACIÓN</span>
-          <span
-            class="status-chip"
-            [class.status-active]="formHealth === 'ACTIVE'"
-            [class.status-warning]="formHealth === 'WARNING'"
-            [class.status-suspended]="formHealth === 'SUSPENDED'"
-          >
-            {{
-              formHealth === 'ACTIVE'
-                ? 'Lista Blanca (Operativo)'
-                : formHealth === 'WARNING'
-                  ? 'Lista Negra (En Observación)'
-                  : 'Lista Negra (Suspendido)'
-            }}
-          </span>
+      } @empty {
+        <p class="muted-text">
+          Sin URLs de contingencia configuradas. Use "Buscar Contingencias Automáticas" o añada espejos confiables.
+        </p>
+      }
+    </div>
+
+    @if (store.contingencyResult(); as cres) {
+      <div class="discovered-backups">
+        <h4>Rutas evaluadas automáticamente ({{ cres.candidates.length }})</h4>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">URL Evaluada</th>
+                <th scope="col">Origen</th>
+                <th scope="col">Frescura</th>
+                <th scope="col">HTTP / Latencia</th>
+                <th scope="col">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of cres.candidates; track c.url) {
+                <tr>
+                  <td class="mono dr-res-url">{{ c.url }}</td>
+                  <td>{{ formatOriginType(c.origin_type) }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      [class.badge-success]="c.freshness_class !== 'HISTORICO_SOLO_LECTURA'"
+                      [class.badge-warning]="c.freshness_class === 'HISTORICO_SOLO_LECTURA'"
+                    >
+                      {{ c.freshness_class || 'ESPEJO_VIVO' }}
+                    </span>
+                  </td>
+                  <td class="mono tabular-nums">
+                    {{ c.http_status || 'ERR' }} · {{ formatMs(c.latency_ms) }}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn-secondary btn-sm"
+                      [disabled]="formContingencyUrls().includes(c.url)"
+                      (click)="addContingencyUrl(c.url)"
+                    >
+                      {{ formContingencyUrls().includes(c.url) ? 'Registrada' : 'Añadir' }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       </div>
     }
-  </header>
+  </section>
 
-  @if (validationError()) {
-    <div class="validation-banner">
-      <strong>Validación de formulario:</strong> {{ validationError() }}
+  <details class="yaml-preview-details">
+    <summary>Vista previa declarativa de solo lectura (proyección YAML sincronizada)</summary>
+    <pre class="yaml-preview-code mono"><code>{{ readOnlyYamlPreview() }}</code></pre>
+  </details>
+
+  <!-- Pie estático integrado al flujo natural del documento (prohibido fixed/sticky) -->
+  <footer class="config-footer-static">
+    <div class="footer-note">
+      Los cambios se validan en el servidor y se sincronizan de forma atómica con MongoDB y el catálogo maestro.
     </div>
-  }
-
-  @if (currentSource(); as src) {
-    <form (ngSubmit)="onSavePolicy()" class="form-container">
-      <!-- SECCIÓN 1: PUNTO DE ENTRADA Y RESILIENCIA AUTOMÁTICA DE CONTINGENCIA -->
-      <section class="config-card">
-        <div class="card-header card-header-split">
-          <div>
-            <h2 class="card-title">Punto de Entrada y Resiliencia de Fuentes (Contingencia)</h2>
-            <p class="card-desc">
-              Gestione el enlace oficial primario y descubra, evalúe y registre automáticamente URLs alternativas de confianza ante caídas o migraciones.
-            </p>
-          </div>
-          <button
-            type="button"
-            class="btn-discover"
-            [disabled]="store.contingencyLoading()"
-            (click)="onDiscoverContingencies()"
-          >
-            @if (store.contingencyLoading()) {
-              <span>Evaluando enlaces espejo...</span>
-            } @else {
-              <span>Descubrir y Evaluar Respaldos</span>
-            }
-          </button>
-        </div>
-
-        <div class="card-body">
-          <div class="form-group">
-            <label class="form-label" for="entrypoint-input">Enlace Principal Oficial</label>
-            <div class="input-with-button">
-              <input
-                id="entrypoint-input"
-                type="url"
-                class="form-input"
-                [(ngModel)]="formEntrypoint"
-                name="entrypoint"
-                required
-                placeholder="https://portal.gob.bo/inicio/"
-              />
-              @if (formEntrypoint) {
-                <a
-                  [href]="formEntrypoint"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="btn-external-link"
-                >
-                  Abrir enlace
-                </a>
-              }
-            </div>
-          </div>
-
-          <!-- Resultado en vivo del Evaluador Automático de Contingencias -->
-          @if (store.contingencyResult(); as evalRes) {
-            <div class="contingency-eval-panel">
-              <div class="eval-panel-head">
-                <div>
-                  <span class="eval-badge">EVALUACIÓN AUTOMÁTICA DE CONTINGENCIA</span>
-                  <p class="eval-sub">
-                    Portal evaluado: <strong>{{ evalRes.source_name }}</strong> — Enlaces registrados automáticamente:
-                    <strong>{{ evalRes.auto_registered_count }}</strong>
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  class="btn-clear-eval"
-                  (click)="store.clearContingencyResult()"
-                >
-                  Ocultar resultado
-                </button>
-              </div>
-
-              <div class="eval-table-wrap">
-                <table class="eval-table">
-                  <thead>
-                    <tr>
-                      <th>Tipo de Respaldo</th>
-                      <th>URL Alternativa Evaluada</th>
-                      <th>Respuesta HTTP</th>
-                      <th>Archivos Detectados</th>
-                      <th>Confianza</th>
-                      <th>Diagnóstico</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (cand of evalRes.candidates; track cand.url) {
-                      <tr>
-                        <td>
-                          <span class="origin-pill">{{ formatOriginType(cand.origin_type) }}</span>
-                        </td>
-                        <td class="font-mono cell-url" [title]="cand.url">{{ cand.url }}</td>
-                        <td class="font-mono">
-                          <span
-                            class="http-pill"
-                            [class.http-ok]="cand.reachable"
-                            [class.http-fail]="!cand.reachable"
-                          >
-                            {{ cand.reachable ? 'HTTP ' + (cand.http_status || 200) : 'Inaccesible' }}
-                          </span>
-                        </td>
-                        <td class="font-mono text-right">{{ cand.detected_resources_count }}</td>
-                        <td class="font-mono font-bold">
-                          <span
-                            [class.score-high]="cand.confidence_score >= 70"
-                            [class.score-mid]="cand.confidence_score >= 45 && cand.confidence_score < 70"
-                          >
-                            {{ cand.confidence_score }} / 100
-                          </span>
-                        </td>
-                        <td class="cell-rec">{{ cand.recommendation }}</td>
-                        <td>
-                          @if (formContingencyUrls().includes(cand.url)) {
-                            <span class="registered-tag">Registrada</span>
-                          } @else {
-                            <button
-                              type="button"
-                              class="btn-mini-add"
-                              (click)="addContingencyUrl(cand.url)"
-                            >
-                              Incorporar
-                            </button>
-                          }
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          }
-
-          <!-- Lista activa de URLs de Contingencia -->
-          <div class="form-group">
-            <div class="label-row">
-              <label class="form-label">URLs Alternativas de Contingencia Registradas</label>
-              <span class="label-hint">
-                Conmutación automática ordenada en caso de caída o bloqueo del enlace principal.
-              </span>
-            </div>
-
-            <div class="items-list-box">
-              @for (curl of formContingencyUrls(); track curl; let idx = $index) {
-                <div class="list-entry">
-                  <span class="entry-url font-mono">{{ curl }}</span>
-                  <div class="entry-actions">
-                    <a
-                      [href]="curl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="btn-entry-test"
-                    >
-                      Verificar
-                    </a>
-                    <button
-                      type="button"
-                      class="btn-entry-remove"
-                      (click)="removeContingencyUrl(idx)"
-                    >
-                      Quitar
-                    </button>
-                  </div>
-                </div>
-              } @empty {
-                <p class="empty-list-note">
-                  Sin URLs alternativas registradas. Utilice "Descubrir y Evaluar Respaldos" o agregue un enlace espejo manualmente.
-                </p>
-              }
-            </div>
-
-            <div class="add-entry-row">
-              <input
-                type="url"
-                class="form-input"
-                placeholder="https://espejo.entidad.gob.bo/estadisticas/ o https://datos.gob.bo/..."
-                [(ngModel)]="newContingencyUrl"
-                name="newContingency"
-                (keydown.enter)="addContingencyUrl(); $event.preventDefault()"
-              />
-              <button type="button" class="btn-add-entry" (click)="addContingencyUrl()">
-                Agregar URL de Respaldo
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- SECCIÓN 2: FILTROS DE CONFIANZA Y EXTRACCIÓN DIRIGIDA -->
-      <section class="config-card">
-        <div class="card-header">
-          <h2 class="card-title">Filtros de Dominio, Exclusión y Extracción Dirigida</h2>
-          <p class="card-desc">
-            Configure rutas semilla prioritarias, dominios autorizados, patrones de exclusión y formatos documentales objetivo.
-          </p>
-        </div>
-
-        <div class="card-body">
-          <div class="form-group">
-            <div class="label-row">
-              <label class="form-label">Rutas Semilla de Exploración Prioritaria</label>
-              <span class="label-hint">Secciones directas con boletines, memorias o series estadísticas.</span>
-            </div>
-
-            <div class="items-list-box">
-              @for (seed of formSeeds(); track seed; let idx = $index) {
-                <div class="list-entry">
-                  <span class="entry-url font-mono">{{ seed }}</span>
-                  <div class="entry-actions">
-                    <a [href]="seed" target="_blank" rel="noopener noreferrer" class="btn-entry-test">
-                      Abrir
-                    </a>
-                    <button type="button" class="btn-entry-remove" (click)="removeSeed(idx)">
-                      Quitar
-                    </button>
-                  </div>
-                </div>
-              } @empty {
-                <p class="empty-list-note">
-                  La exploración parte directamente del enlace principal oficial.
-                </p>
-              }
-            </div>
-
-            <div class="add-entry-row">
-              <input
-                type="url"
-                class="form-input"
-                placeholder="https://portal.gob.bo/publicaciones-estadisticas/"
-                [(ngModel)]="newSeedUrl"
-                name="newSeed"
-                (keydown.enter)="addSeed(); $event.preventDefault()"
-              />
-              <button type="button" class="btn-add-entry" (click)="addSeed()">
-                Agregar Ruta Semilla
-              </button>
-            </div>
-          </div>
-
-          <!-- Dominios Autorizados y Patrones de Exclusión -->
-          <div class="form-grid-2">
-            <div class="form-group">
-              <label class="form-label">Dominios Autorizados de Confianza</label>
-              <div class="chips-box">
-                @for (host of formAllowedHosts(); track host; let idx = $index) {
-                  <span class="filter-chip font-mono">
-                    {{ host }}
-                    <button type="button" class="chip-del" (click)="removeAllowedHost(idx)">x</button>
-                  </span>
-                } @empty {
-                  <span class="empty-list-note">Restringido automáticamente al dominio oficial.</span>
-                }
-              </div>
-              <div class="add-entry-row">
-                <input
-                  type="text"
-                  class="form-input font-mono"
-                  placeholder="ej. cdn.bcb.gob.bo"
-                  [(ngModel)]="newAllowedHost"
-                  name="newAllowedHost"
-                  (keydown.enter)="addAllowedHost(); $event.preventDefault()"
-                />
-                <button type="button" class="btn-add-entry" (click)="addAllowedHost()">
-                  Autorizar
-                </button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Patrones de Exclusión de Ruta</label>
-              <div class="chips-box">
-                @for (kw of formExcludedKeywords(); track kw; let idx = $index) {
-                  <span class="filter-chip chip-exclude font-mono">
-                    {{ kw }}
-                    <button type="button" class="chip-del" (click)="removeExcludedKeyword(idx)">x</button>
-                  </span>
-                } @empty {
-                  <span class="empty-list-note">Sin exclusiones personalizadas adicionales.</span>
-                }
-              </div>
-              <div class="add-entry-row">
-                <input
-                  type="text"
-                  class="form-input font-mono"
-                  placeholder="ej. /licitaciones/ o /galeria/"
-                  [(ngModel)]="newExcludedKeyword"
-                  name="newExcludedKeyword"
-                  (keydown.enter)="addExcludedKeyword(); $event.preventDefault()"
-                />
-                <button type="button" class="btn-add-entry" (click)="addExcludedKeyword()">
-                  Excluir
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Formatos de Archivo Preestablecidos para Extracción</label>
-            <div class="extensions-wrap">
-              @for (ext of availableExtensions; track ext) {
-                <button
-                  type="button"
-                  class="ext-chip"
-                  [class.active]="formExtensions().includes(ext)"
-                  (click)="toggleExtension(ext)"
-                >
-                  <span class="font-mono">{{ ext }}</span>
-                  <span class="ext-state">
-                    {{ formExtensions().includes(ext) ? 'Activo' : 'Inactivo' }}
-                  </span>
-                </button>
-              }
-            </div>
-          </div>
-
-          <div class="form-grid-3">
-            <div class="form-group">
-              <label class="form-label" for="update-category">Frecuencia de Exploración</label>
-              <select
-                id="update-category"
-                class="form-select"
-                [(ngModel)]="formCategory"
-                name="update_category"
-              >
-                <option value="DAILY">Diaria (cada 24 horas)</option>
-                <option value="WEEKLY">Semanal (cada 7 días)</option>
-                <option value="MONTHLY">Mensual (cada 30 días)</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="rate-limit">Intervalo de Cortesía (segundos)</label>
-              <input
-                id="rate-limit"
-                type="number"
-                step="0.1"
-                min="0.1"
-                max="60"
-                class="form-input font-mono"
-                [(ngModel)]="formRateLimit"
-                name="rate_limit_seconds"
-              />
-              <span class="field-subtext">Pausa obligatoria entre peticiones HTTP sucesivas.</span>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="max-urls">Presupuesto Máximo de Páginas</label>
-              <input
-                id="max-urls"
-                type="number"
-                min="10"
-                max="5000"
-                class="form-input font-mono"
-                [(ngModel)]="formMaxUrls"
-                name="max_urls"
-              />
-              <span class="field-subtext">Cuota máxima de páginas por ciclo de rastreo.</span>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="checkbox-label-wrap">
-              <input type="checkbox" [(ngModel)]="formIgnoreRobots" name="ignore_robots_txt" />
-              <span>
-                <strong>Auditoría pública autorizada:</strong> Permitir indexación de reportes normativos públicos con independencia de directivas robots.txt restrictivas.
-              </span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <!-- SECCIÓN 3: ESTADO OPERATIVO Y DIAGNÓSTICO DE AUDITORÍA -->
-      <section class="config-card">
-        <div class="card-header">
-          <h2 class="card-title">Clasificación Operativa y Diagnóstico Técnico</h2>
-          <p class="card-desc">
-            Gestione la pertenencia a Lista Blanca o Lista Negra y documente la causa técnica de cualquier observación.
-          </p>
-        </div>
-
-        <div class="card-body">
-          <div class="form-grid-2">
-            <div class="form-group">
-              <label class="form-label" for="health-status">Clasificación del Portal</label>
-              <select
-                id="health-status"
-                class="form-select"
-                [(ngModel)]="formHealth"
-                name="health_status"
-              >
-                <option value="ACTIVE">Lista Blanca — Operativo sin incidencias</option>
-                <option value="WARNING">Lista Negra — En observación técnica</option>
-                <option value="SUSPENDED">Lista Negra — Suspendido por bloqueo severo</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label" for="audit-code">Código Estándar de Diagnóstico</label>
-              <input
-                id="audit-code"
-                type="text"
-                class="form-input font-mono"
-                [(ngModel)]="formAuditCode"
-                name="audit_code"
-                list="codes-list"
-                placeholder="OPERATIONAL_OK"
-              />
-              <datalist id="codes-list">
-                <option value="OPERATIONAL_OK">OPERATIONAL_OK — Operación normal</option>
-                <option value="DOM_CHANGED">DOM_CHANGED — Cambio estructural en selectores HTML</option>
-                <option value="API_CHANGED">API_CHANGED — Alteración de esquema en servicio JSON</option>
-                <option value="TLS_HOLD">TLS_HOLD — Fallo de certificado o cifrado TLS</option>
-                <option value="BUDGET_LIMIT">BUDGET_LIMIT — Agotamiento de cuota de URLs</option>
-                <option value="BOT_BLOCKED">BOT_BLOCKED — Bloqueo perimetral por Firewall/WAF</option>
-                <option value="HTTP_5XX">HTTP_5XX — Indisponibilidad en servidor origen</option>
-              </datalist>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="audit-note">Nota Técnica de Mantenimiento</label>
-            <textarea
-              id="audit-note"
-              class="form-textarea"
-              rows="2"
-              [(ngModel)]="formAuditNote"
-              name="audit_note"
-              placeholder="Detalle de selectores afectados, comportamiento observado y plan de mitigación..."
-            ></textarea>
-          </div>
-
-          @if (src.consecutive_failures && src.consecutive_failures > 0) {
-            <div class="warning-callout">
-              <div>
-                <strong>Disyuntor de Protección Activo:</strong> Se registran
-                <strong>{{ src.consecutive_failures }}</strong> fallos consecutivos de conexión.
-                @if (src.first_failure_at) {
-                  <span class="subtext">Primer incidente registrado: {{ src.first_failure_at }}</span>
-                }
-              </div>
-            </div>
-          }
-        </div>
-      </section>
-
-      <footer class="form-actions-footer">
-        <div class="feedback-area">
-          @if (saveSuccess()) {
-            <span class="msg success">{{ actionMessage() }}</span>
-          } @else if (saveError()) {
-            <span class="msg error">{{ actionMessage() }}</span>
-          } @else if (actionMessage()) {
-            <span class="msg info">{{ actionMessage() }}</span>
-          }
-        </div>
-
-        <button type="submit" class="btn-save" [disabled]="isSaving()">
-          @if (isSaving()) {
-            <span>Guardando cambios...</span>
-          } @else {
-            <span>Guardar Parámetros del Portal</span>
-          }
-        </button>
-      </footer>
-    </form>
-  }
+    <div class="footer-buttons">
+      <button type="button" class="btn-secondary" [disabled]="dryRunning()" (click)="onRunDryRun()">
+        Probar Extracción (Dry-Run)
+      </button>
+      <button type="button" class="btn-primary" [disabled]="isSaving()" (click)="onSavePolicy()">
+        {{ isSaving() ? 'Guardando...' : 'Guardar Parámetros' }}
+      </button>
+    </div>
+  </footer>
 </div>

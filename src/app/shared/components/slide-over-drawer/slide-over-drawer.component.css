@@ -1,0 +1,133 @@
+.slide-drawer {
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: none;
+  border-left: 1px solid var(--border-medium);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  height: 100svh;
+  max-height: 100svh;
+  max-width: 96vw;
+  box-shadow: -14px 0 36px rgba(0, 0, 0, 0.55);
+}
+
+.slide-drawer[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-md {
+  width: min(560px, 94vw);
+}
+
+.drawer-lg {
+  width: min(760px, 94vw);
+}
+
+.drawer-xl {
+  width: min(980px, 96vw);
+}
+
+.drawer-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+}
+
+.drawer-heading {
+  min-width: 0;
+  flex: 1;
+}
+
+.drawer-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.drawer-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-subtle);
+  overflow-wrap: anywhere;
+}
+
+.drawer-close-btn {
+  flex-shrink: 0;
+}
+
+.drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-app);
+  overflow-x: auto;
+}
+
+.drawer-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.drawer-tab:hover {
+  color: var(--text-main);
+}
+
+.drawer-tab.active {
+  color: #60a5fa;
+  border-bottom-color: var(--primary);
+}
+
+.drawer-tab-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium);
+  color: var(--text-muted);
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px;
+}
+
+.drawer-footer-slot:not(:empty) {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+}

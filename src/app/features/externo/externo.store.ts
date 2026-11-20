@@ -1,44 +1,81 @@
 import { inject } from '@angular/core';
-import { signalStore, withState, withComputed, withMethods, withHooks, patchState } from '@ngrx/signals';
+import {
+  signalStore,
+  withState,
+  withComputed,
+  withMethods,
+  withHooks,
+  patchState
+} from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
 import { pipe, switchMap, tap, catchError, of, forkJoin, Observable, retry } from 'rxjs';
 import {
+  AlertChannelConfig,
+  AlertDeliveryLog,
+  AlertLifecycleUpdateRequest,
   BackupSyncResult,
+  CancelRunResponse,
   CatalogResource,
   CatalogSource,
+  ContingencyCandidate,
   ContingencyEvaluationResponse,
+  DryRunExtractionResponse,
+  DryRunPolicyRequest,
+  FailoverEvent,
   FileProcessingStatus,
   MaintenanceTechnicalReport,
   OpenDiscoveryCandidate,
   OpenDiscoverySearchRequest,
   PromoteCandidateRequest,
+  ResilienceCoverageReport,
   RunReport,
   SourcePolicyUpdate,
   StorageStatus,
-  StructuralAlert
+  StructuralAlert,
+  TriggerRunResponse
 } from '../../core/models/catalog.model';
 import { ExternoService } from '../../core/services/externo.service';
+
+export type ResourceSortField =
+  | 'discovered_at'
+  | 'title'
+  | 'source_id'
+  | 'file_extension'
+  | 'content_length_bytes'
+  | 'current_version'
+  | 'processing_status';
 
 export interface ExternoState {
   sources: CatalogSource[];
   selectedSourceId: string;
   resources: CatalogResource[];
+  totalResources: number;
+  resourcesLoading: boolean;
+  resourcesError: string | null;
   selectedResource: CatalogResource | null;
   runs: RunReport[];
   selectedRun: RunReport | null;
+  activeRunId: string | null;
   discoveryCandidates: OpenDiscoveryCandidate[];
+  includeDiscardedCandidates: boolean;
   discoveryLoading: boolean;
   alerts: StructuralAlert[];
   alertsLoading: boolean;
+  alertChannels: AlertChannelConfig[];
   activeTechnicalReport: MaintenanceTechnicalReport | null;
   contingencyResult: ContingencyEvaluationResponse | null;
   contingencyLoading: boolean;
+  resilienceCoverage: ResilienceCoverageReport | null;
+  failoverEvents: FailoverEvent[];
   runTriggerMessage: string | null;
   triggeringSourceId: string | null;
   searchQuery: string;
   extensionFilter: string;
   statusFilter: string;
   processingFilter: 'ALL' | FileProcessingStatus;
+  categoryFilter: string;
+  sortBy: ResourceSortField;
+  sortDir: 'asc' | 'desc';
   currentPage: number;
   pageSize: number;
   loading: boolean;
@@ -53,22 +90,33 @@ const initialState: ExternoState = {
   sources: [],
   selectedSourceId: 'ALL',
   resources: [],
+  totalResources: 0,
+  resourcesLoading: false,
+  resourcesError: null,
   selectedResource: null,
   runs: [],
   selectedRun: null,
+  activeRunId: null,
   discoveryCandidates: [],
+  includeDiscardedCandidates: false,
   discoveryLoading: false,
   alerts: [],
   alertsLoading: false,
+  alertChannels: [],
   activeTechnicalReport: null,
   contingencyResult: null,
   contingencyLoading: false,
+  resilienceCoverage: null,
+  failoverEvents: [],
   runTriggerMessage: null,
   triggeringSourceId: null,
   searchQuery: '',
   extensionFilter: 'ALL',
   statusFilter: 'ALL',
   processingFilter: 'ALL',
+  categoryFilter: 'ALL',
+  sortBy: 'discovered_at',
+  sortDir: 'desc',
   currentPage: 1,
   pageSize: 20,
   loading: false,
@@ -82,162 +130,189 @@ const initialState: ExternoState = {
 export const ExternoStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
-  withComputed(
-    ({
-      sources,
-      resources,
-      alerts,
-      selectedSourceId,
-      searchQuery,
-      extensionFilter,
-      statusFilter,
-      processingFilter,
-      currentPage,
-      pageSize
-    }) => {
-      return {
-        filteredResources: () => {
-          let list = resources();
-
-          const srcId = selectedSourceId();
-          if (srcId !== 'ALL') {
-            list = list.filter((r) => r.source_id.toLowerCase() === srcId.toLowerCase());
-          }
-
-          const ext = extensionFilter();
-          if (ext !== 'ALL') {
-            list = list.filter((r) => r.file_extension?.toLowerCase() === ext.toLowerCase());
-          }
-
-          const status = statusFilter();
-          if (status !== 'ALL') {
-            list = list.filter((r) => r.change_status.toUpperCase() === status.toUpperCase());
-          }
-
-          const proc = processingFilter();
-          if (proc !== 'ALL') {
-            list = list.filter((r) => (r.processing_status || 'PENDIENTE') === proc);
-          }
-
-          const query = searchQuery().toLowerCase().trim();
-          if (query) {
-            list = list.filter(
-              (r) =>
-                (r.title && r.title.toLowerCase().includes(query)) ||
-                r.url.toLowerCase().includes(query) ||
-                (r.period_label && r.period_label.toLowerCase().includes(query)) ||
-                r.resource_key.toLowerCase().includes(query)
-            );
-          }
-
-          return list;
-        },
-        totalDiscovered: () =>
-          resources().length ||
-          sources().reduce((acc, s) => acc + (s.baseline_resource_count || 0), 0),
-        activeSourcesCount: () => sources().filter((s) => s.health_status === 'ACTIVE').length,
-        warningSourcesCount: () => sources().filter((s) => s.health_status === 'WARNING').length,
-        suspendedSourcesCount: () => sources().filter((s) => s.health_status === 'SUSPENDED').length,
-        criticalAlertsCount: () => alerts().filter((a) => a.severity === 'CRITICA').length,
-        processingSummary: () => {
-          const all = resources();
-          let pending = 0;
-          let inProcess = 0;
-          let completed = 0;
-          let errorCount = 0;
-          for (const r of all) {
-            const st = r.processing_status || 'PENDIENTE';
-            if (st === 'PROCESADO_EXITOSAMENTE') completed++;
-            else if (st === 'EN_PROCESO') inProcess++;
-            else if (st === 'ERROR') errorCount++;
-            else pending++;
-          }
-          return { pending, inProcess, completed, errorCount };
-        }
-      };
-    }
-  ),
-  withComputed(({ filteredResources, currentPage, pageSize }) => {
-    return {
-      totalFiltered: () => filteredResources().length,
-      totalPages: () => Math.max(1, Math.ceil(filteredResources().length / pageSize())),
-      pagedResources: () => {
-        const list = filteredResources();
-        const start = (currentPage() - 1) * pageSize();
-        return list.slice(start, start + pageSize());
-      },
-      paginationRange: () => {
-        const total = filteredResources().length;
-        if (total === 0) return { start: 0, end: 0 };
-        const start = (currentPage() - 1) * pageSize() + 1;
-        const end = Math.min(currentPage() * pageSize(), total);
-        return { start, end };
+  withComputed(({ sources, resources, totalResources, alerts, currentPage, pageSize }) => ({
+    totalDiscovered: () =>
+      totalResources() ||
+      resources().length ||
+      sources().reduce((acc, s) => acc + (s.baseline_resource_count || 0), 0),
+    activeSourcesCount: () => sources().filter((s) => s.health_status === 'ACTIVE').length,
+    warningSourcesCount: () => sources().filter((s) => s.health_status === 'WARNING').length,
+    suspendedSourcesCount: () => sources().filter((s) => s.health_status === 'SUSPENDED').length,
+    openAlertsCount: () =>
+      alerts().filter((a) => (a.status || 'ABIERTA') !== 'RESUELTA' && !a.resolved).length,
+    criticalAlertsCount: () => alerts().filter((a) => a.severity === 'CRITICA').length,
+    totalPages: () => Math.max(1, Math.ceil(totalResources() / Math.max(1, pageSize()))),
+    paginationRange: () => {
+      const total = totalResources();
+      if (total === 0) return { start: 0, end: 0 };
+      const start = (currentPage() - 1) * pageSize() + 1;
+      const end = Math.min(currentPage() * pageSize(), total);
+      return { start, end };
+    },
+    processingSummary: () => {
+      const all = resources();
+      let pending = 0;
+      let inProcess = 0;
+      let completed = 0;
+      let errorCount = 0;
+      for (const r of all) {
+        const st = r.processing_status || 'PENDIENTE';
+        if (st === 'PROCESADO_EXITOSAMENTE') completed++;
+        else if (st === 'EN_PROCESO') inProcess++;
+        else if (st === 'ERROR') errorCount++;
+        else pending++;
       }
-    };
-  }),
+      return { pending, inProcess, completed, errorCount };
+    }
+  })),
   withMethods((store, service = inject(ExternoService)) => {
+    const fetchResourcesPage = rxMethod<void>(
+      pipe(
+        tap(() => patchState(store, { resourcesLoading: true, resourcesError: null })),
+        switchMap(() => {
+          const offset = (store.currentPage() - 1) * store.pageSize();
+          return service
+            .getResourcesPaged({
+              sourceId: store.selectedSourceId(),
+              search: store.searchQuery(),
+              extension: store.extensionFilter(),
+              processingStatus: store.processingFilter(),
+              resourceCategory: store.categoryFilter(),
+              sortBy: store.sortBy(),
+              sortDir: store.sortDir(),
+              limit: store.pageSize(),
+              offset
+            })
+            .pipe(
+              tap((res) => {
+                patchState(store, {
+                  resources: res.items,
+                  totalResources: res.total,
+                  resourcesLoading: false,
+                  resourcesError: null
+                });
+              }),
+              catchError((err) => {
+                const status = err?.status ? `HTTP ${err.status}` : 'Error de red';
+                patchState(store, {
+                  resourcesLoading: false,
+                  resourcesError: `${status}: No fue posible consultar el catálogo de archivos en Prospector Externo.`
+                });
+                return of(null);
+              })
+            );
+        })
+      )
+    );
+
     const loadData = rxMethod<void>(
       pipe(
         tap(() => patchState(store, { loading: true, error: null })),
-        switchMap(() => {
-          return forkJoin({
-            health: service
-              .checkHealth()
-              .pipe(retry({ count: 3, delay: 1000 }), catchError(() => of({ status: 'OFFLINE', service: 'catalog-api' }))),
-            sources: service.getSources().pipe(retry({ count: 3, delay: 1000 }), catchError(() => of([]))),
-            resources: service.getResources().pipe(retry({ count: 3, delay: 1000 }), catchError(() => of([]))),
-            runs: service.getRuns().pipe(retry({ count: 2, delay: 1000 }), catchError(() => of([]))),
-            alerts: service.getStructuralAlerts().pipe(retry({ count: 2, delay: 1000 }), catchError(() => of([]))),
-            candidates: service.getDiscoveryCandidates().pipe(retry({ count: 2, delay: 1000 }), catchError(() => of([])))
+        switchMap(() =>
+          forkJoin({
+            health: service.checkHealth().pipe(
+              retry({ count: 2, delay: 800 }),
+              catchError(() => of({ status: 'OFFLINE', service: 'catalog-api' }))
+            ),
+            sources: service.getSources().pipe(
+              retry({ count: 2, delay: 800 }),
+              catchError(() => of([]))
+            ),
+            runs: service.getRuns(25).pipe(catchError(() => of([]))),
+            alerts: service.getStructuralAlerts().pipe(catchError(() => of([]))),
+            channels: service.getAlertChannels().pipe(catchError(() => of([]))),
+            candidates: service
+              .getDiscoveryCandidates(store.includeDiscardedCandidates())
+              .pipe(catchError(() => of([]))),
+            coverage: service.getResilienceCoverage().pipe(catchError(() => of(null))),
+            failovers: service.getAllFailovers(50).pipe(catchError(() => of([])))
           }).pipe(
-            tap(({ health, sources, resources, runs, alerts, candidates }) => {
+            tap(({ health, sources, runs, alerts, channels, candidates, coverage, failovers }) => {
               patchState(store, {
                 serviceStatus: health.status,
                 sources,
-                resources,
                 runs,
                 alerts,
+                alertChannels: channels,
                 discoveryCandidates: candidates,
+                resilienceCoverage: coverage,
+                failoverEvents: failovers,
                 loading: false
               });
+              fetchResourcesPage();
             }),
             catchError(() => {
               patchState(store, {
                 loading: false,
-                error: 'No fue posible consultar el servicio del Prospector Externo.'
+                error: 'No fue posible consultar el servicio del Prospector Externo (:8000).'
               });
               return of(null);
             })
-          );
-        })
+          )
+        )
       )
     );
 
     return {
       loadAll: () => loadData(),
+      loadResourcesPage: () => fetchResourcesPage(),
+      applyResourceFilters: (filters: {
+        sourceId?: string;
+        search?: string;
+        extension?: string;
+        processingStatus?: 'ALL' | FileProcessingStatus;
+        category?: string;
+        sortBy?: ResourceSortField;
+        sortDir?: 'asc' | 'desc';
+        page?: number;
+        pageSize?: number;
+      }) => {
+        patchState(store, {
+          selectedSourceId: filters.sourceId ?? store.selectedSourceId(),
+          searchQuery: filters.search ?? store.searchQuery(),
+          extensionFilter: filters.extension ?? store.extensionFilter(),
+          processingFilter: filters.processingStatus ?? store.processingFilter(),
+          categoryFilter: filters.category ?? store.categoryFilter(),
+          sortBy: filters.sortBy ?? store.sortBy(),
+          sortDir: filters.sortDir ?? store.sortDir(),
+          currentPage: filters.page ?? 1,
+          pageSize: filters.pageSize ?? store.pageSize()
+        });
+        fetchResourcesPage();
+      },
       setSourceFilter: (sourceId: string) => {
         patchState(store, { selectedSourceId: sourceId, currentPage: 1 });
+        fetchResourcesPage();
       },
       setSearchQuery: (query: string) => {
         patchState(store, { searchQuery: query, currentPage: 1 });
+        fetchResourcesPage();
       },
       setExtensionFilter: (ext: string) => {
         patchState(store, { extensionFilter: ext, currentPage: 1 });
+        fetchResourcesPage();
       },
-      setStatusFilter: (status: string) => {
-        patchState(store, { statusFilter: status, currentPage: 1 });
+      setCategoryFilter: (cat: string) => {
+        patchState(store, { categoryFilter: cat, currentPage: 1 });
+        fetchResourcesPage();
       },
       setProcessingFilter: (proc: 'ALL' | FileProcessingStatus) => {
         patchState(store, { processingFilter: proc, currentPage: 1 });
+        fetchResourcesPage();
+      },
+      setSort: (sortBy: ResourceSortField, sortDir: 'asc' | 'desc') => {
+        patchState(store, { sortBy, sortDir, currentPage: 1 });
+        fetchResourcesPage();
       },
       setPage: (page: number) => {
         const max = store.totalPages();
-        if (page >= 1 && page <= max) {
-          patchState(store, { currentPage: page });
-        }
+        const clamped = Math.max(1, Math.min(page, max));
+        patchState(store, { currentPage: clamped });
+        fetchResourcesPage();
       },
       setPageSize: (size: number) => {
         patchState(store, { pageSize: size, currentPage: 1 });
+        fetchResourcesPage();
       },
       selectResource: (resource: CatalogResource | null) => {
         patchState(store, { selectedResource: resource });
@@ -245,50 +320,88 @@ export const ExternoStore = signalStore(
       selectRun: (run: RunReport | null) => {
         patchState(store, { selectedRun: run });
       },
+      setActiveRunId: (runId: string | null) => {
+        patchState(store, { activeRunId: runId });
+      },
       clearTechnicalReport: () => {
         patchState(store, { activeTechnicalReport: null });
       },
-      triggerExtractionRun: (sourceId?: string | null) => {
+      refreshRuns: () => {
+        service.getRuns(25).subscribe({
+          next: (runs) => patchState(store, { runs }),
+          error: () => {}
+        });
+      },
+      triggerExtractionRun: (sourceId?: string | null): Observable<TriggerRunResponse> => {
         patchState(store, {
           triggeringSourceId: sourceId || 'ALL',
           runTriggerMessage: null
         });
-        service.triggerExtractionRun(sourceId, true).subscribe({
-          next: (res) => {
+        return service.triggerExtractionRun(sourceId, true).pipe(
+          tap((res) => {
             patchState(store, {
               triggeringSourceId: null,
+              activeRunId: res.run_id || null,
               runTriggerMessage: res.message
             });
             setTimeout(() => {
-              service.getRuns().subscribe((runs) => patchState(store, { runs }));
-            }, 2500);
-          },
-          error: (err) => {
+              service.getRuns(25).subscribe((runs) => patchState(store, { runs }));
+            }, 1500);
+          }),
+          catchError((err) => {
             patchState(store, {
               triggeringSourceId: null,
               runTriggerMessage:
                 err.error?.detail || 'No se pudo iniciar la corrida de extracción.'
             });
-          }
-        });
+            throw err;
+          })
+        );
+      },
+      cancelRun: (runId: string): Observable<CancelRunResponse> => {
+        return service.cancelRun(runId).pipe(
+          tap((res) => {
+            patchState(store, { runTriggerMessage: res.message });
+            setTimeout(() => {
+              service.getRuns(25).subscribe((runs) => patchState(store, { runs }));
+            }, 800);
+          })
+        );
       },
       updateResourceStatus: (
         resourceKey: string,
         status: FileProcessingStatus,
+        overrideReason: string,
         errorText?: string | null
-      ) => {
-        service.updateResourceProcessingStatus(resourceKey, status, errorText).subscribe({
-          next: (updated) => {
-            const nextList = store
-              .resources()
-              .map((r) => (r.resource_key === resourceKey ? updated : r));
-            const currSelected = store.selectedResource();
-            patchState(store, {
-              resources: nextList,
-              selectedResource:
-                currSelected?.resource_key === resourceKey ? updated : currSelected
-            });
-          }
+      ): Observable<CatalogResource> => {
+        return service
+          .updateResourceProcessingStatus(resourceKey, {
+            processing_status: status,
+            processing_error: errorText ?? null,
+            actor: 'MANUAL_OPERATOR',
+            override_reason: overrideReason
+          })
+          .pipe(
+            tap((updated) => {
+              const nextList = store
+                .resources()
+                .map((r) => (r.resource_key === resourceKey ? updated : r));
+              const currSelected = store.selectedResource();
+              patchState(store, {
+                resources: nextList,
+                selectedResource:
+                  currSelected?.resource_key === resourceKey ? updated : currSelected
+              });
+            })
+          );
+      },
+      loadDiscoveryCandidates: (includeDiscarded?: boolean) => {
+        const inc = includeDiscarded ?? store.includeDiscardedCandidates();
+        patchState(store, { includeDiscardedCandidates: inc, discoveryLoading: true });
+        service.getDiscoveryCandidates(inc).subscribe({
+          next: (candidates) =>
+            patchState(store, { discoveryCandidates: candidates, discoveryLoading: false }),
+          error: () => patchState(store, { discoveryLoading: false })
         });
       },
       runOpenDiscovery: (request: OpenDiscoverySearchRequest, liveProbe: boolean = true) => {
@@ -329,8 +442,43 @@ export const ExternoStore = signalStore(
               sources: nextSources,
               discoveryCandidates: nextCandidates
             });
+            service
+              .getResilienceCoverage()
+              .subscribe((coverage) => patchState(store, { resilienceCoverage: coverage }));
           })
         );
+      },
+      discardCandidate: (
+        candidateId: string,
+        reason: string
+      ): Observable<OpenDiscoveryCandidate> => {
+        return service.discardDiscoveryCandidate(candidateId, reason).pipe(
+          tap((updated) => {
+            const list = store.includeDiscardedCandidates()
+              ? store.discoveryCandidates().map((c) => (c.candidate_id === candidateId ? updated : c))
+              : store.discoveryCandidates().filter((c) => c.candidate_id !== candidateId);
+            patchState(store, { discoveryCandidates: list });
+          })
+        );
+      },
+      reactivateCandidate: (candidateId: string): Observable<OpenDiscoveryCandidate> => {
+        return service.reactivateDiscoveryCandidate(candidateId).pipe(
+          tap((updated) => {
+            const list = store
+              .discoveryCandidates()
+              .map((c) => (c.candidate_id === candidateId ? updated : c));
+            patchState(store, { discoveryCandidates: list });
+          })
+        );
+      },
+      dryRunSource: (
+        sourceId: string,
+        payload: DryRunPolicyRequest
+      ): Observable<DryRunExtractionResponse> => {
+        return service.dryRunSource(sourceId, payload);
+      },
+      probeContingencyUrl: (sourceId: string, url: string): Observable<ContingencyCandidate> => {
+        return service.probeContingencyUrl(sourceId, url);
       },
       discoverContingencies: (sourceId: string, autoRegister: boolean = true) => {
         patchState(store, { contingencyLoading: true, contingencyResult: null });
@@ -350,6 +498,9 @@ export const ExternoStore = signalStore(
               contingencyResult: res,
               sources: nextSources
             });
+            service
+              .getResilienceCoverage()
+              .subscribe((coverage) => patchState(store, { resilienceCoverage: coverage }));
           }),
           catchError((err) => {
             patchState(store, { contingencyLoading: false });
@@ -362,10 +513,50 @@ export const ExternoStore = signalStore(
       },
       refreshAlerts: () => {
         patchState(store, { alertsLoading: true });
-        service.getStructuralAlerts().subscribe({
-          next: (alerts) => patchState(store, { alerts, alertsLoading: false }),
+        forkJoin({
+          alerts: service.getStructuralAlerts().pipe(catchError(() => of([]))),
+          channels: service.getAlertChannels().pipe(catchError(() => of([])))
+        }).subscribe({
+          next: ({ alerts, channels }) =>
+            patchState(store, { alerts, alertChannels: channels, alertsLoading: false }),
           error: () => patchState(store, { alertsLoading: false })
         });
+      },
+      updateAlertLifecycle: (
+        alertId: string,
+        payload: AlertLifecycleUpdateRequest
+      ): Observable<StructuralAlert> => {
+        return service.updateAlertLifecycle(alertId, payload).pipe(
+          tap((updated) => {
+            const next = store
+              .alerts()
+              .map((a) => (a.alert_id === alertId ? updated : a));
+            patchState(store, { alerts: next });
+          })
+        );
+      },
+      saveAlertChannel: (channel: AlertChannelConfig): Observable<AlertChannelConfig> => {
+        return service.saveAlertChannel(channel).pipe(
+          tap((saved) => {
+            const exists = store.alertChannels().some((c) => c.channel_id === saved.channel_id);
+            const next = exists
+              ? store.alertChannels().map((c) => (c.channel_id === saved.channel_id ? saved : c))
+              : [...store.alertChannels(), saved];
+            patchState(store, { alertChannels: next });
+          })
+        );
+      },
+      deleteAlertChannel: (channelId: string): Observable<{ deleted: boolean; channel_id: string }> => {
+        return service.deleteAlertChannel(channelId).pipe(
+          tap(() => {
+            patchState(store, {
+              alertChannels: store.alertChannels().filter((c) => c.channel_id !== channelId)
+            });
+          })
+        );
+      },
+      testAlertChannel: (channelId: string): Observable<AlertDeliveryLog> => {
+        return service.testAlertChannel(channelId);
       },
       verifyStructureLive: (sourceId: string) => {
         patchState(store, { alertsLoading: true });
@@ -448,6 +639,9 @@ export const ExternoStore = signalStore(
               newSources.push(updatedSource);
             }
             patchState(store, { sources: newSources, loading: false });
+            service
+              .getResilienceCoverage()
+              .subscribe((coverage) => patchState(store, { resilienceCoverage: coverage }));
           }),
           catchError((err) => {
             patchState(store, {

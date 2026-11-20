@@ -1,0 +1,85 @@
+.confirm-dialog {
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  width: min(520px, 94vw);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+}
+
+.confirm-dialog[open] {
+  display: block;
+}
+
+.confirm-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.confirm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--bg-surface-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.confirm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.confirm-body {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirm-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.reason-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-app);
+  border: 1px solid var(--border-medium);
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  resize: vertical;
+}
+
+.reason-input:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+
+.field-error {
+  font-size: 12px;
+  color: #f87171;
+}
+
+.confirm-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-app);
+}

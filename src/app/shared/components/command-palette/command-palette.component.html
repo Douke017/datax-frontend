@@ -1,0 +1,66 @@
+<dialog
+  #paletteDialog
+  class="palette-dialog"
+  closedby="any"
+  aria-labelledby="cmd-palette-title"
+  (close)="onDialogClosed()"
+  (pointerdown)="onPointerDown($event)"
+  (pointerup)="onPointerUp($event)"
+>
+  <div class="palette-shell">
+    <h2 id="cmd-palette-title" class="sr-only">Búsqueda Global DATAX</h2>
+    <div class="palette-search-bar">
+      <span class="search-prefix mono">BUSCAR</span>
+      <input
+        #searchInput
+        type="search"
+        class="palette-input"
+        placeholder="Fuente web, archivo bruto, nombre de columna, firma SHA-256, alerta o corrida..."
+        [ngModel]="query()"
+        (ngModelChange)="onQueryInput($event)"
+        (keydown)="onInputKeydown($event)"
+        aria-label="Buscar globalmente en DATAX"
+        autofocus
+      />
+      @if (remoteLoading()) {
+        <span class="badge badge-info">Consultando...</span>
+      }
+      <button type="button" class="btn-ghost btn-sm" (click)="paletteService.close()">
+        Esc
+      </button>
+    </div>
+
+    <div class="palette-results" role="listbox" aria-label="Resultados de búsqueda global">
+      @if (allResults().length === 0) {
+        <div class="palette-empty">
+          No se encontraron fuentes, columnas ni artefactos para "{{ query() }}".
+        </div>
+      } @else {
+        @for (item of allResults(); track item.id; let idx = $index) {
+          <button
+            type="button"
+            role="option"
+            class="palette-item"
+            [class.active]="idx === selectedIndex()"
+            [attr.aria-selected]="idx === selectedIndex()"
+            (mouseenter)="selectedIndex.set(idx)"
+            (click)="selectItem(item)"
+          >
+            <span class="item-cat mono">{{ getCategoryLabel(item.category) }}</span>
+            <div class="item-main">
+              <div class="item-title">{{ item.title }}</div>
+              <div class="item-sub mono">{{ item.subtitle }}</div>
+            </div>
+            <span class="badge badge-neutral">{{ item.badge }}</span>
+          </button>
+        }
+      }
+    </div>
+
+    <footer class="palette-footer">
+      <span><kbd>↑</kbd> <kbd>↓</kbd> Navegar</span>
+      <span><kbd>Enter</kbd> Abrir e inspeccionar</span>
+      <span><kbd>Esc</kbd> Cerrar</span>
+    </footer>
+  </div>
+</dialog>

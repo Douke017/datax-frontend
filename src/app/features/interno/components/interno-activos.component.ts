@@ -1,269 +1,262 @@
-import { Component, computed, effect, inject, OnInit, signal } from '@angular/core';
-import { CommonModule, DatePipe, SlicePipe } from '@angular/common';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { AnalyticsService } from '../../../core/services/analytics.service';
-import { InstitutionStateService } from '../../../core/services/institution-state.service';
+import { InternoService } from '../../../core/services/interno.service';
+import { ToastService } from '../../../core/services/toast.service';
 import {
   DatamartDictionaryDetail,
   DatamartLineageEntry,
-  DatamartRelationshipItem,
   DatamartSummaryItem,
-  GoldDimensions,
   LineageIntegrityCheckResult,
-  PredefinedViewMetadata,
+  ReadOnlySqlResponse,
   SelfServiceAccessLog,
   SelfServiceApiKey
 } from '../../../core/models/analytics.model';
+import { GlobalCatalogSearchResponse } from '../../../core/models/reconciliation.model';
+import { CodeSnippetsPanelComponent } from '../../../shared/components/code-snippets-panel/code-snippets-panel.component';
+import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader.component';
 import {
-  formatInteger,
+  formatIntegerBo,
+  formatIsoDateShort,
+  formatLatencyMs,
   formatMetricCell,
   isNumericMetricColumn
 } from '../../../shared/utils/format.utils';
 
-type ActivosSubTab = 'explorer' | 'dictionary' | 'connectors';
+type DatasetViewTab = 'preview' | 'schema' | 'code' | 'sql';
 
 @Component({
   selector: 'app-interno-activos',
   standalone: true,
-  imports: [CommonModule, FormsModule, SlicePipe, DatePipe],
+  imports: [CommonModule, FormsModule, CodeSnippetsPanelComponent, SkeletonLoaderComponent],
   templateUrl: './interno-activos.component.html',
   styleUrl: './interno-activos.component.css'
 })
-export class InternoActivosComponent implements OnInit {
+export class InternoActivosComponent implements OnInit, OnDestroy {
   private readonly analyticsService = inject(AnalyticsService);
-  private readonly institutionState = inject(InstitutionStateService);
+  readonly internoService = inject(InternoService);
+  readonly toast = inject(ToastService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
-  readonly formatInt = formatInteger;
+  readonly formatInt = formatIntegerBo;
+  readonly formatMs = formatLatencyMs;
+  readonly formatDate = formatIsoDateShort;
 
-  readonly activeSubTab = signal<ActivosSubTab>('explorer');
+  readonly activeViewTab = signal<DatasetViewTab>('preview');
 
-  // Repositorios consolidados multi-fuente (52+ fuentes)
+  // Catálogo de conjuntos de datos disponibles
   readonly datamarts = signal<DatamartSummaryItem[]>([]);
+  readonly datamartsLoading = signal<boolean>(false);
   readonly selectedDatamart = signal<string>('catalogo_series_files');
   readonly materializing = signal<boolean>(false);
-  readonly materializeMessage = signal<string>('');
 
-  // Consulta directa y vistas preestablecidas
-  readonly dimensions = signal<GoldDimensions | null>(null);
-  readonly predefinedViews = signal<PredefinedViewMetadata[]>([]);
-  readonly selectedQueryMode = signal<string>('DIRECT_TABLE');
-  readonly selectedInstitution = signal<string>('');
-  readonly selectedGestion = signal<number | null>(null);
-  readonly selectedMes = signal<number | null>(null);
-  readonly resultLimit = signal<number>(50);
+  // Vista previa automática de datos (sin necesidad de escribir SQL)
+  readonly previewColumns = signal<string[]>([]);
+  readonly previewRows = signal<Record<string, unknown>[]>([]);
+  readonly previewTotalRows = signal<number>(0);
+  readonly previewElapsedMs = signal<number | null>(null);
+  readonly previewLoading = signal<boolean>(false);
+  readonly previewError = signal<string | null>(null);
+  previewLimit = 50;
+  readonly previewFilterText = signal<string>('');
 
-  readonly tableColumns = signal<string[]>([]);
-  readonly tableRecords = signal<Record<string, unknown>[]>([]);
-  readonly totalRecordsCount = signal<number>(0);
-  readonly loadingData = signal<boolean>(false);
+  // Buscador global por nombre de columna o archivo
+  columnSearchQuery = '';
+  readonly columnSearchLoading = signal<boolean>(false);
+  readonly columnSearchResult = signal<GlobalCatalogSearchResponse | null>(null);
 
-  // Catálogo técnico, relaciones y cadena de custodia
+  // Diccionario de columnas y origen documental SHA-256
   readonly dictionary = signal<DatamartDictionaryDetail | null>(null);
-  readonly relationships = signal<DatamartRelationshipItem[]>([]);
   readonly lineageEntries = signal<DatamartLineageEntry[]>([]);
   readonly verificationResults = signal<Record<string, LineageIntegrityCheckResult>>({});
   readonly verifyingAssetId = signal<string | null>(null);
 
-  // Conectores Excel Power Query / Power BI (API Keys)
+  // Filtro SQL opcional (solo lectura)
+  readonly sqlTables = signal<string[]>([]);
+  sqlQueryText = 'SELECT * FROM catalogo_series_files LIMIT 50';
+  sqlLimit = 200;
+  readonly sqlRunning = signal<boolean>(false);
+  readonly sqlError = signal<string | null>(null);
+  readonly sqlResult = signal<ReadOnlySqlResponse | null>(null);
+  readonly sqlExporting = signal<boolean>(false);
+
+  // Llaves API opcionales (dentro de bloque plegable secundario)
   readonly apiKeys = signal<SelfServiceApiKey[]>([]);
   readonly accessLogs = signal<SelfServiceAccessLog[]>([]);
   readonly newlyIssuedKey = signal<SelfServiceApiKey | null>(null);
   readonly creatingKey = signal<boolean>(false);
-  readonly copiedToken = signal<string>('');
+  newKeyLabel = 'Script Ciencia de Datos (Python / R)';
+  newKeyExpiryDays: number | null = 90;
 
-  newKeyLabel = 'Conector Directo Excel Power Query — Ciencia de Datos';
-  newKeyScope = '*';
+  private qpSub?: Subscription;
 
-  readonly activeDatamartSummary = computed<DatamartSummaryItem | undefined>(() =>
+  readonly activeSummary = computed<DatamartSummaryItem | undefined>(() =>
     this.datamarts().find((d) => d.datamart === this.selectedDatamart())
   );
 
-  readonly columnMetaMap = computed<Record<string, { label: string; unit?: string | null }>>(() => {
-    const dict = this.dictionary();
-    const map: Record<string, { label: string; unit?: string | null }> = {};
-    if (dict) {
-      for (const col of dict.columns) {
-        map[col.column_name] = { label: col.business_label, unit: col.unit };
-      }
-    }
-    return map;
+  readonly filteredPreviewRows = computed<Record<string, unknown>[]>(() => {
+    const term = this.previewFilterText().trim().toLowerCase();
+    const rows = this.previewRows();
+    if (!term) return rows;
+    return rows.filter((row) =>
+      Object.values(row).some((val) => val !== null && val !== undefined && String(val).toLowerCase().includes(term))
+    );
   });
 
-  readonly activeFeedUrl = computed<string>(() => {
-    const rawKey = this.newlyIssuedKey()?.raw_api_key || 'INGRESE_SU_LLAVE_DE_ACCESO';
-    return this.analyticsService.buildLiveFeedUrl(this.selectedDatamart(), rawKey, 'csv');
-  });
+  readonly activeRawApiKey = computed<string>(
+    () => this.newlyIssuedKey()?.raw_api_key || this.newlyIssuedKey()?.api_key || ''
+  );
 
-  readonly powerQueryFormula = computed<string>(() => {
-    const url = this.activeFeedUrl();
-    return [
-      'let',
-      `    Origen = Csv.Document(Web.Contents("${url}"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.None]),`,
-      '    EncabezadosPromovidos = Table.PromoteHeaders(Origen, [PromoteAllScalars=true])',
-      'in',
-      '    EncabezadosPromovidos'
-    ].join('\n');
-  });
+  ngOnInit(): void {
+    this.loadDatamartsOverview();
+    this.loadSqlTables();
+    this.loadDatasetContext(this.selectedDatamart());
+    this.loadApiKeysAndLogs();
 
-  private lastSyncedInst = this.institutionState.currentInstitutionId();
-
-  constructor() {
-    effect(() => {
-      const inst = this.institutionState.currentInstitutionId();
-      if (inst && inst !== this.lastSyncedInst) {
-        this.lastSyncedInst = inst;
-        this.selectedInstitution.set(inst.toUpperCase());
-        this.executeCurrentQuery();
+    this.qpSub = this.route.queryParamMap.subscribe((params) => {
+      const dm = params.get('datamart');
+      if (dm && dm !== this.selectedDatamart()) {
+        this.selectDatamart(dm);
       }
     });
   }
 
-  ngOnInit(): void {
-    this.loadDatamartsOverview();
-    this.loadDatamartContext(this.selectedDatamart());
-    this.loadSelfServiceKeysAndLogs();
+  ngOnDestroy(): void {
+    this.qpSub?.unsubscribe();
   }
 
   loadDatamartsOverview(): void {
+    this.datamartsLoading.set(true);
     this.analyticsService.getDatamartsSummary().subscribe({
-      next: (list) => this.datamarts.set(list),
-      error: () => {}
+      next: (list) => {
+        this.datamarts.set(list);
+        this.datamartsLoading.set(false);
+        if (list.length > 0 && !list.some((d) => d.datamart === this.selectedDatamart())) {
+          this.selectDatamart(list[0].datamart);
+        }
+      },
+      error: () => {
+        this.datamartsLoading.set(false);
+      }
+    });
+  }
+
+  loadSqlTables(): void {
+    this.analyticsService.getSqlTables().subscribe({
+      next: (res) => this.sqlTables.set(res.tables || []),
+      error: () => this.sqlTables.set([])
     });
   }
 
   selectDatamart(datamart: string): void {
     this.selectedDatamart.set(datamart);
-    this.selectedInstitution.set('');
-    this.selectedGestion.set(null);
-    this.selectedMes.set(null);
-    this.selectedQueryMode.set('DIRECT_TABLE');
-    this.loadDatamartContext(datamart);
+    this.previewFilterText.set('');
+    this.sqlQueryText = `SELECT * FROM ${datamart} LIMIT 50`;
+    this.sqlResult.set(null);
+    this.sqlError.set(null);
+    this.loadDatasetContext(datamart);
   }
 
-  private loadDatamartContext(datamart: string): void {
-    this.analyticsService.getDimensions(datamart).subscribe({
-      next: (dims) => this.dimensions.set(dims),
-      error: () => this.dimensions.set(null)
-    });
-
-    this.analyticsService.getPredefinedViews(datamart).subscribe({
-      next: (views) => this.predefinedViews.set(views),
-      error: () => this.predefinedViews.set([])
-    });
-
+  loadDatasetContext(datamart: string): void {
+    this.loadPreview(datamart);
     this.analyticsService.getDatamartDictionary(datamart).subscribe({
       next: (dict) => this.dictionary.set(dict),
       error: () => this.dictionary.set(null)
     });
-
-    this.analyticsService.getRelationships(datamart).subscribe({
-      next: (rels) => this.relationships.set(rels),
-      error: () => this.relationships.set([])
-    });
-
-    this.analyticsService.getDatamartLineage(datamart, 60).subscribe({
+    this.analyticsService.getDatamartLineage(datamart, 40).subscribe({
       next: (entries) => this.lineageEntries.set(entries),
       error: () => this.lineageEntries.set([])
     });
-
-    this.executeCurrentQuery();
   }
 
-  executeCurrentQuery(): void {
-    const dm = this.selectedDatamart();
-    const mode = this.selectedQueryMode();
-    this.loadingData.set(true);
-
-    if (mode === 'DIRECT_TABLE') {
-      this.analyticsService
-        .queryDatamart({
-          datamart: dm,
-          institutions: this.selectedInstitution() ? [this.selectedInstitution()] : null,
-          gestiones: this.selectedGestion() !== null ? [this.selectedGestion()!] : null,
-          meses: this.selectedMes() !== null ? [this.selectedMes()!] : null
-        })
-        .subscribe({
-          next: (res) => {
-            const limit = this.resultLimit();
-            this.tableColumns.set(res.columns);
-            this.tableRecords.set(res.records.slice(0, limit));
-            this.totalRecordsCount.set(res.total_records);
-            this.loadingData.set(false);
-          },
-          error: () => {
-            this.tableRecords.set([]);
-            this.totalRecordsCount.set(0);
-            this.loadingData.set(false);
-          }
-        });
-    } else {
-      this.analyticsService
-        .executePredefinedView(mode, {
-          institutions: this.selectedInstitution() ? [this.selectedInstitution()] : null,
-          gestion: this.selectedGestion(),
-          mes: this.selectedMes(),
-          limit: this.resultLimit()
-        })
-        .subscribe({
-          next: (res) => {
-            this.tableColumns.set(res.columns);
-            this.tableRecords.set(res.records);
-            this.totalRecordsCount.set(res.total_records);
-            this.loadingData.set(false);
-          },
-          error: () => {
-            this.tableRecords.set([]);
-            this.totalRecordsCount.set(0);
-            this.loadingData.set(false);
-          }
-        });
-    }
-  }
-
-  onMaterializeAll(): void {
-    this.materializing.set(true);
-    this.materializeMessage.set('Consolidando los 5 repositorios de las 52+ fuentes...');
-    this.analyticsService.materializeGold().subscribe({
+  loadPreview(datamart: string = this.selectedDatamart()): void {
+    this.previewLoading.set(true);
+    this.previewError.set(null);
+    this.analyticsService.queryDatamart({ datamart }).subscribe({
       next: (res) => {
-        this.materializing.set(false);
-        this.materializeMessage.set(
-          `Consolidación completada: ${formatInteger(res.total_gold_records)} registros multi-fuente estructurados y disponibles para consulta.`
-        );
-        this.loadDatamartsOverview();
-        this.loadDatamartContext(this.selectedDatamart());
-        setTimeout(() => this.materializeMessage.set(''), 6000);
+        this.previewColumns.set(res.columns || []);
+        this.previewRows.set((res.records || []).slice(0, Number(this.previewLimit) || 50));
+        this.previewTotalRows.set(res.total_records || 0);
+        this.previewElapsedMs.set(res.execution_time_ms ?? null);
+        this.previewLoading.set(false);
       },
-      error: () => {
-        this.materializing.set(false);
-        this.materializeMessage.set('No fue posible completar la consolidación en este momento.');
+      error: (err) => {
+        this.previewRows.set([]);
+        this.previewColumns.set([]);
+        this.previewTotalRows.set(0);
+        this.previewLoading.set(false);
+        this.previewError.set(
+          err?.error?.detail ||
+            'No se pudo cargar la vista previa. Verifique si el conjunto ya fue consolidado en Parquet.'
+        );
       }
     });
   }
 
-  getExportHref(format: 'xlsx' | 'csv'): string {
-    return this.analyticsService.buildExportUrl(format, {
-      datamart: this.selectedDatamart(),
-      gestion: this.selectedGestion(),
-      mes: this.selectedMes(),
-      institutionId: this.selectedInstitution() || null
+  onSearchColumnsGlobal(): void {
+    const term = this.columnSearchQuery.trim();
+    if (!term) {
+      this.columnSearchResult.set(null);
+      return;
+    }
+    this.columnSearchLoading.set(true);
+    this.internoService.searchGlobalCatalog({ column: term, q: term, limit: 25 }).subscribe({
+      next: (res) => {
+        this.columnSearchResult.set(res);
+        this.columnSearchLoading.set(false);
+      },
+      error: () => {
+        this.columnSearchLoading.set(false);
+        this.toast.error('No se pudo ejecutar la búsqueda por columna');
+      }
     });
   }
 
-  getColumnHeader(col: string): string {
-    const meta = this.columnMetaMap()[col];
-    if (meta?.label) return meta.label;
-    return col.replace(/_/g, ' ');
+  clearColumnSearch(): void {
+    this.columnSearchQuery = '';
+    this.columnSearchResult.set(null);
   }
 
-  isNumericCol(col: string): boolean {
-    const meta = this.columnMetaMap()[col];
-    if (meta?.unit) return true;
-    return isNumericMetricColumn(col);
+  jumpToRawAsset(assetId: string): void {
+    this.router.navigate(['/interno'], {
+      queryParams: { tab: 'custodia', inspect: assetId }
+    });
   }
 
-  formatCell(col: string, val: unknown): string {
-    const unit = this.columnMetaMap()[col]?.unit;
-    return formatMetricCell(col, val, unit);
+  openDatasetFromSearch(datamart: string): void {
+    this.selectDatamart(datamart);
+    this.activeViewTab.set('preview');
+    this.columnSearchResult.set(null);
+  }
+
+  getExportHref(format: 'parquet' | 'csv' | 'jsonl' | 'xlsx'): string {
+    return this.analyticsService.buildExportUrl(format, {
+      datamart: this.selectedDatamart()
+    });
+  }
+
+  onRegenerateParquet(): void {
+    this.materializing.set(true);
+    this.analyticsService.materializeGold().subscribe({
+      next: (res) => {
+        this.materializing.set(false);
+        this.toast.success(
+          'Archivos Parquet actualizados',
+          `${formatIntegerBo(res.total_gold_records)} registros disponibles para descarga.`
+        );
+        this.loadDatamartsOverview();
+        this.loadSqlTables();
+        this.loadDatasetContext(this.selectedDatamart());
+      },
+      error: (err) => {
+        this.materializing.set(false);
+        this.toast.error('No se pudieron regenerar los archivos Parquet', err?.error?.detail || '');
+      }
+    });
   }
 
   onVerifyAsset(assetId: string): void {
@@ -275,14 +268,67 @@ export class InternoActivosComponent implements OnInit {
           [assetId]: res
         });
         this.verifyingAssetId.set(null);
+        if (res.is_valid) {
+          this.toast.success('Integridad SHA-256 confirmada en disco', res.asset_id);
+        } else {
+          this.toast.error('Inconsistencia SHA-256 detectada', res.verification_message);
+        }
       },
       error: () => {
         this.verifyingAssetId.set(null);
+        this.toast.error('Error al verificar integridad del archivo');
       }
     });
   }
 
-  loadSelfServiceKeysAndLogs(): void {
+  insertTableSnippet(tableName: string): void {
+    this.sqlQueryText = `SELECT * FROM ${tableName} LIMIT 50`;
+  }
+
+  onExecuteSql(): void {
+    const sql = this.sqlQueryText.trim();
+    if (!sql) return;
+    this.sqlRunning.set(true);
+    this.sqlError.set(null);
+    this.analyticsService
+      .executeReadOnlySql({ sql, limit: Number(this.sqlLimit) || 200 })
+      .subscribe({
+        next: (res) => {
+          this.sqlResult.set(res);
+          this.sqlRunning.set(false);
+        },
+        error: (err) => {
+          this.sqlRunning.set(false);
+          const msg = err?.error?.detail || 'Consulta rechazada. Solo se permiten sentencias SELECT.';
+          this.sqlError.set(msg);
+          this.toast.error('Consulta SQL rechazada', msg);
+        }
+      });
+  }
+
+  onExportSql(format: 'parquet' | 'csv' | 'jsonl'): void {
+    const sql = this.sqlQueryText.trim();
+    if (!sql) return;
+    this.sqlExporting.set(true);
+    this.analyticsService.exportReadOnlySql(sql, format, 10000).subscribe({
+      next: (blob) => {
+        this.sqlExporting.set(false);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${this.selectedDatamart()}_filtrado.${format}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.toast.success(`Resultado exportado en ${format.toUpperCase()}`);
+      },
+      error: (err) => {
+        this.sqlExporting.set(false);
+        this.toast.error('No se pudo exportar la consulta', err?.error?.detail || '');
+      }
+    });
+  }
+
+  loadApiKeysAndLogs(): void {
     this.analyticsService.getApiKeys().subscribe({
       next: (keys) => this.apiKeys.set(keys),
       error: () => {}
@@ -300,16 +346,20 @@ export class InternoActivosComponent implements OnInit {
     this.analyticsService
       .createApiKey({
         label,
-        allowed_datamarts: this.newKeyScope
+        allowed_datamarts: '*',
+        allowed_layers: ['RAW', 'GOLD', 'SQL'],
+        expires_in_days: this.newKeyExpiryDays ? Number(this.newKeyExpiryDays) : null
       })
       .subscribe({
         next: (created) => {
           this.newlyIssuedKey.set(created);
           this.creatingKey.set(false);
-          this.loadSelfServiceKeysAndLogs();
+          this.loadApiKeysAndLogs();
+          this.toast.success('Llave de acceso creada', 'Cópiela ahora; se integra automáticamente en los fragmentos Python/R.');
         },
-        error: () => {
+        error: (err) => {
           this.creatingKey.set(false);
+          this.toast.error('No se pudo generar la llave', err?.error?.detail || '');
         }
       });
   }
@@ -320,37 +370,23 @@ export class InternoActivosComponent implements OnInit {
         if (this.newlyIssuedKey()?.key_id === keyId) {
           this.newlyIssuedKey.set(null);
         }
-        this.loadSelfServiceKeysAndLogs();
-      }
+        this.loadApiKeysAndLogs();
+        this.toast.warning('Llave revocada', keyId);
+      },
+      error: () => this.toast.error('No se pudo revocar la llave')
     });
   }
 
-  copyText(text: string, tokenName: string): void {
-    navigator.clipboard.writeText(text);
-    this.copiedToken.set(tokenName);
-    setTimeout(() => {
-      if (this.copiedToken() === tokenName) {
-        this.copiedToken.set('');
-      }
-    }, 2500);
+  formatDatasetTitle(dm: DatamartSummaryItem): string {
+    if (dm.title && dm.title.trim()) return dm.title;
+    return dm.datamart.replace(/_/g, ' ');
   }
 
-  formatDatamartName(dm: string): string {
-    switch (dm) {
-      case 'catalogo_series_files':
-        return 'Catálogo de Series y Archivos Fuente (D_BO_* / A_*)';
-      case 'historial_descargas_bruto':
-        return 'Archivos Descargados en Bruto (Download & DAGs)';
-      case 'reportes_conversiones':
-        return 'Reportes Extraídos y Conversiones (D_BO_*_xx)';
-      case 'bases_datos_cubos':
-        return 'Bases de Datos Consolidadas (DB_BO_* / S_BO*) y Cubos';
-      case 'mapa_web_52_fuentes':
-        return 'Mapa Unificado de las 52 Fuentes (Externo ↔ Interno)';
-      case '*':
-        return 'Todos los Repositorios (*)';
-      default:
-        return dm;
-    }
+  isNumericCol(col: string): boolean {
+    return isNumericMetricColumn(col);
+  }
+
+  formatCell(col: string, val: unknown): string {
+    return formatMetricCell(col, val);
   }
 }

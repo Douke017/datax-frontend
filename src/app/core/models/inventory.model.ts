@@ -25,6 +25,8 @@ export interface UrlInventoryResponse {
 export interface UpdateUrlInventoryRequest {
   is_processed?: boolean;
   is_downloaded?: boolean;
+  override_reason?: string;
+  actor?: string;
 }
 
 export interface SourceStatsItem {

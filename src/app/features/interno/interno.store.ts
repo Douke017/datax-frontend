@@ -8,15 +8,21 @@ import {
   withState
 } from '@ngrx/signals';
 import { rxMethod } from '@ngrx/signals/rxjs-interop';
-import { catchError, forkJoin, of, pipe, switchMap, tap } from 'rxjs';
+import { catchError, forkJoin, Observable, of, pipe, switchMap, tap } from 'rxjs';
 import {
+  BatchGatekeeperEvaluateRequest,
+  BatchGatekeeperEvaluateResponse,
   BridgeSyncResponse,
   BronzeArtifactEntry,
+  DeduplicationAuditResponse,
   DerivationEvaluationRequest,
   DerivationEvaluationResult,
   DomainCircuitStatus,
   DownloadStatusItem,
   EnqueueDownloadRequest,
+  EnqueueMissingPeriodsRequest,
+  EnqueueMissingPeriodsResponse,
+  GatekeeperMetricsResponse,
   IngestionEvaluateRequest,
   IngestionEvaluateResponse
 } from '../../core/models/reconciliation.model';
@@ -32,8 +38,14 @@ export interface InternoState {
   lastEvaluation: IngestionEvaluateResponse | null;
   evaluationElapsedMs: number | null;
   isEvaluating: boolean;
+  batchEvaluation: BatchGatekeeperEvaluateResponse | null;
+  isEvaluatingBatch: boolean;
+  gatekeeperMetrics: GatekeeperMetricsResponse | null;
+  dedupAudit: DeduplicationAuditResponse | null;
   derivationResult: DerivationEvaluationResult | null;
   isInspectingDerivation: boolean;
+  deltaResult: EnqueueMissingPeriodsResponse | null;
+  isEnqueuingDelta: boolean;
   downloadsQueue: DownloadStatusItem[];
   activeDownloadsCount: number;
   downloadsLoading: boolean;
@@ -56,8 +68,14 @@ const initialState: InternoState = {
   lastEvaluation: null,
   evaluationElapsedMs: null,
   isEvaluating: false,
+  batchEvaluation: null,
+  isEvaluatingBatch: false,
+  gatekeeperMetrics: null,
+  dedupAudit: null,
   derivationResult: null,
   isInspectingDerivation: false,
+  deltaResult: null,
+  isEnqueuingDelta: false,
   downloadsQueue: [],
   activeDownloadsCount: 0,
   downloadsLoading: false,
@@ -71,13 +89,6 @@ const initialState: InternoState = {
   pageSize: 20
 };
 
-const MONITORED_DOMAINS = [
-  'www.asfi.gob.bo',
-  'www.bcb.gob.bo',
-  'www.finrural.org.bo',
-  'www.bbv.com.bo'
-];
-
 export const InternoStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
@@ -89,93 +100,79 @@ export const InternoStore = signalStore(
       searchQuery,
       verifiedArtifacts,
       circuitBreakers
-    }) => {
-      return {
-        filteredArtifacts: () => {
-          let list = artifacts();
-
-          const src = sourceFilter();
-          if (src !== 'ALL') {
-            list = list.filter(
-              (a) =>
-                a.dataset_code.toLowerCase().includes(src.toLowerCase()) ||
-                a.domain.toLowerCase().includes(src.toLowerCase())
-            );
-          }
-
-          const period = periodFilter();
-          if (period !== 'ALL') {
-            list = list.filter((a) => a.period === period);
-          }
-
-          const query = searchQuery().toLowerCase().trim();
-          if (query) {
-            list = list.filter(
-              (a) =>
-                a.file_path.toLowerCase().includes(query) ||
-                a.sha256_hash.toLowerCase().includes(query) ||
-                a.dataset_code.toLowerCase().includes(query)
-            );
-          }
-
-          return list;
-        },
-        totalArtifactsCount: () => artifacts().length,
-        totalBytesCustodyFormatted: () => {
-          const total = artifacts().reduce((acc, curr) => acc + (curr.size_bytes || 0), 0);
-          return formatBytes(total);
-        },
-        verifiedCount: () => Object.keys(verifiedArtifacts()).length,
-        integrityRate: () => {
-          const total = artifacts().length;
-          if (total === 0) return '100,00%';
-          const verified = Object.keys(verifiedArtifacts()).length;
-          return formatPercentage((verified / total) * 100);
-        },
-        allCircuitsOperational: () => {
-          const cbs = circuitBreakers();
-          if (cbs.length === 0) return true;
-          return cbs.every((cb) => cb.status === 'CLOSED');
-        },
-        uniqueSources: () => {
-          const set = new Set<string>();
-          artifacts().forEach((a) => set.add(a.dataset_code));
-          return Array.from(set).sort();
-        },
-        uniquePeriods: () => {
-          const set = new Set<string>();
-          artifacts().forEach((a) => {
-            if (a.period) set.add(a.period);
-          });
-          return Array.from(set).sort().reverse();
+    }) => ({
+      filteredArtifacts: () => {
+        let list = artifacts();
+        const src = sourceFilter();
+        if (src !== 'ALL') {
+          list = list.filter(
+            (a) =>
+              a.dataset_code.toLowerCase().includes(src.toLowerCase()) ||
+              a.domain.toLowerCase().includes(src.toLowerCase())
+          );
         }
-      };
-    }
-  ),
-  withComputed(({ filteredArtifacts, currentPage, pageSize }) => {
-    return {
-      totalFiltered: () => filteredArtifacts().length,
-      totalPages: () => Math.max(1, Math.ceil(filteredArtifacts().length / pageSize())),
-      pagedArtifacts: () => {
-        const list = filteredArtifacts();
-        const start = (currentPage() - 1) * pageSize();
-        return list.slice(start, start + pageSize());
+        const period = periodFilter();
+        if (period !== 'ALL') {
+          list = list.filter((a) => a.period === period);
+        }
+        const query = searchQuery().toLowerCase().trim();
+        if (query) {
+          list = list.filter(
+            (a) =>
+              a.file_path.toLowerCase().includes(query) ||
+              a.sha256_hash.toLowerCase().includes(query) ||
+              a.dataset_code.toLowerCase().includes(query) ||
+              a.artifact_id.toLowerCase().includes(query)
+          );
+        }
+        return list;
       },
-      paginationRange: () => {
-        const total = filteredArtifacts().length;
-        if (total === 0) return { start: 0, end: 0 };
-        const start = (currentPage() - 1) * pageSize() + 1;
-        const end = Math.min(currentPage() * pageSize(), total);
-        return { start, end };
+      totalArtifactsCount: () => artifacts().length,
+      totalBytesCustodyFormatted: () => {
+        const total = artifacts().reduce((acc, curr) => acc + (curr.size_bytes || 0), 0);
+        return formatBytes(total);
+      },
+      verifiedCount: () => Object.keys(verifiedArtifacts()).length,
+      integrityRate: () => {
+        const total = artifacts().length;
+        if (total === 0) return '100,00%';
+        const verified = Object.keys(verifiedArtifacts()).length;
+        return formatPercentage((verified / total) * 100);
+      },
+      allCircuitsOperational: () => {
+        const cbs = circuitBreakers();
+        if (cbs.length === 0) return true;
+        return cbs.every((cb) => cb.status === 'CLOSED');
+      },
+      uniqueSources: () => {
+        const set = new Set<string>();
+        artifacts().forEach((a) => set.add(a.dataset_code));
+        return Array.from(set).sort();
+      },
+      uniquePeriods: () => {
+        const set = new Set<string>();
+        artifacts().forEach((a) => {
+          if (a.period) set.add(a.period);
+        });
+        return Array.from(set).sort().reverse();
       }
-    };
-  }),
+    })
+  ),
+  withComputed(({ filteredArtifacts, currentPage, pageSize }) => ({
+    totalFiltered: () => filteredArtifacts().length,
+    totalPages: () => Math.max(1, Math.ceil(filteredArtifacts().length / Math.max(1, pageSize()))),
+    pagedArtifacts: () => {
+      const list = filteredArtifacts();
+      const start = (currentPage() - 1) * pageSize();
+      return list.slice(start, start + pageSize());
+    }
+  })),
   withMethods((store, service = inject(InternoService)) => {
     const loadArtifactsMethod = rxMethod<void>(
       pipe(
         tap(() => patchState(store, { loading: true, error: null })),
-        switchMap(() => {
-          return service.getArtifacts().pipe(
+        switchMap(() =>
+          service.getArtifacts().pipe(
             tap((artifacts) => {
               const verifiedMap: Record<string, boolean> = {};
               artifacts.forEach((a) => {
@@ -186,41 +183,42 @@ export const InternoStore = signalStore(
               patchState(store, {
                 artifacts,
                 verifiedArtifacts: verifiedMap,
-                loading: false
+                loading: false,
+                error: null
               });
             }),
-            catchError(() => {
+            catchError((err) => {
+              const status = err?.status ? `HTTP ${err.status}` : 'Error de red';
               patchState(store, {
                 loading: false,
-                error: 'No fue posible consultar el repositorio de custodia documental.'
+                error: `${status}: No fue posible consultar la custodia documental de Prospector Interno (:8001).`
               });
               return of([]);
             })
-          );
-        })
+          )
+        )
       )
     );
 
-    const loadCircuitBreakersMethod = rxMethod<void>(
+    const loadTelemetryMethod = rxMethod<void>(
       pipe(
-        switchMap(() => {
-          const requests = MONITORED_DOMAINS.map((domain) =>
-            service.getCircuitBreaker(domain).pipe(
-              catchError(() =>
-                of({
-                  domain,
-                  status: 'CLOSED' as const,
-                  failure_count: 0,
-                  cooldown_remaining_seconds: 0
-                })
-              )
-            )
-          );
-          return forkJoin(requests).pipe(
-            tap((cbs) => patchState(store, { circuitBreakers: cbs })),
-            catchError(() => of(null))
-          );
-        })
+        switchMap(() =>
+          forkJoin({
+            metrics: service.getGatekeeperMetrics().pipe(catchError(() => of(null))),
+            dedup: service.getDeduplicationAudit(100).pipe(catchError(() => of(null))),
+            breakers: service
+              .getDownloadCircuitBreakers()
+              .pipe(catchError(() => of({ domains: [] })))
+          }).pipe(
+            tap(({ metrics, dedup, breakers }) => {
+              patchState(store, {
+                gatekeeperMetrics: metrics,
+                dedupAudit: dedup,
+                circuitBreakers: breakers.domains || []
+              });
+            })
+          )
+        )
       )
     );
 
@@ -248,11 +246,17 @@ export const InternoStore = signalStore(
     return {
       loadAll: () => {
         loadArtifactsMethod();
-        loadCircuitBreakersMethod();
         loadDownloadsMethod(undefined);
+        loadTelemetryMethod();
       },
-      loadDownloads: (sourceId?: string) => {
-        loadDownloadsMethod(sourceId);
+      loadArtifacts: () => loadArtifactsMethod(),
+      loadDownloads: (sourceId?: string) => loadDownloadsMethod(sourceId),
+      loadTelemetry: () => loadTelemetryMethod(),
+      applyDownloadsSnapshot: (downloads: DownloadStatusItem[], totalActive: number) => {
+        patchState(store, {
+          downloadsQueue: downloads,
+          activeDownloadsCount: totalActive
+        });
       },
       setSourceFilter: (source: string) => {
         patchState(store, { sourceFilter: source, currentPage: 1 });
@@ -268,84 +272,124 @@ export const InternoStore = signalStore(
       },
       setPage: (page: number) => {
         const max = store.totalPages();
-        if (page >= 1 && page <= max) {
-          patchState(store, { currentPage: page });
-        }
+        patchState(store, { currentPage: Math.max(1, Math.min(page, max)) });
       },
       setPageSize: (size: number) => {
         patchState(store, { pageSize: size, currentPage: 1 });
       },
-      evaluateAdmission: (req: IngestionEvaluateRequest) => {
+      evaluateAdmission: (req: IngestionEvaluateRequest): Observable<IngestionEvaluateResponse> => {
         const t0 = performance.now();
         patchState(store, { isEvaluating: true });
-        service.evaluateGatekeeper(req).subscribe({
-          next: (res) => {
+        return service.evaluateGatekeeper({ mode: 'DRY_RUN', ...req }).pipe(
+          tap((res) => {
             const elapsed = Math.round(performance.now() - t0);
             patchState(store, {
               lastEvaluation: res,
-              evaluationElapsedMs: elapsed,
+              evaluationElapsedMs: res.latency_ms ?? elapsed,
               isEvaluating: false
             });
-            loadDownloadsMethod(undefined);
-          },
-          error: () => {
+            loadTelemetryMethod();
+          }),
+          catchError((err) => {
             patchState(store, { isEvaluating: false });
-          }
-        });
+            throw err;
+          })
+        );
       },
-      inspectDerivation: (req: DerivationEvaluationRequest) => {
-        patchState(store, { isInspectingDerivation: true });
-        service.inspectDerivation(req).subscribe({
-          next: (res) => {
+      evaluateBatch: (
+        req: BatchGatekeeperEvaluateRequest
+      ): Observable<BatchGatekeeperEvaluateResponse> => {
+        patchState(store, { isEvaluatingBatch: true });
+        return service.evaluateGatekeeperBatch({ mode: 'DRY_RUN', ...req }).pipe(
+          tap((res) => {
+            patchState(store, {
+              batchEvaluation: res,
+              isEvaluatingBatch: false
+            });
+            loadTelemetryMethod();
+          }),
+          catchError((err) => {
+            patchState(store, { isEvaluatingBatch: false });
+            throw err;
+          })
+        );
+      },
+      inspectDerivation: (req: DerivationEvaluationRequest): Observable<DerivationEvaluationResult> => {
+        patchState(store, { isInspectingDerivation: true, deltaResult: null });
+        return service.inspectDerivation(req).pipe(
+          tap((res) => {
             patchState(store, {
               derivationResult: res,
               isInspectingDerivation: false
             });
-          },
-          error: () => {
+          }),
+          catchError((err) => {
             patchState(store, { isInspectingDerivation: false });
-          }
-        });
+            throw err;
+          })
+        );
       },
-      enqueueDownloadTask: (req: EnqueueDownloadRequest) => {
-        patchState(store, { downloadsLoading: true });
-        service.enqueueDownload(req).subscribe({
-          next: () => {
+      enqueueMissingPeriods: (
+        req: EnqueueMissingPeriodsRequest
+      ): Observable<EnqueueMissingPeriodsResponse> => {
+        patchState(store, { isEnqueuingDelta: true });
+        return service.enqueueMissingPeriods(req).pipe(
+          tap((res) => {
+            patchState(store, {
+              deltaResult: res,
+              isEnqueuingDelta: false
+            });
             loadDownloadsMethod(undefined);
-          },
-          error: () => {
+          }),
+          catchError((err) => {
+            patchState(store, { isEnqueuingDelta: false });
+            throw err;
+          })
+        );
+      },
+      enqueueDownloadTask: (req: EnqueueDownloadRequest): Observable<DownloadStatusItem> => {
+        patchState(store, { downloadsLoading: true });
+        return service.enqueueDownload(req).pipe(
+          tap(() => {
+            loadDownloadsMethod(undefined);
+          }),
+          catchError((err) => {
             patchState(store, { downloadsLoading: false });
-          }
-        });
+            throw err;
+          })
+        );
+      },
+      retryDownloadTask: (downloadId: string): Observable<DownloadStatusItem> => {
+        return service.retryDownload(downloadId).pipe(
+          tap(() => loadDownloadsMethod(undefined))
+        );
+      },
+      cancelDownloadTask: (downloadId: string): Observable<DownloadStatusItem> => {
+        return service.cancelDownload(downloadId).pipe(
+          tap(() => loadDownloadsMethod(undefined))
+        );
       },
       resetDomainCircuit: (domain: string) => {
         service.resetCircuitBreaker(domain).subscribe({
-          next: () => {
-            loadCircuitBreakersMethod();
-          }
+          next: () => loadTelemetryMethod()
         });
       },
-      verifyArtifactIntegrity: (artifactId: string) => {
-        const current = store.verifiedArtifacts();
-        patchState(store, {
-          verifiedArtifacts: { ...current, [artifactId]: true }
-        });
-      },
-      runSyncBatch: (sourceId: string) => {
+      runSyncBatch: (sourceId: string): Observable<BridgeSyncResponse> => {
         patchState(store, { syncing: true });
-        service.sync({ source_id: sourceId, batch_size: 5, execute_downloads: true }).subscribe({
-          next: (res) => {
+        return service.sync({ source_id: sourceId, batch_size: 5, execute_downloads: true }).pipe(
+          tap((res) => {
             patchState(store, {
               syncing: false,
               lastSyncResult: res
             });
             loadArtifactsMethod();
             loadDownloadsMethod(undefined);
-          },
-          error: () => {
+          }),
+          catchError((err) => {
             patchState(store, { syncing: false });
-          }
-        });
+            throw err;
+          })
+        );
       }
     };
   }),

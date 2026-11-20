@@ -1,308 +1,189 @@
-<div class="runs-container">
-  <section class="storage-card">
-    <div class="storage-card-header">
-      <div class="title-with-badge">
-        <h2 class="card-title">Estado del Repositorio Documental y Respaldos Atómicos</h2>
-        @if (store.storageStatus(); as st) {
-          <span
-            class="badge"
-            [class.badge-ok]="st.status === 'HEALTHY'"
-            [class.badge-warn]="st.status !== 'HEALTHY'"
-          >
-            {{ st.status === 'HEALTHY' ? 'OPERATIVO' : 'OBSERVADO' }}
-          </span>
-        } @else {
-          <span class="badge badge-neutral">CONSULTANDO</span>
+<div class="runs-view">
+  <section class="trigger-bar" aria-label="Control de corridas en vivo">
+    <div class="trigger-left">
+      <label for="run-src-select">Alcance de corrida:</label>
+      <select id="run-src-select" class="select-input" [(ngModel)]="selectedTargetSource">
+        <option value="ALL">Todas las fuentes elegibles</option>
+        @for (src of store.sources(); track src.source_id) {
+          <option [value]="src.source_id">{{ src.source_id.toUpperCase() }} — {{ src.name }}</option>
         }
-      </div>
-
-      <div class="header-actions">
-        <button
-          type="button"
-          class="btn-secondary"
-          [disabled]="store.storageLoading()"
-          (click)="store.loadStorageStatus()"
-        >
-          Actualizar Estado
-        </button>
-        <button
-          type="button"
-          class="btn-primary"
-          [disabled]="store.storageLoading()"
-          (click)="onTriggerBackup()"
-        >
-          @if (store.storageLoading()) {
-            <span>Generando respaldo...</span>
-          } @else {
-            <span>Generar Respaldo Atómico</span>
-          }
-        </button>
-      </div>
-    </div>
-
-    @if (store.storageMessage()) {
-      <div class="notice-banner">
-        <span class="notice-text">{{ store.storageMessage() }}</span>
-      </div>
-    }
-
-    @if (store.storageStatus(); as st) {
-      <div class="storage-grid">
-        <div class="storage-box">
-          <span class="storage-label">REPOSITORIO DOCUMENTAL PRIMARIO</span>
-          <div class="storage-status-row">
-            <span
-              class="dot"
-              [class.dot-green]="st.mongo_connected"
-              [class.dot-red]="!st.mongo_connected"
-            ></span>
-            <span class="storage-value">
-              {{ st.mongo_connected ? 'CONEXIÓN ACTIVA Y SINCRONIZADA' : 'MODO CONTINGENCIA LOCAL' }}
-            </span>
-          </div>
-          <span class="storage-sub">Catálogo activo: {{ st.mongo_database }}</span>
-          <div class="collection-pills">
-            <span class="col-pill">URLs Exploradas: {{ formatInt(st.collections.discovered_urls) }}</span>
-            <span class="col-pill">Archivos Indexados: {{ formatInt(st.collections.resource_candidates) }}</span>
-            <span class="col-pill">Portales Registrados: {{ formatInt(st.collections.sources) }}</span>
-            <span class="col-pill">Corridas Auditadas: {{ formatInt(st.collections.runs) }}</span>
-          </div>
-        </div>
-
-        <div class="storage-box">
-          <span class="storage-label">RESPALDO ATÓMICO DE CONTINUIDAD</span>
-          <div class="storage-status-row">
-            <span
-              class="dot"
-              [class.dot-green]="st.local_state_healthy"
-              [class.dot-red]="!st.local_state_healthy"
-            ></span>
-            <span class="storage-value">
-              {{ st.local_state_healthy ? 'CATÁLOGO ÍNTEGRO Y VERIFICADO' : 'REQUIERE VERIFICACIÓN' }}
-            </span>
-          </div>
-          <span class="storage-sub">
-            {{ formatInt(st.local_sources_count) }} Portales Registrados | {{ formatInt(st.local_resources_count) }} Archivos Respaldados
-          </span>
-          <div class="collection-pills">
-            <span class="col-pill">Instantáneas Generadas: {{ formatInt(st.backups_count) }}</span>
-            <span class="col-pill">
-              Último Respaldo:
-              {{ st.last_backup_at ? (st.last_backup_at | date:'dd/MM/yyyy HH:mm') : 'Sin registro previo' }}
-            </span>
-          </div>
-        </div>
-      </div>
-    }
-  </section>
-
-  <section class="runs-section">
-    <div class="section-top">
-      <div>
-        <h2 class="card-title">Auditoría Histórica de Corridas de Rastreo</h2>
-        <p class="section-desc">
-          Trazabilidad de ejecuciones programadas y bajo demanda, cobertura de navegación HTTP y motivos de conclusión por portal.
-        </p>
-      </div>
+      </select>
       <button
         type="button"
-        class="btn-secondary"
-        (click)="store.loadAll()"
-        [disabled]="store.loading()"
+        class="btn-primary btn-sm"
+        [disabled]="store.triggeringSourceId() !== null"
+        (click)="onTriggerRun()"
       >
-        Actualizar Historial
+        {{ store.triggeringSourceId() ? 'Iniciando...' : 'Iniciar Corrida Dirigida' }}
       </button>
     </div>
 
-    @if (store.runs().length === 0) {
-      <div class="empty-runs">
-        <p class="empty-title">Sin corridas registradas en el período actual</p>
-        <p class="empty-sub">
-          Inicie una corrida desde "Estado de Portales" para auditar métricas de cobertura y peticiones HTTP.
-        </p>
-      </div>
-    } @else {
-      <div class="runs-layout">
-        <div class="runs-list-panel">
-          <div class="runs-table-wrapper">
-            <table class="runs-table">
-              <thead>
-                <tr>
-                  <th>Identificador de Corrida</th>
-                  <th>Fecha de Inicio</th>
-                  <th>Duración</th>
-                  <th>Portales Evaluados</th>
-                  <th>Resultado</th>
-                  <th>Inspección</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (run of store.runs(); track run.run_id) {
-                  <tr
-                    class="run-row"
-                    [class.selected]="activeRun()?.run_id === run.run_id"
-                    (click)="selectRun(run)"
+    <div class="trigger-right">
+      @if (store.activeRunId(); as activeId) {
+        <span class="badge" [class.badge-info]="sseConnected()" [class.badge-neutral]="!sseConnected()">
+          {{ sseConnected() ? 'SSE EN VIVO: ' + activeId : 'ÚLTIMA: ' + activeId }}
+        </span>
+        <button
+          type="button"
+          class="btn-danger btn-sm"
+          [disabled]="cancelling()"
+          (click)="onCancelRun(activeId)"
+        >
+          {{ cancelling() ? 'Cancelando...' : 'Cancelar Corrida' }}
+        </button>
+      }
+      <button type="button" class="btn-secondary btn-sm" (click)="store.refreshRuns()">
+        Refrescar Historial
+      </button>
+    </div>
+  </section>
+
+  @if (liveEvents().length > 0) {
+    <section class="sse-card" aria-label="Stream de progreso SSE">
+      <header class="sse-head">
+        <h3>Progreso en Tiempo Real (SSE)</h3>
+        <button type="button" class="btn-ghost btn-sm" (click)="liveEvents.set([])">Limpiar log</button>
+      </header>
+      <ul class="sse-log mono">
+        @for (ev of liveEvents(); track ev.timestamp + ev.event + $index) {
+          <li>
+            <span class="sse-time">{{ ev.timestamp.slice(11, 19) }}</span>
+            <span class="badge badge-info">{{ ev.event }}</span>
+            <span class="sse-data">{{ formatEventData(ev.data) }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+
+  <div class="runs-grid">
+    <section class="runs-panel" aria-label="Historial de corridas de extracción">
+      <h3>Historial de Corridas ({{ formatInt(store.runs().length) }})</h3>
+      <div class="table-container" role="region" tabindex="0" aria-label="Tabla de corridas">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th scope="col">ID Corrida</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Inicio</th>
+              <th scope="col">Duración</th>
+              <th scope="col" class="num-col">Procesadas</th>
+              <th scope="col" class="num-col">Fallos</th>
+              <th scope="col">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (run of store.runs(); track run.run_id) {
+              <tr
+                class="clickable-row"
+                [class.selected-row]="activeRun()?.run_id === run.run_id"
+                (click)="selectRun(run)"
+              >
+                <td class="mono">{{ run.run_id }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    [class.badge-success]="(run.status || 'COMPLETED') === 'COMPLETED'"
+                    [class.badge-warning]="run.status === 'CANCELLED' || run.status === 'RUNNING'"
+                    [class.badge-danger]="run.status === 'FAILED'"
                   >
-                    <td class="font-mono text-primary font-bold">{{ run.run_id }}</td>
-                    <td class="text-subtle font-mono">
-                      {{ run.started_at | date:'dd/MM/yyyy HH:mm:ss' }}
-                    </td>
-                    <td class="font-mono">
-                      {{ calculateDuration(run.started_at, run.finished_at) }}
-                    </td>
-                    <td>
-                      <span class="badge-portals">
-                        {{ run.sources_processed }} / {{ run.sources_selected }} procesados
-                      </span>
-                    </td>
-                    <td>
-                      <span
-                        class="status-chip"
-                        [class.chip-success]="run.sources_failed === 0"
-                        [class.chip-warn]="run.sources_failed > 0"
-                      >
-                        {{ run.sources_failed === 0 ? 'Completado' : 'Con Observaciones' }}
-                      </span>
-                    </td>
-                    <td>
+                    {{ run.status || 'COMPLETED' }}
+                  </span>
+                </td>
+                <td class="mono">{{ formatDate(run.started_at) }}</td>
+                <td class="mono tabular-nums">{{ calculateDuration(run.started_at, run.finished_at) }}</td>
+                <td class="mono tabular-nums num-col">{{ run.sources_processed }}/{{ run.sources_selected }}</td>
+                <td class="mono tabular-nums num-col">{{ run.sources_failed }}</td>
+                <td (click)="$event.stopPropagation()">
+                  <div class="row-btns">
+                    <button
+                      type="button"
+                      class="btn-secondary btn-sm"
+                      (click)="connectRunStream(run.run_id)"
+                    >
+                      Stream
+                    </button>
+                    @if (run.status === 'RUNNING') {
                       <button
                         type="button"
-                        class="btn-inspect"
-                        [class.active]="activeRun()?.run_id === run.run_id"
-                        (click)="selectRun(run); $event.stopPropagation()"
+                        class="btn-danger btn-sm"
+                        (click)="onCancelRun(run.run_id)"
                       >
-                        Ver Cobertura
+                        Cancelar
                       </button>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="empty-td">Aún no se registran corridas de extracción.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="storage-panel" aria-label="Estado de almacenamiento y respaldos atómicos">
+      <h3>Almacenamiento y Respaldos Atómicos</h3>
+      @if (store.storageStatus(); as st) {
+        <dl class="st-kv mono tabular-nums">
+          <div class="st-row">
+            <dt>Estado Motor</dt>
+            <dd>
+              <span
+                class="badge"
+                [class.badge-success]="st.status === 'HEALTHY'"
+                [class.badge-warning]="st.status === 'DEGRADED'"
+                [class.badge-danger]="st.status === 'OFFLINE'"
+              >
+                {{ st.status }}
+              </span>
+            </dd>
+          </div>
+          <div class="st-row">
+            <dt>Motor Activo</dt>
+            <dd>{{ st.database_type }} ({{ st.mongo_database }})</dd>
+          </div>
+          <div class="st-row">
+            <dt>Fuentes / Recursos</dt>
+            <dd>{{ formatInt(st.collections.sources) }} / {{ formatInt(st.collections.resource_candidates) }}</dd>
+          </div>
+          <div class="st-row">
+            <dt>Respaldos Locales</dt>
+            <dd>{{ formatInt(st.backups_count) }}</dd>
+          </div>
+          <div class="st-row">
+            <dt>Último Respaldo</dt>
+            <dd>{{ formatDate(st.last_backup_at) }}</dd>
+          </div>
+        </dl>
+      }
+      <button
+        type="button"
+        class="btn-secondary"
+        [disabled]="store.storageLoading()"
+        (click)="onTriggerBackup()"
+      >
+        {{ store.storageLoading() ? 'Generando respaldo...' : 'Generar Instantánea de Respaldo' }}
+      </button>
+      @if (store.storageMessage()) {
+        <p class="storage-msg mono">{{ store.storageMessage() }}</p>
+      }
+
+      @if (activeRun(); as ar) {
+        <div class="run-detail-box">
+          <h4>Resumen Cobertura — {{ ar.run_id }}</h4>
+          @let cov = aggregateCoverage(ar);
+          <div class="cov-grid mono tabular-nums">
+            <div><span>Páginas:</span> <strong>{{ formatInt(cov.pages_visited) }}</strong></div>
+            <div><span>URLs:</span> <strong>{{ formatInt(cov.urls_discovered) }}</strong></div>
+            <div><span>Archivos:</span> <strong>{{ formatInt(cov.resources_found) }}</strong></div>
+            <div><span>Errores:</span> <strong>{{ formatInt(cov.urls_failed) }}</strong></div>
           </div>
         </div>
-
-        @if (activeRun(); as run) {
-          <div class="run-detail-card">
-            <div class="detail-header">
-              <div>
-                <span class="sub-heading">TRAZABILIDAD DE EJECUCIÓN</span>
-                <h3 class="detail-title font-mono">{{ run.run_id }}</h3>
-              </div>
-              <div class="time-range-box font-mono">
-                <span>Inicio: <strong>{{ run.started_at | date:'dd/MM/yyyy HH:mm:ss' }}</strong></span>
-                <span>Conclusión: <strong>{{ run.finished_at | date:'dd/MM/yyyy HH:mm:ss' }}</strong></span>
-              </div>
-            </div>
-
-            @if (aggregateCoverage(run); as cov) {
-              <div class="coverage-grid">
-                <div class="cov-item">
-                  <span class="cov-label">PÁGINAS VISITADAS</span>
-                  <span class="cov-val text-blue font-mono">{{ formatInt(cov.pages_visited) }}</span>
-                  <span class="cov-sub">Secciones institucionales</span>
-                </div>
-
-                <div class="cov-item">
-                  <span class="cov-label">ENLACES DESCUBIERTOS</span>
-                  <span class="cov-val font-mono">{{ formatInt(cov.urls_discovered) }}</span>
-                  <span class="cov-sub">Rutas evaluadas en rastreo</span>
-                </div>
-
-                <div class="cov-item">
-                  <span class="cov-label">ARCHIVOS INDEXADOS</span>
-                  <span class="cov-val text-green font-mono">{{ formatInt(cov.resources_found) }}</span>
-                  <span class="cov-sub">Documentos válidos registrados</span>
-                </div>
-
-                <div class="cov-item highlight-item">
-                  <span class="cov-label">PETICIONES HTTP</span>
-                  <span class="cov-val text-amber font-mono">{{ formatInt(cov.requests_total) }}</span>
-                  <span class="cov-sub">Con intervalo de cortesía</span>
-                </div>
-
-                <div class="cov-item">
-                  <span class="cov-label">INCIDENCIAS DE RED</span>
-                  <span class="cov-val font-mono" [class.text-red]="cov.urls_failed > 0">
-                    {{ formatInt(cov.urls_failed) }}
-                  </span>
-                  <span class="cov-sub">Intentos fallidos o expirados</span>
-                </div>
-              </div>
-            }
-
-            <div class="source-results-section">
-              <h4 class="sub-title">
-                Desglose Operativo por Portal ({{ run.source_results.length }})
-              </h4>
-              <div class="results-table-wrapper">
-                <table class="inner-table">
-                  <thead>
-                    <tr>
-                      <th>Portal</th>
-                      <th>Módulo de Extracción</th>
-                      <th>Ejecución</th>
-                      <th>Novedades</th>
-                      <th>Páginas</th>
-                      <th>Archivos Hallados</th>
-                      <th>Motivo de Conclusión</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (sr of run.source_results; track sr.observation_id) {
-                      <tr>
-                        <td class="font-bold text-main font-mono">
-                          {{ sr.source_id.toUpperCase() }}
-                        </td>
-                        <td>
-                          <span class="badge-wf font-mono">{{ sr.workflow }}</span>
-                        </td>
-                        <td>
-                          <span
-                            class="status-chip"
-                            [class.chip-success]="
-                              sr.execution_status === 'SUCCESS' ||
-                              sr.execution_status === 'PARTIAL_SUCCESS'
-                            "
-                            [class.chip-warn]="sr.execution_status === 'FAILED'"
-                          >
-                            {{
-                              sr.execution_status === 'PARTIAL_SUCCESS'
-                                ? 'Parcialmente Exitoso'
-                                : sr.execution_status === 'SUCCESS'
-                                  ? 'Exitoso'
-                                  : 'Fallido'
-                            }}
-                          </span>
-                        </td>
-                        <td>
-                          <span
-                            class="chip-content"
-                            [class.content-changed]="sr.content_status === 'CHANGED'"
-                            [class.content-unchanged]="sr.content_status === 'UNCHANGED'"
-                          >
-                            {{
-                              sr.content_status === 'CHANGED'
-                                ? 'Nuevos Archivos'
-                                : 'Sin Cambios'
-                            }}
-                          </span>
-                        </td>
-                        <td class="font-mono text-center">{{ formatInt(sr.coverage.pages_visited) }}</td>
-                        <td class="font-mono text-center font-bold text-green">
-                          {{ formatInt(sr.coverage.resources_found) }}
-                        </td>
-                        <td class="text-subtle font-mono text-xs">
-                          {{ formatStopReason(sr.coverage.stop_reason) }}
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        }
-      </div>
-    }
-  </section>
+      }
+    </aside>
+  </div>
 </div>

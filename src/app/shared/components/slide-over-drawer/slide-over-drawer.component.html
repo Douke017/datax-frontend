@@ -1,0 +1,64 @@
+<dialog
+  #drawerDialog
+  class="slide-drawer"
+  [class.drawer-md]="size() === 'md'"
+  [class.drawer-lg]="size() === 'lg'"
+  [class.drawer-xl]="size() === 'xl'"
+  closedby="any"
+  [attr.aria-labelledby]="titleId"
+  (close)="onDialogClosed()"
+  (pointerdown)="onPointerDown($event)"
+  (pointerup)="onPointerUp($event)"
+>
+  <div class="drawer-shell">
+    <header class="drawer-header">
+      <div class="drawer-heading">
+        <div class="drawer-title-row">
+          <h2 [id]="titleId" class="drawer-title">{{ title() }}</h2>
+          @if (badge()) {
+            <span class="badge badge-info">{{ badge() }}</span>
+          }
+        </div>
+        @if (subtitle()) {
+          <p class="drawer-subtitle mono">{{ subtitle() }}</p>
+        }
+      </div>
+      <button
+        type="button"
+        class="btn-secondary btn-sm drawer-close-btn"
+        autofocus
+        (click)="onRequestClose()"
+      >
+        Cerrar (Esc)
+      </button>
+    </header>
+
+    @if (tabs().length > 0) {
+      <div class="drawer-tabs" role="tablist" aria-label="Secciones de inspección">
+        @for (tab of tabs(); track tab.id) {
+          <button
+            type="button"
+            role="tab"
+            class="drawer-tab"
+            [class.active]="activeTab() === tab.id"
+            [attr.aria-selected]="activeTab() === tab.id"
+            (click)="selectTab(tab.id)"
+          >
+            <span>{{ tab.label }}</span>
+            @if (tab.badge !== undefined && tab.badge !== null && tab.badge !== '') {
+              <span class="drawer-tab-badge mono tabular-nums">{{ tab.badge }}</span>
+            }
+          </button>
+        }
+      </div>
+    }
+
+    <div class="drawer-body">
+      <ng-content />
+    </div>
+
+    <div class="drawer-footer-slot">
+      <ng-content select="[drawer-footer]" />
+    </div>
+  </div>
+</dialog>

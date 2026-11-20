@@ -1,0 +1,65 @@
+.snippets-panel {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  overflow: hidden;
+}
+
+.snippets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--bg-surface-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+}
+
+.snippets-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.snippet-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.snippet-tab:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-main);
+}
+
+.snippet-tab.active {
+  background: var(--primary-light);
+  border-color: rgba(37, 99, 235, 0.45);
+  color: #93c5fd;
+}
+
+.tab-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-medium);
+  margin: 0 4px;
+}
+
+.snippet-tab-secondary {
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+
+.snippet-code {
+  padding: 14px;
+  overflow-x: auto;
+  color: #e2e8f0;
+  line-height: 1.55;
+  margin: 0;
+  font-size: 12px;
+}

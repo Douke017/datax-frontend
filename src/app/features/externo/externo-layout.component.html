@@ -7,19 +7,15 @@
           {{ serviceLabel() }}
         </span>
       </div>
-      <h1 class="module-title">Exploración, Rastreo Dirigido y Resiliencia de Portales Públicos</h1>
+      <h1 class="module-title">Exploración Web Abierta, Extracción Dirigida y Resiliencia de Fuentes</h1>
       <p class="module-desc">
-        Identificación automatizada de fuentes institucionales con filtros de confianza, extracción de documentos oficiales,
-        respaldo mediante enlaces de contingencia, trazabilidad de archivos y alertas tempranas de mantenimiento estructural.
+        Descubrimiento de fuentes públicas con validación TLS X.509, catálogo versionado de archivos en bruto,
+        respaldos de contingencia con failover automático, trazabilidad auditable y alertas tempranas con diff estructural.
       </p>
     </div>
 
     <div class="module-actions">
-      <button
-        type="button"
-        class="btn-secondary-head"
-        (click)="setTab('discovery')"
-      >
+      <button type="button" class="btn-secondary-head" (click)="setTab('discovery')">
         Explorar Nuevas Fuentes
       </button>
       <button
@@ -44,8 +40,8 @@
       [class.active]="activeTab() === 'overview'"
       (click)="setTab('overview')"
     >
-      <span class="tab-label">Portales y Estado</span>
-      <span class="tab-badge">{{ formatInt(store.sources().length) }}</span>
+      <span class="tab-label">Portales y Resiliencia</span>
+      <span class="tab-badge tabular-nums">{{ formatInt(store.sources().length) }}</span>
     </button>
 
     <button
@@ -54,8 +50,8 @@
       [class.active]="activeTab() === 'discovery'"
       (click)="setTab('discovery')"
     >
-      <span class="tab-label">Exploración y Filtrado</span>
-      <span class="tab-badge">{{ formatInt(store.discoveryCandidates().length) }}</span>
+      <span class="tab-label">Exploración Web Abierta</span>
+      <span class="tab-badge tabular-nums">{{ formatInt(store.discoveryCandidates().length) }}</span>
     </button>
 
     <button
@@ -65,7 +61,7 @@
       (click)="setTab('inventory')"
     >
       <span class="tab-label">Catálogo y Trazabilidad</span>
-      <span class="tab-badge">{{ formatInt(store.totalDiscovered()) }}</span>
+      <span class="tab-badge tabular-nums">{{ formatInt(store.totalDiscovered()) }}</span>
     </button>
 
     <button
@@ -75,7 +71,7 @@
       (click)="setTab('config')"
     >
       <span class="tab-label">Parámetros y Contingencia</span>
-      <span class="tab-badge">Resiliencia</span>
+      <span class="tab-badge">Dry-Run</span>
     </button>
 
     <button
@@ -84,9 +80,9 @@
       [class.active]="activeTab() === 'alerts'"
       (click)="setTab('alerts')"
     >
-      <span class="tab-label">Alertas de Mantenimiento</span>
-      <span class="tab-badge" [class.tab-badge-warn]="store.alerts().length > 0">
-        {{ formatInt(store.alerts().length) }}
+      <span class="tab-label">Alertas Estructurales</span>
+      <span class="tab-badge tabular-nums" [class.tab-badge-warn]="store.openAlertsCount() > 0">
+        {{ formatInt(store.openAlertsCount()) }}
       </span>
     </button>
 
@@ -96,8 +92,8 @@
       [class.active]="activeTab() === 'runs'"
       (click)="setTab('runs')"
     >
-      <span class="tab-label">Corridas y Respaldos</span>
-      <span class="tab-badge">{{ formatInt(store.runs().length) }}</span>
+      <span class="tab-label">Corridas SSE y Respaldos</span>
+      <span class="tab-badge tabular-nums">{{ formatInt(store.runs().length) }}</span>
     </button>
   </nav>
 

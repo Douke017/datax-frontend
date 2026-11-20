@@ -1,0 +1,36 @@
+<p class="sr-only">Anuncios de estado del sistema</p>
+<div class="sr-only" aria-live="polite" aria-atomic="true">
+  {{ toastService.liveAnnouncement() }}
+</div>
+
+<div class="toast-region" role="region" aria-label="Notificaciones">
+  @for (toast of toastService.toasts(); track toast.id) {
+    <article
+      class="toast-card"
+      [class.toast-success]="toast.tone === 'success'"
+      [class.toast-info]="toast.tone === 'info'"
+      [class.toast-warning]="toast.tone === 'warning'"
+      [class.toast-error]="toast.tone === 'error'"
+      (mouseenter)="toastService.pauseDismiss(toast.id)"
+      (mouseleave)="toastService.resumeDismiss(toast.id)"
+      (focusin)="toastService.pauseDismiss(toast.id)"
+      (focusout)="toastService.resumeDismiss(toast.id)"
+    >
+      <span class="toast-pill mono">{{ getToneLabel(toast.tone) }}</span>
+      <div class="toast-body">
+        <div class="toast-title">{{ toast.title }}</div>
+        @if (toast.detail) {
+          <div class="toast-detail">{{ toast.detail }}</div>
+        }
+      </div>
+      <button
+        type="button"
+        class="toast-close"
+        (click)="toastService.dismiss(toast.id)"
+        aria-label="Cerrar notificación"
+      >
+        Cerrar
+      </button>
+    </article>
+  }
+</div>

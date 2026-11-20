@@ -16,6 +16,8 @@ import {
   PredefinedViewMetadata,
   PredefinedViewQueryRequest,
   PredefinedViewResult,
+  ReadOnlySqlRequest,
+  ReadOnlySqlResponse,
   SelfServiceAccessLog,
   SelfServiceApiKey,
   SemanticDictionaryResponse
@@ -47,7 +49,9 @@ export class AnalyticsService {
 
   getPredefinedViews(datamart: string = 'all'): Observable<PredefinedViewMetadata[]> {
     const params = new HttpParams().set('datamart', datamart);
-    return this.http.get<PredefinedViewMetadata[]>(`${this.baseUrl}/api/v1/analytics/views`, { params });
+    return this.http.get<PredefinedViewMetadata[]>(`${this.baseUrl}/api/v1/analytics/views`, {
+      params
+    });
   }
 
   executePredefinedView(
@@ -72,7 +76,33 @@ export class AnalyticsService {
     );
   }
 
-  // Diccionario técnico dinámico, relaciones y métricas financieras (Objetivo 3)
+  // Consola SQL SELECT de solo lectura sobre DuckDB efímero in-memory
+  getSqlTables(): Observable<{ tables: string[] }> {
+    return this.http.get<{ tables: string[] }>(
+      `${this.baseUrl}/api/v1/analytics/sql/tables`
+    );
+  }
+
+  executeReadOnlySql(request: ReadOnlySqlRequest): Observable<ReadOnlySqlResponse> {
+    return this.http.post<ReadOnlySqlResponse>(`${this.baseUrl}/api/v1/analytics/sql`, {
+      ...request,
+      format: 'json'
+    });
+  }
+
+  exportReadOnlySql(
+    sql: string,
+    format: 'parquet' | 'csv' | 'jsonl',
+    limit: number = 10000
+  ): Observable<Blob> {
+    return this.http.post(
+      `${this.baseUrl}/api/v1/analytics/sql`,
+      { sql, format, limit },
+      { responseType: 'blob' }
+    );
+  }
+
+  // Diccionario técnico dinámico y relaciones
   getDatamartDictionary(datamart: string): Observable<DatamartDictionaryDetail> {
     return this.http.get<DatamartDictionaryDetail>(
       `${this.baseUrl}/api/v1/dictionary/datamarts/${encodeURIComponent(datamart)}`
@@ -84,9 +114,10 @@ export class AnalyticsService {
     if (datamart) {
       params = params.set('datamart', datamart);
     }
-    return this.http.get<DatamartRelationshipItem[]>(`${this.baseUrl}/api/v1/dictionary/relationships`, {
-      params
-    });
+    return this.http.get<DatamartRelationshipItem[]>(
+      `${this.baseUrl}/api/v1/dictionary/relationships`,
+      { params }
+    );
   }
 
   getSemanticMetrics(): Observable<SemanticDictionaryResponse> {
@@ -99,7 +130,7 @@ export class AnalyticsService {
     );
   }
 
-  // Linaje y verificación criptográfica de integridad SHA-256 (Objetivo 3)
+  // Linaje y verificación criptográfica SHA-256
   getDatamartLineage(datamart: string, limit: number = 100): Observable<DatamartLineageEntry[]> {
     const params = new HttpParams().set('limit', limit.toString());
     return this.http.get<DatamartLineageEntry[]>(
@@ -114,9 +145,9 @@ export class AnalyticsService {
     );
   }
 
-  // Exportaciones autónomas (.xlsx de 3 hojas y CSV) y llaves API Power Query / Power BI (Objetivo 4)
+  // Exportaciones autónomas (Parquet, CSV, JSONL, Excel opcional) y acceso programático
   buildExportUrl(
-    format: 'xlsx' | 'csv',
+    format: 'parquet' | 'csv' | 'jsonl' | 'xlsx',
     options: {
       datamart: string;
       gestion?: number | null;
@@ -141,7 +172,7 @@ export class AnalyticsService {
   buildLiveFeedUrl(
     datamart: string,
     rawApiKey: string,
-    format: 'csv' | 'json' = 'csv'
+    format: 'parquet' | 'csv' | 'jsonl' | 'json' = 'parquet'
   ): string {
     return `${this.baseUrl}/api/v1/analytics/live-feed/${encodeURIComponent(datamart)}?format=${format}&api_key=${encodeURIComponent(rawApiKey)}`;
   }
@@ -160,7 +191,7 @@ export class AnalyticsService {
     );
   }
 
-  getAccessLogs(limit: number = 25): Observable<SelfServiceAccessLog[]> {
+  getAccessLogs(limit: number = 30): Observable<SelfServiceAccessLog[]> {
     const params = new HttpParams().set('limit', limit.toString());
     return this.http.get<SelfServiceAccessLog[]>(`${this.baseUrl}/api/v1/analytics/access-logs`, {
       params
