@@ -41,14 +41,14 @@
         [class.pill-up]="monitor.externoHealth().status === 'UP'"
         [class.pill-down]="monitor.externoHealth().status !== 'UP'"
         [title]="
-          'Prospector Externo (:8000): ' +
+          'Prospector Externo: ' +
           (monitor.externoHealth().status === 'UP'
             ? 'Operativo (' + monitor.externoHealth().latencyMs + ' ms)'
             : 'Sin conexión')
         "
       >
         <span class="status-dot" aria-hidden="true"></span>
-        <span>Ext :8000</span>
+        <span>API Externo</span>
         @if (monitor.externoHealth().status === 'UP') {
           <span class="pill-lat">{{ monitor.externoHealth().latencyMs }}ms</span>
         }
@@ -59,14 +59,14 @@
         [class.pill-up]="monitor.internoHealth().status === 'UP'"
         [class.pill-down]="monitor.internoHealth().status !== 'UP'"
         [title]="
-          'Prospector Interno (:8001): ' +
+          'Prospector Interno: ' +
           (monitor.internoHealth().status === 'UP'
             ? 'Operativo (' + monitor.internoHealth().latencyMs + ' ms)'
             : 'Sin conexión')
         "
       >
         <span class="status-dot" aria-hidden="true"></span>
-        <span>Int :8001</span>
+        <span>API Interno</span>
         @if (monitor.internoHealth().status === 'UP') {
           <span class="pill-lat">{{ monitor.internoHealth().latencyMs }}ms</span>
         }

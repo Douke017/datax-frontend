@@ -1,4 +1,5 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { getInternoApiBase, toAbsoluteApiUrl } from '../../../core/config/api-endpoints';
 import { ToastService } from '../../../core/services/toast.service';
 
 export type SnippetLang = 'polars' | 'pandas' | 'duckdb' | 'r_arrow' | 'curl' | 'power_query';
@@ -37,9 +38,12 @@ export class CodeSnippetsPanelComponent {
   readonly activeCode = computed(() => {
     const lang = this.activeLang();
     const key = this.resolvedKey();
+    const internoBase = toAbsoluteApiUrl(getInternoApiBase());
 
     if (this.mode() === 'raw-asset') {
-      const url = this.rawDownloadUrl() || `http://localhost:8001/api/v1/catalog/assets/${this.assetId()}/download`;
+      const url = toAbsoluteApiUrl(
+        this.rawDownloadUrl() || `${internoBase}/api/v1/catalog/assets/${this.assetId()}/download`
+      );
       const aid = this.assetId() || 'asset_bruto';
       switch (lang) {
         case 'polars':
@@ -101,13 +105,16 @@ export class CodeSnippetsPanelComponent {
     }
 
     const dm = this.datasetName() || 'catalogo_series_files';
-    const pqUrl =
-      this.parquetUrl() || `http://localhost:8001/api/v1/analytics/export/parquet?datamart=${dm}`;
-    const csvUrl =
-      this.csvUrl() || `http://localhost:8001/api/v1/analytics/export/csv?datamart=${dm}`;
-    const jsonlUrl =
-      this.jsonlUrl() || `http://localhost:8001/api/v1/analytics/export/jsonl?datamart=${dm}`;
-    const liveFeedPq = `http://localhost:8001/api/v1/analytics/live-feed/${dm}?format=parquet`;
+    const pqUrl = toAbsoluteApiUrl(
+      this.parquetUrl() || `${internoBase}/api/v1/analytics/export/parquet?datamart=${dm}`
+    );
+    const csvUrl = toAbsoluteApiUrl(
+      this.csvUrl() || `${internoBase}/api/v1/analytics/export/csv?datamart=${dm}`
+    );
+    const jsonlUrl = toAbsoluteApiUrl(
+      this.jsonlUrl() || `${internoBase}/api/v1/analytics/export/jsonl?datamart=${dm}`
+    );
+    const liveFeedPq = toAbsoluteApiUrl(`${internoBase}/api/v1/analytics/live-feed/${dm}?format=parquet`);
 
     switch (lang) {
       case 'polars':

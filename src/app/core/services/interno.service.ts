@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { getInternoApiBase } from '../config/api-endpoints';
 import {
   AssetTechnicalProfile,
   BatchGatekeeperEvaluateRequest,
@@ -36,10 +37,7 @@ import {
 })
 export class InternoService {
   private readonly http = inject(HttpClient);
-  readonly baseUrl =
-    typeof window !== 'undefined' && window.location?.hostname
-      ? `http://${window.location.hostname}:8001`
-      : 'http://localhost:8001';
+  readonly baseUrl = getInternoApiBase();
 
   reconcile(request: BridgeReconcileRequest): Observable<BridgeReconcileResponse> {
     return this.http.post<BridgeReconcileResponse>(

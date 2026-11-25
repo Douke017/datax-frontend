@@ -14,7 +14,7 @@ export class SystemMonitorService {
     id: 'externo',
     name: 'Prospector Externo',
     port: 8000,
-    url: 'http://localhost:8000',
+    url: this.externoService.baseUrl,
     status: 'DOWN',
     latencyMs: 0,
     lastChecked: new Date().toISOString()
@@ -24,7 +24,7 @@ export class SystemMonitorService {
     id: 'interno',
     name: 'Prospector Interno',
     port: 8001,
-    url: 'http://localhost:8001',
+    url: this.internoService.baseUrl,
     status: 'DOWN',
     latencyMs: 0,
     lastChecked: new Date().toISOString()
@@ -64,7 +64,7 @@ export class SystemMonitorService {
           id: 'externo',
           name: 'Prospector Externo',
           port: 8000,
-          url: 'http://localhost:8000',
+          url: this.externoService.baseUrl,
           status: res.status === 'UP' || res.status === 'healthy' || res.status === 'OFFLINE_CACHE' ? 'UP' : 'DEGRADED',
           latencyMs: latency,
           details: res.service || 'Catálogo indexado',
@@ -76,10 +76,10 @@ export class SystemMonitorService {
           id: 'externo',
           name: 'Prospector Externo',
           port: 8000,
-          url: 'http://localhost:8000',
+          url: this.externoService.baseUrl,
           status: 'DOWN',
           latencyMs: 0,
-          details: 'Sin conexion a puerto 8000',
+          details: 'Servicio Prospector Externo sin conexión',
           lastChecked: new Date().toISOString()
         });
       }
@@ -95,7 +95,7 @@ export class SystemMonitorService {
           id: 'interno',
           name: 'Prospector Interno',
           port: 8001,
-          url: 'http://localhost:8001',
+          url: this.internoService.baseUrl,
           status: res.status === 'healthy' ? 'UP' : 'DEGRADED',
           latencyMs: latency,
           version: res.version,
@@ -108,10 +108,10 @@ export class SystemMonitorService {
           id: 'interno',
           name: 'Prospector Interno',
           port: 8001,
-          url: 'http://localhost:8001',
+          url: this.internoService.baseUrl,
           status: 'DOWN',
           latencyMs: 0,
-          details: 'Sin conexion a puerto 8001',
+          details: 'Servicio Prospector Interno sin conexión',
           lastChecked: new Date().toISOString()
         });
       }

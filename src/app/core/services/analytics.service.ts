@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { getInternoApiBase } from '../config/api-endpoints';
 import {
   AnalyticsQueryRequest,
   AnalyticsQueryResponse,
@@ -28,10 +29,7 @@ import {
 })
 export class AnalyticsService {
   private readonly http = inject(HttpClient);
-  readonly baseUrl =
-    typeof window !== 'undefined' && window.location?.hostname
-      ? `http://${window.location.hostname}:8001`
-      : 'http://localhost:8001';
+  readonly baseUrl = getInternoApiBase();
 
   getDatamartsSummary(): Observable<DatamartSummaryItem[]> {
     return this.http.get<DatamartSummaryItem[]>(`${this.baseUrl}/api/v1/analytics/datamarts`);

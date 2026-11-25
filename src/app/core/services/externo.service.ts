@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
+import { getExternoApiBase } from '../config/api-endpoints';
 import {
   AlertChannelConfig,
   AlertDeliveryLog,
@@ -56,10 +57,7 @@ export interface ResourceQueryOptions {
 })
 export class ExternoService {
   private readonly http = inject(HttpClient);
-  readonly baseUrl =
-    typeof window !== 'undefined' && window.location?.hostname
-      ? `http://${window.location.hostname}:8000`
-      : 'http://localhost:8000';
+  readonly baseUrl = getExternoApiBase();
 
   getSources(): Observable<CatalogSource[]> {
     return this.http.get<CatalogSource[]>(`${this.baseUrl}/catalog/sources`);

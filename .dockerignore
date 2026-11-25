@@ -1,0 +1,12 @@
+.git
+node_modules
+dist
+.angular
+coverage
+public/data/mapa_*.json
+public/data/**/mapa_*.json
+public/data/backups/
+*.log
+.env
+.env.*
+!.env.example
