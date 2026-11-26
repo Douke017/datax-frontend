@@ -36,6 +36,9 @@ export interface AnalyticsQueryRequest {
   gestiones?: number[] | null;
   meses?: number[] | null;
   metrics?: string[] | null;
+  search?: string | null;
+  limit?: number | null;
+  offset?: number;
 }
 
 export interface AnalyticsQueryResponse {

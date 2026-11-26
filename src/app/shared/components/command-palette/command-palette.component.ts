@@ -85,8 +85,8 @@ export class CommandPaletteComponent {
     {
       id: 'act-int-activos',
       category: 'ACCION',
-      title: 'Catálogo de Datos y Descarga (Parquet / CSV)',
-      subtitle: 'Vista previa de tablas, diccionario de columnas, Python/R y filtro SQL opcional',
+      title: 'Catálogo de Robots y Exportación (Excel / CSV)',
+      subtitle: 'Búsqueda completa de robots de descarga, historial y exportación directa',
       badge: 'DATOS',
       route: '/interno',
       queryParams: { tab: 'activos' }

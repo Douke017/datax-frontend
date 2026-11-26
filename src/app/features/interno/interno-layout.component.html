@@ -7,10 +7,10 @@
           {{ isServiceOnline() ? 'SERVICIO EN LÍNEA' : 'SIN CONEXIÓN' }}
         </span>
       </div>
-      <h1 class="module-title">Control Previo, Custodia en Bruto y Catálogo de Datos</h1>
+      <h1 class="module-title">Control Previo, Custodia en Bruto y Catálogo de Robots</h1>
       <p class="module-desc">
         Validación previa sin duplicidad, cola real de descargas en vivo, resguardo de archivos originales con huella SHA-256
-        y descarga directa de conjuntos de datos listos para Python y R.
+        y consulta o exportación directa a Excel y CSV.
       </p>
     </div>
 
@@ -67,8 +67,8 @@
       [class.active]="activeTab() === 'activos'"
       (click)="setTab('activos')"
     >
-      <span class="tab-label">Catálogo de Datos y Descarga</span>
-      <span class="tab-badge">Parquet / CSV</span>
+      <span class="tab-label">Catálogo de Robots y Exportación</span>
+      <span class="tab-badge">Excel / CSV</span>
     </button>
   </nav>
 

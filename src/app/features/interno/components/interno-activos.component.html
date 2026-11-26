@@ -1,625 +1,234 @@
-<div class="catalog-hub">
-  <section class="search-strip" aria-label="Búsqueda rápida por columna o archivo">
-    <div class="search-row">
-      <input
-        type="search"
-        class="text-input search-main"
-        [(ngModel)]="columnSearchQuery"
-        placeholder="¿Busca una variable o columna específica? Escriba su nombre (ej: periodo, entidad, tasa, monto)..."
-        (keyup.enter)="onSearchColumnsGlobal()"
-        aria-label="Buscar por nombre de columna o archivo"
-      />
-      <button
-        type="button"
-        class="btn-primary btn-sm"
-        [disabled]="columnSearchLoading()"
-        (click)="onSearchColumnsGlobal()"
-      >
-        {{ columnSearchLoading() ? 'Buscando...' : 'Buscar' }}
-      </button>
-      @if (columnSearchResult()) {
-        <button type="button" class="btn-ghost btn-sm" (click)="clearColumnSearch()">Limpiar</button>
+<div class="catalog-clean">
+  <header class="catalog-top">
+    <div class="selector-group" role="tablist" aria-label="Vistas del catálogo de exportación">
+      @for (opt of primaryDatasets; track opt.id) {
+        <button
+          type="button"
+          role="tab"
+          class="view-pill"
+          [class.active]="selectedDatamart() === opt.id"
+          [attr.aria-selected]="selectedDatamart() === opt.id"
+          (click)="selectDataset(opt.id)"
+        >
+          <span class="pill-title">{{ opt.label }}</span>
+          <span class="pill-count mono tabular-nums">{{ formatInt(getRowCountFor(opt.id)) }}</span>
+        </button>
       }
     </div>
 
-    @if (columnSearchResult(); as csr) {
-      <div class="search-results-box">
-        <div class="sr-summary mono tabular-nums">
-          Encontradas <strong>{{ csr.total_column_matches }}</strong> columnas y
-          <strong>{{ csr.total_asset_matches }}</strong> archivos coincidentes.
-        </div>
+    <div class="export-actions" aria-label="Acciones de exportación directa">
+      <a class="btn-primary dl-link" [href]="getExportHref('xlsx')" download>
+        Descargar Excel (.xlsx)
+      </a>
+      <a class="btn-secondary dl-link" [href]="getExportHref('csv')" download>
+        Descargar CSV
+      </a>
+      <button
+        type="button"
+        class="btn-ghost"
+        [disabled]="syncing()"
+        (click)="onRefreshFromDatabase()"
+      >
+        {{ syncing() ? 'Actualizando...' : 'Actualizar desde BDD' }}
+      </button>
+    </div>
+  </header>
 
-        @if (csr.column_matches.length > 0) {
-          <div class="table-container" role="region" tabindex="0" aria-label="Coincidencias de columnas">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th scope="col">Columna</th>
-                  <th scope="col">Tipo</th>
-                  <th scope="col">Dónde está</th>
-                  <th scope="col">Conjunto / Archivo</th>
-                  <th scope="col">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (cm of csr.column_matches; track cm.asset_id + cm.column_name + $index) {
-                  <tr>
-                    <td class="mono col-hi">{{ cm.column_name }}</td>
-                    <td><span class="badge badge-neutral">{{ cm.inferred_type }}</span></td>
-                    <td>
-                      <span
-                        class="badge"
-                        [class.badge-info]="cm.origin === 'GOLD_DICTIONARY'"
-                        [class.badge-purple]="cm.origin === 'RAW_FILE_PROFILE'"
-                      >
-                        {{ cm.origin === 'GOLD_DICTIONARY' ? 'Catálogo Consolidado' : 'Archivo Bruto' }}
-                      </span>
-                    </td>
-                    <td class="mono">{{ cm.dataset_id || cm.asset_id }}</td>
-                    <td>
-                      @if (cm.origin === 'RAW_FILE_PROFILE') {
-                        <button type="button" class="btn-secondary btn-sm" (click)="jumpToRawAsset(cm.asset_id)">
-                          Abrir Archivo Bruto
-                        </button>
-                      } @else {
-                        <button
-                          type="button"
-                          class="btn-primary btn-sm"
-                          (click)="openDatasetFromSearch(cm.dataset_id || cm.asset_id)"
-                        >
-                          Ver Datos
-                        </button>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
-        } @else {
-          <p class="muted-text">Sin coincidencias de columnas para "{{ columnSearchQuery }}".</p>
+  <section class="catalog-panel" aria-label="Listado y búsqueda del catálogo">
+    <div class="panel-intro">
+      <div>
+        <h2 id="active-catalog-caption">{{ activeOption().label }}</h2>
+        <p class="panel-subtitle">{{ activeOption().subtitle }}</p>
+      </div>
+      <div class="panel-metrics mono tabular-nums">
+        <span>
+          Total en catálogo:
+          <strong>{{ formatInt(activeSummary()?.total_rows ?? totalMatchingRows()) }}</strong>
+        </span>
+        @if (elapsedMs() !== null) {
+          <span class="muted-text">{{ formatMs(elapsedMs()) }}</span>
         }
       </div>
+    </div>
+
+    <form class="filter-bar" (ngSubmit)="onSearchSubmit()">
+      <input
+        type="search"
+        name="robotSearch"
+        class="text-input search-input"
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchInput()"
+        placeholder="Buscar en todo el catálogo por código (ej. D_BO_000000012), nombre, institución o URL..."
+        aria-label="Buscar en todo el catálogo"
+      />
+      @if (searchTerm.trim()) {
+        <button type="button" class="btn-ghost btn-sm" (click)="clearSearch()">Limpiar</button>
+      }
+      <label class="page-size-ctrl">
+        Filas:
+        <select
+          name="pageSize"
+          class="select-input mono"
+          [(ngModel)]="pageSize"
+          (ngModelChange)="onPageSizeChange()"
+        >
+          <option [value]="25">25</option>
+          <option [value]="50">50</option>
+          <option [value]="100">100</option>
+        </select>
+      </label>
+    </form>
+
+    @if (loading()) {
+      <app-skeleton-loader variant="table" [rows]="8" [columns]="6" label="Consultando catálogo completo..." />
+    } @else if (errorMessage()) {
+      <div class="empty-state" role="alert">
+        <p>{{ errorMessage() }}</p>
+        <div class="empty-actions">
+          <button type="button" class="btn-secondary btn-sm" (click)="loadDataset(false)">Reintentar</button>
+          <button
+            type="button"
+            class="btn-primary btn-sm"
+            [disabled]="syncing()"
+            (click)="onRefreshFromDatabase()"
+          >
+            {{ syncing() ? 'Actualizando...' : 'Actualizar desde Base de Datos' }}
+          </button>
+        </div>
+      </div>
+    } @else if (rows().length === 0) {
+      <div class="empty-state">
+        @if (searchTerm.trim()) {
+          <p>
+            No se encontraron registros para <strong>"{{ searchTerm.trim() }}"</strong> en
+            <strong>{{ activeOption().label }}</strong>.
+          </p>
+          <button type="button" class="btn-secondary btn-sm" (click)="clearSearch()">
+            Ver todos los registros
+          </button>
+        } @else {
+          <p>No hay registros sincronizados todavía en esta vista.</p>
+          <button
+            type="button"
+            class="btn-primary btn-sm"
+            [disabled]="syncing()"
+            (click)="onRefreshFromDatabase()"
+          >
+            {{ syncing() ? 'Sincronizando...' : 'Sincronizar desde Base de Datos' }}
+          </button>
+        }
+      </div>
+    } @else {
+      <div
+        class="table-wrapper"
+        tabindex="0"
+        role="region"
+        aria-labelledby="active-catalog-caption"
+      >
+        <table class="catalog-table">
+          <caption class="sr-only">{{ activeOption().label }}</caption>
+          <thead>
+            <tr>
+              @for (col of orderedColumns(); track col) {
+                <th scope="col" [class.num-col]="isNumericCol(col)">{{ columnLabel(col) }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rows(); track $index) {
+              <tr>
+                @for (col of orderedColumns(); track col; let isFirst = $first) {
+                  @if (isFirst) {
+                    <th scope="row" class="mono row-head" [title]="formatCell(col, row[col])">
+                      {{ formatCell(col, row[col]) }}
+                    </th>
+                  } @else {
+                    <td
+                      class="cell-trim"
+                      [attr.data-label]="columnLabel(col)"
+                      [class.mono]="isNumericCol(col) || isUrlCol(col)"
+                      [class.num-col]="isNumericCol(col)"
+                      [class.tabular-nums]="isNumericCol(col)"
+                      [title]="formatCell(col, row[col])"
+                    >
+                      @if (isUrlCol(col) && isHttpUrl(row[col])) {
+                        <a
+                          class="ext-link"
+                          [href]="formatCell(col, row[col])"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {{ formatCell(col, row[col]) }}
+                        </a>
+                      } @else {
+                        {{ formatCell(col, row[col]) }}
+                      }
+                    </td>
+                  }
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <footer class="table-footer">
+        <span class="mono tabular-nums muted-text">
+          Mostrando <strong>{{ formatInt(rangeStart()) }}</strong>–<strong>{{ formatInt(rangeEnd()) }}</strong>
+          de <strong>{{ formatInt(totalMatchingRows()) }}</strong> registros
+          @if (searchTerm.trim()) {
+            <span>(filtrados)</span>
+          }
+        </span>
+
+        <div class="pager-controls">
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            [disabled]="currentPage() <= 1 || loading()"
+            (click)="prevPage()"
+          >
+            Anterior
+          </button>
+          <span class="mono tabular-nums pager-info">
+            Página {{ currentPage() }} de {{ totalPages() }}
+          </span>
+          <button
+            type="button"
+            class="btn-secondary btn-sm"
+            [disabled]="currentPage() >= totalPages() || loading()"
+            (click)="nextPage()"
+          >
+            Siguiente
+          </button>
+        </div>
+      </footer>
     }
   </section>
 
-  <div class="master-detail-grid">
-    <aside class="dataset-rail" aria-label="Conjuntos de datos disponibles">
-      <div class="rail-header">
-        <h2>Conjuntos de Datos</h2>
-        <span class="badge badge-neutral tabular-nums">{{ datamarts().length }}</span>
+  <details class="secondary-disclosure">
+    <summary>Opciones técnicas del catálogo (columnas y descarga columnar)</summary>
+    <div class="disclosure-body">
+      <div class="tech-row">
+        <p class="muted-text">
+          Para integraciones automáticas o herramientas de ciencia de datos, también puedes descargar este catálogo en formato comprimido Apache Parquet o consultar la documentación de la API.
+        </p>
+        <a class="btn-secondary btn-sm dl-link" [href]="getExportHref('parquet')" download>
+          Descargar Parquet (.parquet)
+        </a>
       </div>
 
-      @if (datamartsLoading() && datamarts().length === 0) {
-        <app-skeleton-loader variant="panel" [rows]="4" label="Cargando conjuntos de datos..." />
-      } @else {
-        <div class="rail-list">
-          @for (dm of datamarts(); track dm.datamart) {
-            <button
-              type="button"
-              class="dataset-card"
-              [class.active]="selectedDatamart() === dm.datamart"
-              (click)="selectDatamart(dm.datamart)"
-            >
-              <div class="dc-top">
-                <span class="dc-title">{{ formatDatasetTitle(dm) }}</span>
-                <span
-                  class="dc-dot"
-                  [class.dot-ready]="dm.is_materialized && dm.total_rows > 0"
-                  [title]="dm.is_materialized ? 'Listo para descarga' : 'Pendiente de generar'"
-                ></span>
-              </div>
-              <div class="dc-code mono">{{ dm.datamart }}</div>
-              <div class="dc-meta mono tabular-nums">
-                <span>{{ formatInt(dm.total_rows) }} filas</span>
-                <span>{{ dm.columns.length }} cols</span>
-              </div>
-            </button>
-          } @empty {
-            <p class="muted-text">No hay conjuntos de datos registrados todavía.</p>
+      @if (dictionary(); as dict) {
+        <div class="dict-list">
+          @for (c of dict.columns; track c.column_name) {
+            <div class="dict-item">
+              <span class="mono dict-col">{{ c.column_name }}</span>
+              <span class="badge badge-neutral">{{ c.data_type }}</span>
+              <span class="muted-text">{{ c.business_label }} — {{ c.description }}</span>
+            </div>
           }
         </div>
       }
-    </aside>
-
-    <section class="dataset-workspace" aria-label="Detalle y descarga del conjunto seleccionado">
-      <header class="ws-header">
-        <div class="ws-title-block">
-          <div class="ws-title-row">
-            <h2>{{ activeSummary() ? formatDatasetTitle(activeSummary()!) : selectedDatamart() }}</h2>
-            <span class="badge badge-info mono">{{ selectedDatamart() }}</span>
-          </div>
-          <p class="ws-desc">
-            {{
-              activeSummary()?.description ||
-                'Conjunto de datos consolidado sin modificaciones analíticas, listo para descarga directa o carga en Python y R.'
-            }}
-          </p>
-          <div class="ws-stats mono tabular-nums">
-            <span>Registros: <strong>{{ formatInt(activeSummary()?.total_rows ?? previewTotalRows()) }}</strong></span>
-            <span>Columnas: <strong>{{ activeSummary()?.columns?.length ?? previewColumns().length }}</strong></span>
-            @if (activeSummary()?.min_period || activeSummary()?.max_period) {
-              <span>
-                Cobertura: <strong>{{ activeSummary()?.min_period || '—' }} → {{ activeSummary()?.max_period || '—' }}</strong>
-              </span>
-            }
-          </div>
-        </div>
-
-        <div class="ws-download-bar" aria-label="Acciones de descarga directa">
-          <a class="btn-primary dl-link" [href]="getExportHref('parquet')" download>
-            Descargar Parquet
-          </a>
-          <a class="btn-secondary dl-link" [href]="getExportHref('csv')" download>
-            Descargar CSV
-          </a>
-          <a class="btn-ghost dl-link" [href]="getExportHref('xlsx')" download>
-            Excel (.xlsx)
-          </a>
-          <button
-            type="button"
-            class="btn-secondary"
-            (click)="activeViewTab.set('code')"
-          >
-            Código Python / R
-          </button>
-        </div>
-      </header>
-
-      <nav class="ws-tabs" aria-label="Vistas del conjunto de datos">
-        <button
-          type="button"
-          class="ws-tab"
-          [class.active]="activeViewTab() === 'preview'"
-          (click)="activeViewTab.set('preview')"
-        >
-          Vista Previa de Datos
-        </button>
-        <button
-          type="button"
-          class="ws-tab"
-          [class.active]="activeViewTab() === 'schema'"
-          (click)="activeViewTab.set('schema')"
-        >
-          Columnas y Origen ({{ dictionary()?.total_columns ?? previewColumns().length }})
-        </button>
-        <button
-          type="button"
-          class="ws-tab"
-          [class.active]="activeViewTab() === 'code'"
-          (click)="activeViewTab.set('code')"
-        >
-          Usar en Python / R
-        </button>
-        <button
-          type="button"
-          class="ws-tab ws-tab-optional"
-          [class.active]="activeViewTab() === 'sql'"
-          (click)="activeViewTab.set('sql')"
-        >
-          Filtro SQL (Opcional)
-        </button>
-      </nav>
-
-      <div class="ws-body">
-        @switch (activeViewTab()) {
-          @case ('preview') {
-            <div class="preview-toolbar">
-              <input
-                type="search"
-                class="text-input preview-filter"
-                placeholder="Filtrar rápidamente en las filas mostradas..."
-                [ngModel]="previewFilterText()"
-                (ngModelChange)="previewFilterText.set($event)"
-                aria-label="Filtrar muestra de datos"
-              />
-              <label class="inline-ctrl">
-                Mostrar:
-                <select
-                  class="select-input mono"
-                  [(ngModel)]="previewLimit"
-                  (ngModelChange)="loadPreview()"
-                >
-                  <option [value]="25">25 filas</option>
-                  <option [value]="50">50 filas</option>
-                  <option [value]="100">100 filas</option>
-                </select>
-              </label>
-              @if (previewElapsedMs() !== null) {
-                <span class="mono tabular-nums muted-text">{{ formatMs(previewElapsedMs()) }}</span>
-              }
-            </div>
-
-            @if (previewLoading()) {
-              <app-skeleton-loader variant="table" [rows]="7" [columns]="6" label="Cargando vista previa..." />
-            } @else if (previewError()) {
-              <div class="empty-state-box">
-                <p>{{ previewError() }}</p>
-                <div class="row-btns">
-                  <button type="button" class="btn-secondary btn-sm" (click)="loadPreview()">Reintentar</button>
-                  <button
-                    type="button"
-                    class="btn-primary btn-sm"
-                    [disabled]="materializing()"
-                    (click)="onRegenerateParquet()"
-                  >
-                    {{ materializing() ? 'Actualizando archivos...' : 'Generar archivos Parquet' }}
-                  </button>
-                </div>
-              </div>
-            } @else if (filteredPreviewRows().length === 0) {
-              <div class="empty-state-box">
-                <p>No hay filas para mostrar en este conjunto todavía.</p>
-                <button
-                  type="button"
-                  class="btn-secondary btn-sm"
-                  [disabled]="materializing()"
-                  (click)="onRegenerateParquet()"
-                >
-                  {{ materializing() ? 'Actualizando...' : 'Actualizar archivos Parquet desde Custodia' }}
-                </button>
-              </div>
-            } @else {
-              <div class="table-container" role="region" tabindex="0" aria-label="Vista previa de registros">
-                <table class="data-table">
-                  <caption class="sr-only">Vista previa de {{ selectedDatamart() }}</caption>
-                  <thead>
-                    <tr>
-                      @for (col of previewColumns(); track col) {
-                        <th scope="col" class="mono">{{ col }}</th>
-                      }
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (row of filteredPreviewRows(); track $index) {
-                      <tr>
-                        @for (col of previewColumns(); track col) {
-                          <td
-                            class="mono cell-trim"
-                            [class.num-col]="isNumericCol(col)"
-                            [class.tabular-nums]="isNumericCol(col)"
-                            [title]="formatCell(col, row[col])"
-                          >
-                            {{ formatCell(col, row[col]) }}
-                          </td>
-                        }
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
-          }
-
-          @case ('schema') {
-            <div class="schema-stack">
-              <div class="sub-block">
-                <h3>Diccionario de Columnas</h3>
-                @if (dictionary(); as dict) {
-                  <div class="table-container" role="region" tabindex="0" aria-label="Esquema de columnas">
-                    <table class="data-table">
-                      <thead>
-                        <tr>
-                          <th scope="col">Columna</th>
-                          <th scope="col">Tipo</th>
-                          <th scope="col">Etiqueta</th>
-                          <th scope="col">Descripción</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (c of dict.columns; track c.column_name) {
-                          <tr>
-                            <td class="mono col-hi">{{ c.column_name }}</td>
-                            <td><span class="badge badge-neutral">{{ c.data_type }}</span></td>
-                            <td>{{ c.business_label }}</td>
-                            <td class="muted-text">{{ c.description }}</td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-                } @else {
-                  <p class="muted-text">Sin diccionario técnico registrado para este conjunto.</p>
-                }
-              </div>
-
-              <div class="sub-block">
-                <h3>Archivos Brutos de Origen e Integridad (SHA-256)</h3>
-                <p class="muted-text">
-                  Confirma de qué archivos originales descargados se construyó este conjunto y permite verificar que no sufrieron alteraciones.
-                </p>
-                @if (lineageEntries().length > 0) {
-                  <div class="table-container" role="region" tabindex="0" aria-label="Origen documental">
-                    <table class="data-table">
-                      <thead>
-                        <tr>
-                          <th scope="col">Fuente / Periodo</th>
-                          <th scope="col">Archivo Origen</th>
-                          <th scope="col" class="num-col">Filas</th>
-                          <th scope="col">Integridad</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        @for (lin of lineageEntries(); track lin.lineage_id) {
-                          <tr>
-                            <td class="mono">{{ lin.source_id }} · {{ lin.period_start }}</td>
-                            <td class="mono cell-trim" [title]="lin.bronze_source_file">
-                              {{ lin.bronze_source_file }}
-                            </td>
-                            <td class="mono tabular-nums num-col">{{ formatInt(lin.row_count) }}</td>
-                            <td>
-                              @if (verificationResults()[lin.asset_id]; as vr) {
-                                <span
-                                  class="badge"
-                                  [class.badge-success]="vr.is_valid"
-                                  [class.badge-danger]="!vr.is_valid"
-                                >
-                                  {{ vr.is_valid ? 'VERIFICADO SHA-256' : 'ALTERADO' }}
-                                </span>
-                              } @else {
-                                <button
-                                  type="button"
-                                  class="btn-secondary btn-sm"
-                                  [disabled]="verifyingAssetId() === lin.asset_id"
-                                  (click)="onVerifyAsset(lin.asset_id)"
-                                >
-                                  {{ verifyingAssetId() === lin.asset_id ? 'Verificando...' : 'Verificar SHA-256' }}
-                                </button>
-                              }
-                            </td>
-                          </tr>
-                        }
-                      </tbody>
-                    </table>
-                  </div>
-                } @else {
-                  <p class="muted-text">Sin registros de origen vinculados todavía.</p>
-                }
-              </div>
-            </div>
-          }
-
-          @case ('code') {
-            <div class="schema-stack">
-              <p class="muted-text">
-                Copie cualquiera de estos fragmentos para cargar <strong>{{ selectedDatamart() }}</strong> directamente en su entorno de trabajo sin descargar archivos manualmente.
-              </p>
-
-              <app-code-snippets-panel
-                mode="dataset"
-                [datasetName]="selectedDatamart()"
-                [parquetUrl]="getExportHref('parquet')"
-                [csvUrl]="getExportHref('csv')"
-                [jsonlUrl]="getExportHref('jsonl')"
-                [apiKey]="activeRawApiKey()"
-              />
-
-              <details class="advanced-details">
-                <summary>Llaves de acceso API para scripts automatizados (opcional)</summary>
-                <div class="details-body">
-                  <p class="muted-text">
-                    Solo necesario si ejecuta scripts externos que requieran autenticación mediante cabecera <code class="mono">X-API-Key</code>.
-                  </p>
-
-                  <div class="key-inline-form">
-                    <input
-                      type="text"
-                      class="text-input"
-                      [(ngModel)]="newKeyLabel"
-                      placeholder="Nombre descriptivo del script..."
-                      aria-label="Etiqueta de llave API"
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      max="3650"
-                      class="text-input days-input mono tabular-nums"
-                      [(ngModel)]="newKeyExpiryDays"
-                      title="Días de vigencia"
-                      aria-label="Vigencia en días"
-                    />
-                    <button
-                      type="button"
-                      class="btn-primary btn-sm"
-                      [disabled]="creatingKey()"
-                      (click)="onCreateApiKey()"
-                    >
-                      {{ creatingKey() ? 'Generando...' : 'Generar Llave' }}
-                    </button>
-                  </div>
-
-                  @if (newlyIssuedKey(); as nk) {
-                    <div class="new-key-box">
-                      <span class="nk-lbl">Llave generada (cópiela ahora):</span>
-                      <div class="nk-row">
-                        <code class="mono">{{ nk.raw_api_key || nk.api_key }}</code>
-                        <button
-                          type="button"
-                          class="btn-secondary btn-sm"
-                          (click)="toast.copyToClipboard(nk.raw_api_key || nk.api_key || '', 'Llave API')"
-                        >
-                          Copiar
-                        </button>
-                      </div>
-                    </div>
-                  }
-
-                  @if (apiKeys().length > 0) {
-                    <div class="table-container">
-                      <table class="data-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">Etiqueta</th>
-                            <th scope="col">Prefijo</th>
-                            <th scope="col">Vencimiento</th>
-                            <th scope="col" class="num-col">Usos</th>
-                            <th scope="col">Acción</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          @for (k of apiKeys(); track k.key_id) {
-                            <tr>
-                              <td>{{ k.label }}</td>
-                              <td class="mono">{{ k.key_prefix }}***</td>
-                              <td class="mono">{{ k.expires_at ? formatDate(k.expires_at) : 'Sin vencimiento' }}</td>
-                              <td class="mono tabular-nums num-col">{{ k.usage_count }}</td>
-                              <td>
-                                @if (k.is_active) {
-                                  <button type="button" class="btn-danger btn-sm" (click)="onRevokeApiKey(k.key_id)">
-                                    Revocar
-                                  </button>
-                                } @else {
-                                  <span class="badge badge-danger">REVOCADA</span>
-                                }
-                              </td>
-                            </tr>
-                          }
-                        </tbody>
-                      </table>
-                    </div>
-                  }
-                </div>
-              </details>
-            </div>
-          }
-
-          @case ('sql') {
-            <div class="schema-stack">
-              <p class="muted-text">
-                Herramienta opcional de <strong>solo lectura</strong>: escriba una consulta <code class="mono">SELECT</code>
-                si desea filtrar filas o elegir columnas puntuales antes de descargar el archivo. No puede modificar ni borrar datos.
-              </p>
-
-              @if (sqlTables().length > 0) {
-                <div class="tbl-chips">
-                  <span class="muted-text">Tablas disponibles:</span>
-                  @for (tbl of sqlTables(); track tbl) {
-                    <button type="button" class="tbl-chip mono" (click)="insertTableSnippet(tbl)">
-                      {{ tbl }}
-                    </button>
-                  }
-                </div>
-              }
-
-              <textarea
-                class="sql-editor mono"
-                rows="4"
-                [(ngModel)]="sqlQueryText"
-                aria-label="Consulta SQL de solo lectura"
-              ></textarea>
-
-              <div class="sql-bar">
-                <label class="inline-ctrl">
-                  Límite:
-                  <input
-                    type="number"
-                    min="1"
-                    max="10000"
-                    class="text-input days-input mono tabular-nums"
-                    [(ngModel)]="sqlLimit"
-                  />
-                </label>
-
-                <div class="row-btns">
-                  <button
-                    type="button"
-                    class="btn-primary btn-sm"
-                    [disabled]="sqlRunning()"
-                    (click)="onExecuteSql()"
-                  >
-                    {{ sqlRunning() ? 'Consultando...' : 'Ejecutar Consulta' }}
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-secondary btn-sm"
-                    [disabled]="sqlExporting()"
-                    (click)="onExportSql('parquet')"
-                  >
-                    Bajar Resultado (Parquet)
-                  </button>
-                  <button
-                    type="button"
-                    class="btn-secondary btn-sm"
-                    [disabled]="sqlExporting()"
-                    (click)="onExportSql('csv')"
-                  >
-                    Bajar Resultado (CSV)
-                  </button>
-                </div>
-              </div>
-
-              @if (sqlError()) {
-                <div class="error-box" role="alert">{{ sqlError() }}</div>
-              }
-
-              @if (sqlResult(); as res) {
-                <div class="sql-meta mono tabular-nums">
-                  <span>Filas: <strong>{{ formatInt(res.row_count) }}</strong></span>
-                  <span>Tiempo: <strong>{{ formatMs(res.elapsed_ms) }}</strong></span>
-                  @if (res.truncated) {
-                    <span class="badge badge-warning">TRUNCADO AL LÍMITE</span>
-                  }
-                </div>
-
-                <div class="table-container" role="region" tabindex="0" aria-label="Resultados de consulta SQL">
-                  <table class="data-table">
-                    <thead>
-                      <tr>
-                        @for (col of res.columns; track col; let idx = $index) {
-                          <th scope="col">
-                            <div class="sql-th">
-                              <span class="mono">{{ col }}</span>
-                              <span class="col-type-mini mono">{{ res.column_types[idx] || '' }}</span>
-                            </div>
-                          </th>
-                        }
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (rec of res.rows; track $index) {
-                        <tr>
-                          @for (col of res.columns; track col) {
-                            <td
-                              class="mono cell-trim"
-                              [class.num-col]="isNumericCol(col)"
-                              [class.tabular-nums]="isNumericCol(col)"
-                            >
-                              {{ formatCell(col, rec[col]) }}
-                            </td>
-                          }
-                        </tr>
-                      } @empty {
-                        <tr>
-                          <td [attr.colspan]="res.columns.length || 1" class="empty-td">
-                            La consulta devolvió 0 filas.
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              }
-
-              <details class="advanced-details">
-                <summary>Mantenimiento técnico: regenerar archivos Parquet consolidados</summary>
-                <div class="details-body maintenance-row">
-                  <p class="muted-text">
-                    Reconstruye los archivos columnares Parquet a partir de los últimos archivos descargados en Custodia Bruta.
-                  </p>
-                  <button
-                    type="button"
-                    class="btn-secondary btn-sm"
-                    [disabled]="materializing()"
-                    (click)="onRegenerateParquet()"
-                  >
-                    {{ materializing() ? 'Regenerando Parquet...' : 'Regenerar Archivos Parquet' }}
-                  </button>
-                </div>
-              </details>
-            </div>
-          }
-        }
-      </div>
-    </section>
-  </div>
+    </div>
+  </details>
 </div>
