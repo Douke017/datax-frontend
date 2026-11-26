@@ -17,25 +17,37 @@ import {
   isNumericMetricColumn
 } from '../../../shared/utils/format.utils';
 
+type ActiveCatalogId = 'catalogo_series_files' | 'bases_datos_cubos' | 'historial_descargas_bruto';
+
 interface CatalogDatasetOption {
-  id: 'catalogo_series_files' | 'historial_descargas_bruto';
+  id: ActiveCatalogId;
   label: string;
   subtitle: string;
 }
 
 const COLUMN_LABELS: Record<string, string> = {
   codigo_serie: 'Código de Robot',
+  codigos_spim: 'Código SPIM',
+  codigo_base: 'Código SPIM',
   institucion_id: 'Código Institución',
   institucion_nombre: 'Institución',
   nombre_serie: 'Nombre del Archivo / Serie',
+  nombre_base: 'Nombre del Dataset',
   tipo_serie: 'Tipo',
   formato_archivo: 'Formato',
   frecuencia_publicacion: 'Frecuencia',
+  frecuencia_datos: 'Frecuencia',
   estado_serie: 'Estado',
+  estado_cubo: 'Estado',
+  datos_desde: 'Datos Desde',
   actualizado_hasta: 'Actualizado Hasta',
+  proxima_actualizacion: 'Próxima Actualización',
+  reportes_insumo: 'Reportes / Robots',
+  total_actualizaciones: 'Actualizaciones',
   total_descargas_bruto: 'Descargas',
   total_reportes_derivados: 'Reportes',
   url_principal: 'URL de Origen',
+  ultima_url_origen: 'URL de Origen',
   id_descarga: 'ID Ejecución',
   fecha_datos: 'Fecha de Datos',
   fecha_descarga: 'Fecha de Descarga',
@@ -63,19 +75,22 @@ export class InternoActivosComponent implements OnInit, OnDestroy {
     {
       id: 'catalogo_series_files',
       label: 'Catálogo de Robots y Series',
-      subtitle: 'Robots de descarga registrados (manuales y automatizados) con su frecuencia, estado y URL.'
+      subtitle: 'Robots de descarga registrados (manuales y automatizados) con su código SPIM asociado, frecuencia, estado y URL.'
+    },
+    {
+      id: 'bases_datos_cubos',
+      label: 'Datasets / Códigos SPIM',
+      subtitle: 'Catálogo maestro de datasets y cubos SPIM (S_* / DB_*) con entidad emisora, frecuencia, actualizaciones y reporte vinculado.'
     },
     {
       id: 'historial_descargas_bruto',
       label: 'Historial de Descargas',
-      subtitle: 'Registro cronológico de descargas ejecutadas y corridas de robots con ruta y estado.'
+      subtitle: 'Registro cronológico de descargas ejecutadas y corridas de robots con archivo y estado.'
     }
   ];
 
   readonly datamarts = signal<DatamartSummaryItem[]>([]);
-  readonly selectedDatamart = signal<'catalogo_series_files' | 'historial_descargas_bruto'>(
-    'catalogo_series_files'
-  );
+  readonly selectedDatamart = signal<ActiveCatalogId>('catalogo_series_files');
   readonly syncing = signal<boolean>(false);
 
   // Consulta con búsqueda y paginación en servidor (cubre el 100% de registros)
@@ -114,9 +129,14 @@ export class InternoActivosComponent implements OnInit, OnDestroy {
       cols.includes('institucion_nombre')
         ? cols.filter((c) => c !== 'institucion_id')
         : cols;
-    const primaryKey = 'codigo_serie';
+    const dm = this.selectedDatamart();
+    const primaryKey = dm === 'bases_datos_cubos' ? 'codigo_base' : 'codigo_serie';
     if (!visibleCols.includes(primaryKey)) return visibleCols;
-    return [primaryKey, ...visibleCols.filter((c) => c !== primaryKey)];
+    const rest = visibleCols.filter((c) => c !== primaryKey);
+    if (dm === 'catalogo_series_files' && rest.includes('codigos_spim')) {
+      return [primaryKey, 'codigos_spim', ...rest.filter((c) => c !== 'codigos_spim')];
+    }
+    return [primaryKey, ...rest];
   });
 
   readonly totalPages = computed<number>(() =>
@@ -138,7 +158,11 @@ export class InternoActivosComponent implements OnInit, OnDestroy {
 
     this.qpSub = this.route.queryParamMap.subscribe((params) => {
       const dm = params.get('datamart');
-      if (dm === 'catalogo_series_files' || dm === 'historial_descargas_bruto') {
+      if (
+        dm === 'catalogo_series_files' ||
+        dm === 'bases_datos_cubos' ||
+        dm === 'historial_descargas_bruto'
+      ) {
         if (dm !== this.selectedDatamart()) {
           this.selectDataset(dm);
         }
@@ -164,7 +188,7 @@ export class InternoActivosComponent implements OnInit, OnDestroy {
     return this.datamarts().find((d) => d.datamart === id)?.total_rows ?? 0;
   }
 
-  selectDataset(id: 'catalogo_series_files' | 'historial_descargas_bruto'): void {
+  selectDataset(id: ActiveCatalogId): void {
     if (this.selectedDatamart() === id) return;
     this.selectedDatamart.set(id);
     this.searchTerm = '';
@@ -297,22 +321,28 @@ export class InternoActivosComponent implements OnInit, OnDestroy {
   }
 
   formatCell(col: string, val: unknown): string {
-    if (val === null || val === undefined || val === '') return '—';
+    if (val === null || val === undefined || val === '' || val === '-') return '—';
     const raw = String(val).trim();
     if (col === 'tipo_serie') {
       if (raw === 'MANUAL_FILE') return 'Archivo manual';
       if (raw === 'AUTOMATIZADO_DAG') return 'Robot automatizado';
     }
-    if (col === 'estado_serie' || col === 'estado_descarga') {
+    if (col === 'estado_serie' || col === 'estado_descarga' || col === 'estado_cubo') {
       const upper = raw.toUpperCase();
       if (upper === 'ACTIVO' || upper === 'ACTIVE') return 'Activo';
       if (upper === 'INACTIVO' || upper === 'INACTIVE') return 'Inactivo';
+      if (upper === 'ACTUALIZADO') return 'Actualizado';
+      if (upper === 'DESACTUALIZADO') return 'Desactualizado';
+      if (upper === 'OPERATIVO') return 'Operativo';
       if (upper === 'SUCCESS' || upper === 'COMPLETED') return 'Completada';
       if (upper === 'FAILED') return 'Con error';
       if (upper === 'RUNNING') return 'En curso';
     }
-    if (col === 'frecuencia_publicacion' && raw.length > 0) {
+    if ((col === 'frecuencia_publicacion' || col === 'frecuencia_datos') && raw.length > 0) {
       return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    }
+    if (col === 'reportes_insumo' && raw === 'Directo Cubo SPIM') {
+      return 'Sin reporte vinculado';
     }
     if (col === 'ruta_archivo_bruto' && raw.startsWith('/')) {
       const parts = raw.split('/').filter(Boolean);

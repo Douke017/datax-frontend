@@ -58,7 +58,7 @@
         class="text-input search-input"
         [(ngModel)]="searchTerm"
         (ngModelChange)="onSearchInput()"
-        placeholder="Buscar en todo el catálogo por código (ej. D_BO_000000012), nombre, institución o URL..."
+        placeholder="Buscar por código SPIM (ej. S_BOBBV_44_000580), robot (ej. D_BO_000000012), nombre, institución o URL..."
         aria-label="Buscar en todo el catálogo"
       />
       @if (searchTerm.trim()) {
