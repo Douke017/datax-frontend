@@ -2,25 +2,25 @@
   <div class="brand">
     <span class="brand-badge mono">DATAX</span>
     <div class="brand-info">
-      <span class="brand-title">Plataforma de Prospección de Datos en Bruto</span>
-      <span class="brand-subtitle">Descubrimiento Web, Custodia SHA-256 y Autoservicio Técnico</span>
+      <span class="brand-title">Prospección de Datos</span>
+      <span class="brand-subtitle">Catálogo, Custodia y Sincronización</span>
     </div>
   </div>
 
   <nav class="primary-nav" aria-label="Módulos principales de DATAX">
-    <a routerLink="/externo" routerLinkActive="active" class="nav-tab">
+    <a routerLink="/externo" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-tab">
       <span class="tab-index mono">01</span>
       <span>Prospector Externo</span>
     </a>
 
-    <a routerLink="/interno" routerLinkActive="active" class="nav-tab">
+    <a routerLink="/interno" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-tab">
       <span class="tab-index mono">02</span>
       <span>Prospector Interno</span>
     </a>
 
-    <a routerLink="/bridge" routerLinkActive="active" class="nav-tab">
+    <a routerLink="/bridge" routerLinkActive="active" ariaCurrentWhenActive="page" class="nav-tab">
       <span class="tab-index mono">03</span>
-      <span>Conciliación & Bridge</span>
+      <span>Conciliación</span>
     </a>
   </nav>
 
@@ -31,7 +31,7 @@
       (click)="openGlobalSearch()"
       aria-label="Abrir búsqueda global (Ctrl+K)"
     >
-      <span class="cmd-placeholder">Buscar fuentes, columnas, SHA-256...</span>
+      <span class="cmd-placeholder">Buscar fuentes, archivos o robots...</span>
       <kbd class="cmd-kbd mono">Ctrl K</kbd>
     </button>
 

@@ -53,11 +53,11 @@ export class ExternoAlertsComponent {
   readonly testingChannelId = signal<string | null>(null);
 
   readonly drawerTabs = computed<DrawerTab[]>(() => [
-    { id: 'diff', label: 'Diff Estructural' },
-    { id: 'lifecycle', label: 'Ciclo de Vida' },
+    { id: 'diff', label: 'Cambios Detectados' },
+    { id: 'lifecycle', label: 'Seguimiento' },
     {
       id: 'deliveries',
-      label: 'Despachos Push',
+      label: 'Historial de Envíos',
       badge: this.selectedAlert()?.delivery_logs?.length ?? 0
     }
   ]);
@@ -220,15 +220,38 @@ export class ExternoAlertsComponent {
 
   formatAlertType(code: string): string {
     const labels: Record<string, string> = {
-      DOM_CHANGED: 'Cambio Estructural Web (Selectores / XPath)',
-      API_CHANGED: 'Cambio de Esquema JSON / API',
-      VOLUME_DROP: 'Caída Anómala de Volumen (HTTP 200)',
-      TLS_HOLD: 'Fallo de Certificado Digital TLS',
-      BOT_BLOCKED: 'Bloqueo Perimetral WAF / Firewall',
+      DOM_CHANGED: 'Cambio Estructural en el Portal',
+      API_CHANGED: 'Cambio en Respuesta de Servicio',
+      VOLUME_DROP: 'Caída Anómala de Archivos Detectados',
+      TLS_HOLD: 'Fallo de Certificado Digital',
+      BOT_BLOCKED: 'Bloqueo de Acceso en Portal',
       HTTP_5XX: 'Error de Servidor en Origen',
-      BUDGET_LIMIT: 'Límite de Presupuesto Alcanzado',
+      BUDGET_LIMIT: 'Límite de Páginas Alcanzado',
       ACCESS_TIMEOUT: 'Tiempo de Espera Excedido'
     };
     return labels[code] || code;
+  }
+
+  formatAlertStatus(status?: string, resolved?: boolean): string {
+    const st = status || (resolved ? 'RESUELTA' : 'ABIERTA');
+    const labels: Record<string, string> = {
+      ABIERTA: 'Abierta',
+      RECONOCIDA: 'Reconocida',
+      EN_MANTENIMIENTO: 'En Mantenimiento',
+      SILENCIADA: 'Silenciada',
+      RESUELTA: 'Resuelta'
+    };
+    return labels[st] || st;
+  }
+
+  formatChannelType(type: string): string {
+    const labels: Record<string, string> = {
+      WEBHOOK: 'Enlace HTTP (Webhook)',
+      SLACK: 'Slack',
+      TEAMS: 'Microsoft Teams',
+      SMTP: 'Correo Electrónico',
+      TAIGA: 'Taiga'
+    };
+    return labels[type] || type;
   }
 }

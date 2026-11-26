@@ -25,15 +25,11 @@ export class ExternoDiscoveryComponent {
     '.xlsx',
     '.xls',
     '.csv',
-    '.parquet',
-    '.json',
-    '.xml',
     '.pdf',
     '.zip',
-    '.tar.gz',
-    '.sav',
-    '.dta',
-    '.dat',
+    '.json',
+    '.xml',
+    '.docx',
     '.txt'
   ];
 
@@ -50,7 +46,6 @@ export class ExternoDiscoveryComponent {
     '.xlsx',
     '.xls',
     '.csv',
-    '.parquet',
     '.json',
     '.pdf',
     '.zip'
@@ -214,13 +209,13 @@ export class ExternoDiscoveryComponent {
   formatProviderLabel(provider?: string): string {
     switch (provider) {
       case 'ckan_open_data':
-        return 'CKAN Datos Abiertos';
+        return 'Portal de Datos Abiertos';
       case 'web_metasearch':
-        return 'Metabuscador Web';
+        return 'Buscador Web';
       case 'bounded_bfs':
-        return 'Exploración BFS';
+        return 'Exploración de Enlaces';
       case 'seed_url':
-        return 'Semilla Manual';
+        return 'Enlace Manual';
       case 'curated_directory':
         return 'Directorio Base';
       default:

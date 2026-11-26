@@ -139,9 +139,15 @@
 
 .channel-form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
   align-items: center;
+}
+
+.channel-form-grid .text-input,
+.channel-form-grid .select-input {
+  min-inline-size: 0;
+  inline-size: 100%;
 }
 
 .channels-list {

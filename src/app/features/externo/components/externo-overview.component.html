@@ -34,7 +34,7 @@
       >
         <span class="kpi-label">Lista Negra (Incidencias)</span>
         <span class="kpi-val mono tabular-nums">{{ formatInt(incidentSourcesCount()) }}</span>
-        <span class="kpi-sub">TLS, WAF, DOM o cuota</span>
+        <span class="kpi-sub">Certificado, bloqueo, estructura o cuota</span>
       </button>
 
       <button
@@ -57,7 +57,7 @@
         <span class="kpi-label">Archivos Indexados</span>
         <span class="kpi-val mono tabular-nums">{{ formatInt(store.totalDiscovered()) }}</span>
         <span class="kpi-sub mono tabular-nums">
-          {{ formatInt(store.failoverEvents().length) }} failovers registrados
+          {{ formatInt(store.failoverEvents().length) }} conmutaciones registradas
         </span>
       </div>
     </section>
@@ -151,11 +151,11 @@
                       [class.badge-danger]="src.health_status === 'SUSPENDED'"
                       [class.badge-warning]="src.health_status !== 'SUSPENDED'"
                     >
-                      {{ src.health_status }}
+                      {{ formatHealthLabel(src.health_status) }}
                     </span>
                   </td>
                   <td>
-                    <span class="badge badge-danger">{{ src.audit_code || 'INCIDENCIA' }}</span>
+                    <span class="badge badge-danger">{{ formatAuditCodeLabel(src.audit_code) }}</span>
                   </td>
                   <td class="diag-cell">{{ src.audit_note || 'Requiere inspección estructural.' }}</td>
                   <td class="mono tabular-nums">{{ getBackupCount(src) }}</td>
@@ -194,7 +194,7 @@
         <div class="section-head">
           <h2>Matriz de Cobertura de Resiliencia y Puntos Únicos de Fallo</h2>
           <p>
-            Audita qué fuentes cuentan con espejos vivos elegibles para failover automático frente a fuentes sin respaldo activo.
+            Audita qué fuentes cuentan con espejos activos para conmutación automática frente a fuentes sin respaldo configurado.
           </p>
         </div>
 
@@ -220,7 +220,7 @@
                     </div>
                     <div class="cell-url mono">{{ entry.entrypoint }}</div>
                   </td>
-                  <td class="mono">{{ entry.update_category }}</td>
+                  <td class="mono">{{ formatFrequencyLabel(entry.update_category) }}</td>
                   <td>
                     <span
                       class="badge"
@@ -266,10 +266,10 @@
                   [class.badge-warning]="src.health_status === 'WARNING'"
                   [class.badge-danger]="src.health_status === 'SUSPENDED' || src.health_status === 'FAILED'"
                 >
-                  {{ src.health_status === 'ACTIVE' ? 'LISTA BLANCA' : src.health_status }}
+                  {{ formatHealthLabel(src.health_status) }}
                 </span>
               </div>
-              <span class="badge badge-neutral">{{ src.update_category }}</span>
+              <span class="badge badge-neutral">{{ formatFrequencyLabel(src.update_category) }}</span>
             </header>
 
             <h3 class="portal-name">{{ src.name }}</h3>
@@ -290,13 +290,13 @@
 
             @if (src.active_contingency_url) {
               <div class="contingency-active-note mono">
-                Failover activo: {{ src.active_contingency_url }}
+                Respaldo activo: {{ src.active_contingency_url }}
               </div>
             }
 
             @if (src.audit_code && src.health_status !== 'ACTIVE') {
               <div class="incident-note">
-                <strong class="mono">{{ src.audit_code }}:</strong>
+                <strong>{{ formatAuditCodeLabel(src.audit_code) }}:</strong>
                 {{ src.audit_note || 'Incidencia operativa registrada.' }}
               </div>
             }
@@ -307,14 +307,14 @@
                 class="btn-primary btn-sm"
                 (click)="filterBySource(src.source_id)"
               >
-                Ver Catálogo
+                Catálogo
               </button>
               <button
                 type="button"
                 class="btn-secondary btn-sm"
                 (click)="openSourceDrawer(src)"
               >
-                Inspeccionar
+                Detalle
               </button>
               <button
                 type="button"
@@ -358,22 +358,22 @@
       <dl class="kv-grid">
         <div class="kv-item">
           <dt>Estado Operativo</dt>
-          <dd class="mono">{{ src.health_status }}</dd>
+          <dd>{{ formatHealthLabel(src.health_status) }}</dd>
         </div>
         <div class="kv-item">
-          <dt>Workflow</dt>
-          <dd class="mono">{{ src.workflow }}</dd>
+          <dt>Tipo de Portal</dt>
+          <dd>{{ formatWorkflowLabel(src.workflow) }}</dd>
         </div>
         <div class="kv-item">
           <dt>Frecuencia</dt>
-          <dd class="mono">{{ src.update_category }}</dd>
+          <dd>{{ formatFrequencyLabel(src.update_category) }}</dd>
         </div>
         <div class="kv-item">
           <dt>Fallos Consecutivos</dt>
           <dd class="mono tabular-nums">{{ src.consecutive_failures ?? 0 }}</dd>
         </div>
         <div class="kv-item">
-          <dt>Firma DOM / API</dt>
+          <dt>Huella Estructural</dt>
           <dd class="mono">{{ (src.dom_structural_hash || src.api_schema_hash || 'Sin línea base').slice(0, 24) }}</dd>
         </div>
         <div class="kv-item">
@@ -420,7 +420,7 @@
       </div>
     } @else {
       @if (loadingFailovers()) {
-        <app-skeleton-loader variant="panel" [rows]="4" label="Cargando bitácora de failover..." />
+        <app-skeleton-loader variant="panel" [rows]="4" label="Cargando bitácora de respaldos..." />
       } @else if (sourceFailovers().length === 0) {
         <p class="muted-note">
           No se han registrado conmutaciones automáticas de contingencia para esta fuente.
@@ -433,7 +433,7 @@
                 <span class="badge" [class.badge-success]="ev.succeeded" [class.badge-danger]="!ev.succeeded">
                   {{ ev.succeeded ? 'CONMUTACIÓN EXITOSA' : 'FALLO DE CONMUTACIÓN' }}
                 </span>
-                <span class="badge badge-info">{{ ev.freshness_class }}</span>
+                <span class="badge badge-info">{{ formatFreshnessLabel(ev.freshness_class) }}</span>
                 <span class="mono tabular-nums failover-lat">{{ formatMs(ev.latency_ms) }}</span>
               </div>
               <div class="failover-urls mono">

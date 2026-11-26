@@ -47,7 +47,8 @@
       <option value="ALL">Todos los estados</option>
       <option value="DISPONIBLE_WEB_NUEVO">Nuevo en Portal</option>
       <option value="CATALOGADO_BDD">Catalogado</option>
-      <option value="DESCARGADO_BRONZE">En Custodia Bruta</option>
+      <option value="DESCARGADO_BRONZE">En Custodia</option>
+      <option value="CONSOLIDADO_GOLD">Consolidado</option>
       <option value="DESCARGA_HISTORICA_LEGACY">Histórico Previo</option>
     </select>
 
@@ -103,7 +104,7 @@
         [disabled]="bulkEnqueuing()"
         (click)="enqueueSelected()"
       >
-        {{ bulkEnqueuing() ? 'Encolando...' : 'Encolar Descarga Real' }}
+        {{ bulkEnqueuing() ? 'Encolando...' : 'Agregar a Cola de Descargas' }}
       </button>
     </ng-container>
 
@@ -186,7 +187,7 @@
   title="Ajuste administrativo auditable de inventario"
   [description]="getModalDescription()"
   reasonLabel="Justificación técnica obligatoria"
-  reasonPlaceholder="Explique por qué se sobrescribe manualmente el indicador del pipeline..."
+  reasonPlaceholder="Explique por qué se ajusta manualmente el estado de este registro..."
   confirmLabel="Aplicar Cambio Auditado"
   tone="warning"
   [busy]="submittingToggle()"

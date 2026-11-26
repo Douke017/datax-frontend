@@ -40,14 +40,10 @@
           <option value=".xlsx">.xlsx</option>
           <option value=".xls">.xls</option>
           <option value=".csv">.csv</option>
-          <option value=".parquet">.parquet</option>
-          <option value=".json">.json</option>
           <option value=".pdf">.pdf</option>
           <option value=".zip">.zip</option>
-          <option value=".tar.gz">.tar.gz</option>
+          <option value=".json">.json</option>
           <option value=".xml">.xml</option>
-          <option value=".sav">.sav</option>
-          <option value=".dta">.dta</option>
         </select>
       </div>
 
@@ -60,14 +56,14 @@
           (ngModelChange)="onCategoryChange($event)"
         >
           <option value="ALL">Todas</option>
-          <option value="TABULAR_CIENTIFICO">Tabular / Científico</option>
+          <option value="TABULAR_CIENTIFICO">Tabular / Datos</option>
           <option value="COMPRIMIDO">Comprimido</option>
           <option value="DOCUMENTAL">Documental</option>
         </select>
       </div>
 
       <div class="f-group">
-        <label for="inv-proc">Estado del Pipeline</label>
+        <label for="inv-proc">Estado de Descarga</label>
         <select
           id="inv-proc"
           class="select-input"
@@ -77,17 +73,15 @@
           <option value="ALL">Todos los estados</option>
           <option value="PENDIENTE">Pendiente</option>
           <option value="EN_PROCESO">En Proceso</option>
-          <option value="PROCESADO_EXITOSAMENTE">Procesado Exitosamente</option>
+          <option value="PROCESADO_EXITOSAMENTE">Procesado</option>
           <option value="ERROR">Con Error</option>
         </select>
       </div>
     </div>
 
     <div class="export-bar">
-      <span class="export-label">Exportar manifiesto filtrado:</span>
-      <a class="btn-secondary btn-sm" [href]="getExportHref('jsonl')" download>Manifiesto JSONL</a>
-      <a class="btn-secondary btn-sm" [href]="getExportHref('csv')" download>Manifiesto CSV</a>
-      <a class="btn-secondary btn-sm" [href]="getExportHref('parquet')" download>Manifiesto Parquet</a>
+      <span class="export-label">Exportar catálogo filtrado:</span>
+      <a class="btn-secondary btn-sm" [href]="getExportHref('csv')" download>Descargar CSV</a>
     </div>
   </section>
 
@@ -208,17 +202,17 @@
           <button
             type="button"
             class="btn-secondary btn-sm"
-            (click)="toast.copyToClipboard(res.resource_key, 'Clave resource_key')"
+            (click)="toast.copyToClipboard(res.resource_key, 'Código del recurso')"
           >
-            Copiar Key
+            Copiar Código
           </button>
           @if (res.content_hash) {
             <button
               type="button"
               class="btn-secondary btn-sm"
-              (click)="toast.copyToClipboard(res.content_hash, 'SHA-256')"
+              (click)="toast.copyToClipboard(res.content_hash, 'Huella SHA-256')"
             >
-              Copiar SHA-256
+              Copiar Huella
             </button>
           }
         </div>
@@ -229,10 +223,10 @@
             <dd class="mono">{{ res.source_id.toUpperCase() }} · {{ res.resource_category || 'DOCUMENTAL' }}</dd>
           </div>
           <div class="mkv">
-            <dt>Estado Pipeline</dt>
+            <dt>Estado de Descarga</dt>
             <dd>
               <span class="badge" [class]="getProcessingBadgeClass(res.processing_status)">
-                {{ res.processing_status || 'PENDIENTE' }}
+                {{ getProcessingLabel(res.processing_status) }}
               </span>
             </dd>
           </div>
@@ -241,26 +235,26 @@
             <dd class="mono">{{ res.declared_filename || '—' }}</dd>
           </div>
           <div class="mkv">
-            <dt>Tamaño / HTTP</dt>
+            <dt>Tamaño / Respuesta HTTP</dt>
             <dd class="mono tabular-nums">
               {{ res.content_length_bytes ? formatBytes(res.content_length_bytes) : '—' }} · HTTP
               {{ res.http_status || '—' }}
             </dd>
           </div>
           <div class="mkv">
-            <dt>ETag</dt>
+            <dt>Etiqueta de Versión</dt>
             <dd class="mono">{{ res.etag || '—' }}</dd>
           </div>
           <div class="mkv">
-            <dt>Last-Modified</dt>
+            <dt>Última Modificación en Origen</dt>
             <dd class="mono">{{ res.last_modified_header || '—' }}</dd>
           </div>
           <div class="mkv mkv-full">
             <dt>Huella SHA-256</dt>
-            <dd class="mono hash-full">{{ res.content_hash || 'Pendiente de descarga física en Prospector Interno' }}</dd>
+            <dd class="mono hash-full">{{ res.content_hash || 'Pendiente de descarga en Prospector Interno' }}</dd>
           </div>
           <div class="mkv mkv-full">
-            <dt>Content-Disposition</dt>
+            <dt>Cabecera de Archivo</dt>
             <dd class="mono">{{ res.content_disposition || '—' }}</dd>
           </div>
         </dl>
@@ -282,7 +276,7 @@
         <div class="override-panel">
           <h4>Ajuste Administrativo Auditado de Estado</h4>
           <p class="override-hint">
-            El estado se actualiza automáticamente mediante callback desde Prospector Interno.
+            El estado se actualiza automáticamente al completarse la descarga en Prospector Interno.
             Cualquier ajuste manual exige una justificación registrada en auditoría.
           </p>
           <div class="override-controls">
@@ -291,10 +285,10 @@
               [(ngModel)]="overrideNextStatus"
               aria-label="Nuevo estado de procesamiento"
             >
-              <option value="PENDIENTE">PENDIENTE</option>
-              <option value="EN_PROCESO">EN_PROCESO</option>
-              <option value="PROCESADO_EXITOSAMENTE">PROCESADO_EXITOSAMENTE</option>
-              <option value="ERROR">ERROR</option>
+              <option value="PENDIENTE">Pendiente</option>
+              <option value="EN_PROCESO">En Proceso</option>
+              <option value="PROCESADO_EXITOSAMENTE">Procesado</option>
+              <option value="ERROR">Con Error</option>
             </select>
             <button
               type="button"
@@ -321,7 +315,7 @@
               </div>
               <div class="tl-meta mono">
                 <div><strong>SHA-256:</strong> {{ ver.content_hash || '—' }}</div>
-                <div><strong>ETag:</strong> {{ ver.etag || '—' }} · <strong>Tamaño:</strong> {{ ver.content_length_bytes ? formatBytes(ver.content_length_bytes) : '—' }}</div>
+                <div><strong>Etiqueta:</strong> {{ ver.etag || '—' }} · <strong>Tamaño:</strong> {{ ver.content_length_bytes ? formatBytes(ver.content_length_bytes) : '—' }}</div>
                 <div><strong>Corrida:</strong> {{ ver.run_id }}</div>
               </div>
             </article>
@@ -347,7 +341,7 @@
               }
               @if (ev.download_id || ev.sha256) {
                 <div class="tl-meta mono">
-                  @if (ev.download_id) { <span>Download ID: {{ ev.download_id }}</span> }
+                  @if (ev.download_id) { <span>ID Descarga: {{ ev.download_id }}</span> }
                   @if (ev.sha256) { <span> · SHA-256: {{ ev.sha256.slice(0, 20) }}...</span> }
                 </div>
               }
@@ -361,14 +355,14 @@
 
 <app-confirm-reason-modal
   [open]="pendingStatusTarget() !== null"
-  title="Sobreescritura auditada de estado de archivo"
+  title="Ajuste auditado de estado de archivo"
   [description]="
     pendingStatusTarget()
       ? 'Se cambiará el estado de ' +
         pendingStatusTarget()!.resource.resource_key +
         ' hacia ' +
-        pendingStatusTarget()!.nextStatus +
-        '. Este cambio quedará registrado en resource_status_audit.'
+        getProcessingLabel(pendingStatusTarget()!.nextStatus) +
+        '. Este cambio quedará registrado en la bitácora de auditoría.'
       : ''
   "
   reasonLabel="Justificación operativa obligatoria"

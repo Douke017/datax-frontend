@@ -25,8 +25,8 @@ interface CatalogDatasetOption {
 
 const COLUMN_LABELS: Record<string, string> = {
   codigo_serie: 'Código de Robot',
-  institucion_id: 'Institución',
-  institucion_nombre: 'Nombre Institución',
+  institucion_id: 'Código Institución',
+  institucion_nombre: 'Institución',
   nombre_serie: 'Nombre del Archivo / Serie',
   tipo_serie: 'Tipo',
   formato_archivo: 'Formato',
@@ -40,7 +40,7 @@ const COLUMN_LABELS: Record<string, string> = {
   fecha_datos: 'Fecha de Datos',
   fecha_descarga: 'Fecha de Descarga',
   estado_descarga: 'Estado Descarga',
-  ruta_archivo_bruto: 'Ruta Almacenada',
+  ruta_archivo_bruto: 'Archivo Almacenado',
   url_descarga: 'URL Descargada'
 };
 
@@ -109,10 +109,14 @@ export class InternoActivosComponent implements OnInit, OnDestroy {
   readonly orderedColumns = computed<string[]>(() => {
     const cols = this.columns();
     if (cols.length === 0) return [];
-    const primaryKey =
-      this.selectedDatamart() === 'catalogo_series_files' ? 'codigo_serie' : 'codigo_serie';
-    if (!cols.includes(primaryKey)) return cols;
-    return [primaryKey, ...cols.filter((c) => c !== primaryKey)];
+    // Ocultar el slug interno institucion_id cuando ya existe el nombre legible institucion_nombre
+    const visibleCols =
+      cols.includes('institucion_nombre')
+        ? cols.filter((c) => c !== 'institucion_id')
+        : cols;
+    const primaryKey = 'codigo_serie';
+    if (!visibleCols.includes(primaryKey)) return visibleCols;
+    return [primaryKey, ...visibleCols.filter((c) => c !== primaryKey)];
   });
 
   readonly totalPages = computed<number>(() =>
@@ -293,6 +297,27 @@ export class InternoActivosComponent implements OnInit, OnDestroy {
   }
 
   formatCell(col: string, val: unknown): string {
+    if (val === null || val === undefined || val === '') return '—';
+    const raw = String(val).trim();
+    if (col === 'tipo_serie') {
+      if (raw === 'MANUAL_FILE') return 'Archivo manual';
+      if (raw === 'AUTOMATIZADO_DAG') return 'Robot automatizado';
+    }
+    if (col === 'estado_serie' || col === 'estado_descarga') {
+      const upper = raw.toUpperCase();
+      if (upper === 'ACTIVO' || upper === 'ACTIVE') return 'Activo';
+      if (upper === 'INACTIVO' || upper === 'INACTIVE') return 'Inactivo';
+      if (upper === 'SUCCESS' || upper === 'COMPLETED') return 'Completada';
+      if (upper === 'FAILED') return 'Con error';
+      if (upper === 'RUNNING') return 'En curso';
+    }
+    if (col === 'frecuencia_publicacion' && raw.length > 0) {
+      return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+    }
+    if (col === 'ruta_archivo_bruto' && raw.startsWith('/')) {
+      const parts = raw.split('/').filter(Boolean);
+      return parts.length > 0 ? parts[parts.length - 1] : raw;
+    }
     return formatMetricCell(col, val);
   }
 }

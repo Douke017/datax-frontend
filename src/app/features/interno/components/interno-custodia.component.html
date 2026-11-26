@@ -1,19 +1,19 @@
 <div class="custodia-view">
   <section class="cust-kpi-row" aria-label="Indicadores de custodia documental en bruto">
     <div class="ckpi">
-      <span class="ck-label">Archivos en Custodia Bruta</span>
+      <span class="ck-label">Archivos en Custodia</span>
       <span class="ck-val mono tabular-nums">{{ formatInt(store.totalArtifactsCount()) }}</span>
-      <span class="ck-sub">Binarios originales intactos</span>
+      <span class="ck-sub">Archivos originales intactos</span>
     </div>
     <div class="ckpi">
       <span class="ck-label">Volumen Total Resguardado</span>
       <span class="ck-val mono tabular-nums">{{ store.totalBytesCustodyFormatted() }}</span>
-      <span class="ck-sub">Almacenamiento Bronze inmutable</span>
+      <span class="ck-sub">Resguardo documental inmutable</span>
     </div>
     <div class="ckpi ckpi-ok">
-      <span class="ck-label">Integridad SHA-256</span>
+      <span class="ck-label">Integridad Verificada</span>
       <span class="ck-val mono tabular-nums">{{ store.integrityRate() }}</span>
-      <span class="ck-sub">Validación en streaming en descarga</span>
+      <span class="ck-sub">Verificación automática al descargar</span>
     </div>
 
     <div class="sync-quick-card">
@@ -103,10 +103,12 @@
           </div>
         }
         @case ('file_path') {
-          <span class="path-cell" [title]="row.file_path">{{ row.file_path }}</span>
+          <span class="path-cell" [title]="formatFileName(row.file_path)">
+            {{ formatFileName(row.file_path) }}
+          </span>
         }
         @case ('period') {
-          <span>{{ row.period || '—' }}</span>
+          <span>{{ formatPeriod(row.period) }}</span>
         }
         @case ('size_bytes') {
           <span>{{ formatSize(row.size_bytes) }}</span>
@@ -115,8 +117,8 @@
           <button
             type="button"
             class="hash-btn mono"
-            (click)="$event.stopPropagation(); toast.copyToClipboard(row.sha256_hash, 'SHA-256')"
-            [title]="'Copiar SHA-256 completo: ' + row.sha256_hash"
+            (click)="$event.stopPropagation(); toast.copyToClipboard(row.sha256_hash, 'Huella SHA-256')"
+            [title]="'Copiar huella completa: ' + row.sha256_hash"
           >
             {{ row.sha256_hash.slice(0, 16) }}...
           </button>
@@ -138,7 +140,7 @@
               class="btn-secondary btn-sm"
               (click)="openArtifactDrawer(row)"
             >
-              Perfilar
+              Ver Contenido
             </button>
           </div>
         }
@@ -150,8 +152,8 @@
 <app-slide-over-drawer
   [open]="inspectingArtifact() !== null"
   [title]="inspectingArtifact() ? inspectingArtifact()!.dataset_code : ''"
-  [subtitle]="inspectingArtifact() ? inspectingArtifact()!.file_path : ''"
-  [badge]="profile() ? profile()!.detected_format.toUpperCase() : 'BRUTO'"
+  [subtitle]="inspectingArtifact() ? formatFileName(inspectingArtifact()!.file_path) : ''"
+  [badge]="profile() ? profile()!.detected_format.toUpperCase() : 'ARCHIVO'"
   size="xl"
   [tabs]="drawerTabs()"
   [activeTab]="drawerTab()"
@@ -165,7 +167,7 @@
         [href]="internoService.buildAssetDownloadUrl(art.artifact_id)"
         download
       >
-        Descargar Archivo Original (SHA-256)
+        Descargar Archivo Original
       </a>
       @if (art.sha256_hash || profile()?.sha256_hash) {
         <button
@@ -173,7 +175,7 @@
           class="btn-secondary btn-sm"
           (click)="toast.copyToClipboard(art.sha256_hash || profile()!.sha256_hash!, 'Huella SHA-256')"
         >
-          Copiar SHA-256
+          Copiar Huella
         </button>
       }
       <button
@@ -182,13 +184,13 @@
         [disabled]="profileLoading()"
         (click)="loadProfile(art.artifact_id, true)"
       >
-        {{ profileLoading() ? 'Perfilando...' : 'Re-perfilar desde disco' }}
+        {{ profileLoading() ? 'Analizando...' : 'Actualizar Vista Previa' }}
       </button>
     </div>
 
     @if (drawerTab() === 'profile') {
       @if (profileLoading()) {
-        <app-skeleton-loader variant="table" [rows]="6" [columns]="5" label="Ejecutando perfilado técnico..." />
+        <app-skeleton-loader variant="table" [rows]="6" [columns]="5" label="Analizando columnas del archivo..." />
       } @else if (profileError()) {
         <div class="error-box" role="alert">
           <p>{{ profileError() }}</p>
@@ -201,7 +203,7 @@
           <div><dt>Formato</dt><dd>{{ prof.detected_format.toUpperCase() }}</dd></div>
           <div><dt>Filas</dt><dd>{{ formatInt(prof.row_count) }}</dd></div>
           <div><dt>Columnas</dt><dd>{{ formatInt(prof.column_count) }}</dd></div>
-          <div><dt>Encoding</dt><dd>{{ prof.detected_encoding || '—' }}</dd></div>
+          <div><dt>Codificación</dt><dd>{{ prof.detected_encoding || '—' }}</dd></div>
           <div><dt>Delimitador</dt><dd>{{ prof.detected_delimiter || '—' }}</dd></div>
           <div><dt>Tamaño</dt><dd>{{ formatSize(prof.size_bytes ?? art.size_bytes) }}</dd></div>
         </dl>
@@ -262,11 +264,11 @@
           </p>
         }
       }
-    } @else if (drawerTab() === 'sample') {
+    } @else {
       @if (profileLoading()) {
-        <app-skeleton-loader variant="table" [rows]="6" [columns]="5" label="Cargando muestra cruda..." />
+        <app-skeleton-loader variant="table" [rows]="6" [columns]="5" label="Cargando vista previa..." />
       } @else if (profile()?.sample_rows?.length) {
-        <div class="table-container" role="region" tabindex="0" aria-label="Muestra cruda de 20 filas">
+        <div class="table-container" role="region" tabindex="0" aria-label="Vista previa de 20 filas">
           <table class="data-table">
             <thead>
               <tr>
@@ -289,14 +291,8 @@
           </table>
         </div>
       } @else {
-        <p class="muted-note">No hay filas tabulares de muestra disponibles para este artefacto.</p>
+        <p class="muted-note">No hay filas tabulares de muestra disponibles para este archivo.</p>
       }
-    } @else {
-      <app-code-snippets-panel
-        mode="raw-asset"
-        [assetId]="art.artifact_id"
-        [rawDownloadUrl]="internoService.buildAssetDownloadUrl(art.artifact_id)"
-      />
     }
   }
 </app-slide-over-drawer>

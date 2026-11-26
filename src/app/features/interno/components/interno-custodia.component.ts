@@ -20,7 +20,6 @@ import {
   DrawerTab,
   SlideOverDrawerComponent
 } from '../../../shared/components/slide-over-drawer/slide-over-drawer.component';
-import { CodeSnippetsPanelComponent } from '../../../shared/components/code-snippets-panel/code-snippets-panel.component';
 import { SkeletonLoaderComponent } from '../../../shared/components/skeleton-loader/skeleton-loader.component';
 import {
   formatBytesBo,
@@ -37,7 +36,6 @@ import {
     FormsModule,
     DataGridComponent,
     SlideOverDrawerComponent,
-    CodeSnippetsPanelComponent,
     SkeletonLoaderComponent
   ],
   templateUrl: './interno-custodia.component.html',
@@ -68,13 +66,13 @@ export class InternoCustodiaComponent implements OnInit, OnDestroy {
   private qpSub?: Subscription;
 
   readonly columns: DataGridColumn[] = [
-    { key: 'dataset_code', label: 'Dataset / Fuente', mono: true, width: '165px' },
-    { key: 'file_path', label: 'Archivo Custodiado (Bruto)', mono: true },
-    { key: 'period', label: 'Periodo', mono: true, width: '105px' },
+    { key: 'dataset_code', label: 'Serie / Fuente', mono: true, width: '165px' },
+    { key: 'file_path', label: 'Archivo Resguardado', mono: true },
+    { key: 'period', label: 'Periodo', mono: true, width: '125px' },
     { key: 'size_bytes', label: 'Tamaño', align: 'right', mono: true, tabular: true, width: '110px' },
-    { key: 'sha256_hash', label: 'Huella SHA-256', mono: true, width: '175px' },
-    { key: 'downloaded_at', label: 'Custodiado', mono: true, width: '160px' },
-    { key: 'actions', label: 'Acciones', width: '215px' }
+    { key: 'sha256_hash', label: 'Huella de Integridad', mono: true, width: '175px' },
+    { key: 'downloaded_at', label: 'Fecha de Resguardo', mono: true, width: '160px' },
+    { key: 'actions', label: 'Acciones', width: '225px' }
   ];
 
   readonly rowKeyFn = (row: BronzeArtifactEntry): string => row.artifact_id;
@@ -82,15 +80,14 @@ export class InternoCustodiaComponent implements OnInit, OnDestroy {
   readonly drawerTabs = computed<DrawerTab[]>(() => [
     {
       id: 'profile',
-      label: 'Perfil Técnico y Columnas',
+      label: 'Columnas y Estructura',
       badge: this.profile()?.column_count ?? undefined
     },
     {
       id: 'sample',
-      label: 'Muestra Cruda (20 filas)',
+      label: 'Vista Previa (20 filas)',
       badge: this.profile()?.sample_rows?.length ?? undefined
-    },
-    { id: 'code', label: 'Consumo Programático' }
+    }
   ]);
 
   readonly sampleColumns = computed<string[]>(() => {
@@ -249,8 +246,21 @@ export class InternoCustodiaComponent implements OnInit, OnDestroy {
     });
   }
 
+  formatFileName(filePath?: string): string {
+    if (!filePath) return 'Archivo sin nombre';
+    const cleaned = filePath.replace(/\\/g, '/');
+    const parts = cleaned.split('/').filter(Boolean);
+    return parts.length > 0 ? parts[parts.length - 1] : cleaned;
+  }
+
+  formatPeriod(period?: string): string {
+    if (!period) return '—';
+    if (period.toUpperCase() === 'LATEST') return 'Última versión';
+    return period;
+  }
+
   formatCellValue(val: unknown): string {
-    if (val === null || val === undefined) return 'NULL';
+    if (val === null || val === undefined) return '—';
     if (typeof val === 'object') return JSON.stringify(val);
     return String(val);
   }

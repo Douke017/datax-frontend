@@ -232,17 +232,18 @@
 .portal-meta-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
 }
 
 .meta-pill {
   font-size: 11px;
-  padding: 2px 7px;
+  padding: 2px 6px;
   border-radius: 3px;
   background: var(--bg-app);
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .meta-pill-warn {
@@ -277,8 +278,15 @@
   border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
+  flex-wrap: balance;
+}
+
+.card-actions button {
+  padding: 4px 8px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .empty-grid-msg {

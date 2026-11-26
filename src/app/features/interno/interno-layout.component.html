@@ -7,9 +7,9 @@
           {{ isServiceOnline() ? 'SERVICIO EN LÍNEA' : 'SIN CONEXIÓN' }}
         </span>
       </div>
-      <h1 class="module-title">Control Previo, Custodia en Bruto y Catálogo de Robots</h1>
+      <h1 class="module-title">Cola de Descargas, Custodia Documental y Catálogo de Robots</h1>
       <p class="module-desc">
-        Validación previa sin duplicidad, cola real de descargas en vivo, resguardo de archivos originales con huella SHA-256
+        Gestión de descargas activas sin duplicidad, resguardo de archivos originales con verificación de integridad
         y consulta o exportación directa a Excel y CSV.
       </p>
     </div>
@@ -37,7 +37,7 @@
       [class.active]="activeTab() === 'gatekeeper'"
       (click)="setTab('gatekeeper')"
     >
-      <span class="tab-label">Control Previo, Cola SSE y Reutilización</span>
+      <span class="tab-label">Cola de Descargas y Consulta</span>
       <span class="tab-badge tabular-nums">{{ formatInt(store.activeDownloadsCount()) }} en curso</span>
     </button>
 
@@ -47,7 +47,7 @@
       [class.active]="activeTab() === 'custodia'"
       (click)="setTab('custodia')"
     >
-      <span class="tab-label">Custodia Bruta y Perfilado SHA-256</span>
+      <span class="tab-label">Archivos en Custodia</span>
       <span class="tab-badge tabular-nums">{{ formatInt(store.totalArtifactsCount()) }}</span>
     </button>
 

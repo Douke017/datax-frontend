@@ -49,7 +49,7 @@ export class ExternoOverviewComponent {
 
   readonly drawerTabs = computed<DrawerTab[]>(() => [
     { id: 'summary', label: 'Política y Estado' },
-    { id: 'failovers', label: 'Historial de Failover', badge: this.sourceFailovers().length }
+    { id: 'failovers', label: 'Historial de Respaldos', badge: this.sourceFailovers().length }
   ]);
 
   readonly incidentSourcesCount = computed(() =>
@@ -178,9 +178,55 @@ export class ExternoOverviewComponent {
     return 'HTML Estándar';
   }
 
+  formatHealthLabel(status?: string | null): string {
+    switch (status) {
+      case 'ACTIVE':
+        return 'Lista Blanca';
+      case 'WARNING':
+        return 'Con Incidencia';
+      case 'SUSPENDED':
+        return 'Suspendida';
+      case 'FAILED':
+        return 'Con Fallo';
+      default:
+        return status || 'Operativa';
+    }
+  }
+
+  formatFrequencyLabel(cat?: string | null): string {
+    switch (cat) {
+      case 'DAILY':
+        return 'Diaria';
+      case 'WEEKLY':
+        return 'Semanal';
+      case 'MONTHLY':
+        return 'Mensual';
+      default:
+        return cat || 'Mensual';
+    }
+  }
+
+  formatAuditCodeLabel(code?: string | null): string {
+    const map: Record<string, string> = {
+      BUDGET_LIMIT: 'Límite de páginas',
+      DOM_CHANGED: 'Cambio estructural',
+      API_CHANGED: 'Cambio en servicio',
+      BOT_BLOCKED: 'Bloqueo de acceso',
+      TLS_HOLD: 'Error de certificado',
+      HTTP_5XX: 'Error de servidor',
+      ACCESS_TIMEOUT: 'Tiempo excedido'
+    };
+    return (code && map[code]) || code || 'Incidencia';
+  }
+
+  formatFreshnessLabel(freshness?: string | null): string {
+    if (freshness === 'HISTORICO_SOLO_LECTURA') return 'Archivo Histórico';
+    return 'Espejo Activo';
+  }
+
   formatRiskLabel(risk: string): string {
     if (risk === 'PUNTO_UNICO_DE_FALLO') return 'PUNTO ÚNICO DE FALLO (0 RESPALDOS)';
     if (risk === 'SOLO_HISTORICO') return 'SOLO ARCHIVO HISTÓRICO';
-    return 'PROTEGIDA (ESPEJO VIVO)';
+    return 'PROTEGIDA (ESPEJO ACTIVO)';
   }
 }

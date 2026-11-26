@@ -10,21 +10,13 @@
       >
         @for (src of store.sources(); track src.source_id) {
           <option [value]="src.source_id">
-            {{ src.source_id.toUpperCase() }} — {{ src.name }} ({{ src.health_status }})
+            {{ src.source_id.toUpperCase() }} — {{ src.name }} ({{ formatHealthLabel(src.health_status) }})
           </option>
         }
       </select>
     </div>
 
     <div class="picker-actions">
-      <button
-        type="button"
-        class="btn-secondary"
-        [disabled]="dryRunning()"
-        (click)="onRunDryRun()"
-      >
-        {{ dryRunning() ? 'Simulando extracción...' : 'Probar Extracción (Dry-Run)' }}
-      </button>
       <button
         type="button"
         class="btn-secondary"
@@ -40,69 +32,12 @@
     <div class="error-banner" role="alert">{{ validationError() }}</div>
   }
 
-  @if (dryRunResult(); as dr) {
-    <section class="dry-run-card" aria-label="Resultado de simulación Dry-Run">
-      <header class="dr-header">
-        <div class="dr-title-row">
-          <h3>Resultado de Simulación Dry-Run</h3>
-          <span class="badge" [class.badge-success]="dr.success" [class.badge-danger]="!dr.success">
-            {{ dr.success ? 'ÉXITO' : dr.failure_code || 'FALLO' }}
-          </span>
-          <span class="badge badge-info">SIN MUTAR CATÁLOGO</span>
-        </div>
-        <button type="button" class="btn-ghost btn-sm" (click)="dryRunResult.set(null)">Cerrar</button>
-      </header>
-
-      <div class="dr-kpis mono tabular-nums">
-        <span>Latencia: <strong>{{ formatMs(dr.elapsed_ms) }}</strong></span>
-        <span>Páginas: <strong>{{ dr.pages_visited }}</strong></span>
-        <span>URLs descubiertas: <strong>{{ dr.urls_discovered }}</strong></span>
-        <span>Recursos detectados: <strong>{{ dr.total_resources_detected }}</strong></span>
-        <span>Motivo paro: <strong>{{ dr.stop_reason || '—' }}</strong></span>
-      </div>
-
-      @if (dr.sample_resources.length > 0) {
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th scope="col">Archivo Detectado</th>
-                <th scope="col">Extensión</th>
-                <th scope="col">Categoría</th>
-                <th scope="col">Método</th>
-                <th scope="col">Tamaño</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (item of dr.sample_resources; track item.resource_key) {
-                <tr>
-                  <td>
-                    <div class="dr-res-title">{{ item.title || item.resource_key }}</div>
-                    <div class="dr-res-url mono">{{ item.url }}</div>
-                  </td>
-                  <td class="mono">{{ item.file_extension || '—' }}</td>
-                  <td class="mono">{{ item.resource_category }}</td>
-                  <td class="mono">{{ item.discovery_method }}</td>
-                  <td class="mono tabular-nums">
-                    {{ item.content_length_bytes ? formatBytes(item.content_length_bytes) : '—' }}
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      } @else {
-        <p class="muted-text">La simulación no detectó archivos descargables con las reglas actuales.</p>
-      }
-    </section>
-  }
-
   <div class="config-sections-grid">
     <section class="cfg-card">
       <h3>Parámetros Generales de Rastreo</h3>
       <div class="field-stack">
         <div class="f-item">
-          <label for="cfg-entry">URL Principal de Entrada (Entrypoint)</label>
+          <label for="cfg-entry">URL Principal del Portal</label>
           <input id="cfg-entry" type="url" class="text-input mono" [(ngModel)]="formEntrypoint" />
         </div>
 
@@ -110,17 +45,17 @@
           <div class="f-item">
             <label for="cfg-cat">Frecuencia de Actualización</label>
             <select id="cfg-cat" class="select-input" [(ngModel)]="formCategory">
-              <option value="DAILY">Diaria (DAILY)</option>
-              <option value="WEEKLY">Semanal (WEEKLY)</option>
-              <option value="MONTHLY">Mensual (MONTHLY)</option>
+              <option value="DAILY">Diaria</option>
+              <option value="WEEKLY">Semanal</option>
+              <option value="MONTHLY">Mensual</option>
             </select>
           </div>
           <div class="f-item">
             <label for="cfg-health">Estado Operativo</label>
             <select id="cfg-health" class="select-input" [(ngModel)]="formHealth">
-              <option value="ACTIVE">Lista Blanca (ACTIVE)</option>
-              <option value="WARNING">Observada (WARNING)</option>
-              <option value="SUSPENDED">Lista Negra (SUSPENDED)</option>
+              <option value="ACTIVE">Lista Blanca (Operativa)</option>
+              <option value="WARNING">Con Incidencia</option>
+              <option value="SUSPENDED">Lista Negra (Suspendida)</option>
             </select>
           </div>
         </div>
@@ -196,7 +131,7 @@
       </div>
 
       <div class="list-editor">
-        <label for="cfg-seed-in">Semillas de Rastreo (Seeds)</label>
+        <label for="cfg-seed-in">URLs Iniciales de Rastreo</label>
         <div class="add-row">
           <input
             id="cfg-seed-in"
@@ -268,13 +203,13 @@
     </section>
   </div>
 
-  <section class="cfg-card" aria-label="Gestión de URLs de contingencia con prioridad y health-check">
+  <section class="cfg-card" aria-label="Gestión de URLs de contingencia con prioridad">
     <div class="cont-head">
       <div>
-        <h3>URLs de Contingencia y Prioridad de Failover</h3>
+        <h3>URLs de Contingencia y Prioridad de Respaldo</h3>
         <p class="muted-text">
-          Ordene los respaldos por prioridad. Solo los espejos clasificados como <strong>ESPEJO_VIVO</strong>
-          se usan para conmutación automática en fuentes vigentes; los archivos históricos nunca reemplazan datos actuales.
+          Ordene los respaldos por prioridad. Solo los <strong>espejos activos</strong> se usan para conmutación automática
+          en fuentes vigentes; los archivos históricos nunca reemplazan datos actuales.
         </p>
       </div>
     </div>
@@ -305,7 +240,7 @@
                   [class.badge-success]="probe.freshness_class !== 'HISTORICO_SOLO_LECTURA'"
                   [class.badge-warning]="probe.freshness_class === 'HISTORICO_SOLO_LECTURA'"
                 >
-                  {{ probe.freshness_class || 'ESPEJO_VIVO' }}
+                  {{ formatFreshnessLabel(probe.freshness_class) }}
                 </span>
                 <span
                   class="badge"
@@ -389,7 +324,7 @@
                       [class.badge-success]="c.freshness_class !== 'HISTORICO_SOLO_LECTURA'"
                       [class.badge-warning]="c.freshness_class === 'HISTORICO_SOLO_LECTURA'"
                     >
-                      {{ c.freshness_class || 'ESPEJO_VIVO' }}
+                      {{ formatFreshnessLabel(c.freshness_class) }}
                     </span>
                   </td>
                   <td class="mono tabular-nums">
@@ -414,20 +349,12 @@
     }
   </section>
 
-  <details class="yaml-preview-details">
-    <summary>Vista previa declarativa de solo lectura (proyección YAML sincronizada)</summary>
-    <pre class="yaml-preview-code mono"><code>{{ readOnlyYamlPreview() }}</code></pre>
-  </details>
-
   <!-- Pie estático integrado al flujo natural del documento (prohibido fixed/sticky) -->
   <footer class="config-footer-static">
     <div class="footer-note">
-      Los cambios se validan en el servidor y se sincronizan de forma atómica con MongoDB y el catálogo maestro.
+      Los cambios se validan en el servidor y se guardan de forma directa en el catálogo maestro.
     </div>
     <div class="footer-buttons">
-      <button type="button" class="btn-secondary" [disabled]="dryRunning()" (click)="onRunDryRun()">
-        Probar Extracción (Dry-Run)
-      </button>
       <button type="button" class="btn-primary" [disabled]="isSaving()" (click)="onSavePolicy()">
         {{ isSaving() ? 'Guardando...' : 'Guardar Parámetros' }}
       </button>

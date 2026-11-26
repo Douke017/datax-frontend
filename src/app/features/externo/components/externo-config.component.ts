@@ -7,10 +7,9 @@ import {
   BackupOriginType,
   CatalogSource,
   ContingencyCandidate,
-  DryRunExtractionResponse,
   SourcePolicyUpdate
 } from '../../../core/models/catalog.model';
-import { formatBytesBo, formatLatencyMs } from '../../../shared/utils/format.utils';
+import { formatLatencyMs } from '../../../shared/utils/format.utils';
 
 @Component({
   selector: 'app-externo-config',
@@ -23,34 +22,24 @@ export class ExternoConfigComponent {
   readonly store = inject(ExternoStore);
   readonly toast = inject(ToastService);
 
-  readonly formatBytes = formatBytesBo;
   readonly formatMs = formatLatencyMs;
 
   readonly availableExtensions = [
     '.xlsx',
     '.xls',
     '.csv',
-    '.parquet',
-    '.json',
-    '.xml',
     '.pdf',
     '.zip',
-    '.tar.gz',
     '.docx',
-    '.dat',
+    '.json',
+    '.xml',
     '.txt',
-    '.sav',
-    '.dta',
     '.rar'
   ];
 
   readonly selectedSourceId = signal<string>('bcb');
   readonly isSaving = signal<boolean>(false);
   readonly validationError = signal<string>('');
-
-  // Dry-run state
-  readonly dryRunning = signal<boolean>(false);
-  readonly dryRunResult = signal<DryRunExtractionResponse | null>(null);
 
   // Per-URL health probe map
   readonly probingUrl = signal<string | null>(null);
@@ -78,38 +67,13 @@ export class ExternoConfigComponent {
   readonly formExcludedKeywords = signal<string[]>([]);
   newExcludedKeyword = '';
 
-  readonly formExtensions = signal<string[]>(['.pdf', '.xlsx', '.xls', '.csv', '.zip', '.parquet']);
+  readonly formExtensions = signal<string[]>(['.pdf', '.xlsx', '.xls', '.csv', '.zip']);
 
   readonly currentSource = computed<CatalogSource | undefined>(() => {
     const list = this.store.sources();
     if (!list.length) return undefined;
     const found = list.find((s) => s.source_id === this.selectedSourceId());
     return found || list[0];
-  });
-
-  // Read-only declarative YAML projection (strictly non-editable preview)
-  readonly readOnlyYamlPreview = computed<string>(() => {
-    const src = this.currentSource();
-    if (!src) return '';
-    const listFmt = (items: string[]) =>
-      items.length ? '\n' + items.map((i) => `    - "${i}"`).join('\n') : ' []';
-    return [
-      `source_id: "${src.source_id}"`,
-      `name: "${src.name}"`,
-      `entrypoint: "${this.formEntrypoint}"`,
-      `workflow: "${src.workflow}"`,
-      `update_category: "${this.formCategory}"`,
-      `health_status: "${this.formHealth}"`,
-      `rate_limit_seconds: ${this.formRateLimit}`,
-      `max_urls: ${this.formMaxUrls}`,
-      `max_resources: ${this.formMaxResources}`,
-      `ignore_robots_txt: ${this.formIgnoreRobots}`,
-      `allowed_extensions:${listFmt(this.formExtensions())}`,
-      `seeds:${listFmt(this.formSeeds())}`,
-      `allowed_hosts:${listFmt(this.formAllowedHosts())}`,
-      `excluded_path_keywords:${listFmt(this.formExcludedKeywords())}`,
-      `contingency_urls:${listFmt(this.formContingencyUrls())}`
-    ].join('\n');
   });
 
   constructor() {
@@ -131,7 +95,6 @@ export class ExternoConfigComponent {
   onSelectSource(sourceId: string): void {
     this.selectedSourceId.set(sourceId);
     this.store.clearContingencyResult();
-    this.dryRunResult.set(null);
     this.probeResults.set({});
     const src = this.store.sources().find((s) => s.source_id === sourceId);
     if (src) this.syncFormWithSource(src);
@@ -208,7 +171,7 @@ export class ExternoConfigComponent {
         if (res.reachable) {
           this.toast.success(
             `Respaldo verificado (HTTP ${res.http_status})`,
-            `${res.freshness_class || 'ESPEJO_VIVO'} · ${this.formatMs(res.latency_ms)}`
+            `${this.formatFreshnessLabel(res.freshness_class)} · ${this.formatMs(res.latency_ms)}`
           );
         } else {
           this.toast.warning('Respaldo no alcanzable', res.recommendation);
@@ -218,7 +181,7 @@ export class ExternoConfigComponent {
         this.probingUrl.set(null);
         this.toast.error(
           'Error al verificar respaldo',
-          err?.error?.detail || 'No se pudo completar la prueba HTTP/TLS.'
+          err?.error?.detail || 'No se pudo completar la verificación de conexión.'
         );
       }
     });
@@ -232,48 +195,24 @@ export class ExternoConfigComponent {
         this.formContingencyUrls.set([...res.updated_contingency_urls]);
         this.toast.success(
           'Evaluación de contingencias finalizada',
-          `${res.candidates.length} rutas probadas, ${res.auto_registered_count} espejos vivos registrados.`
+          `${res.candidates.length} rutas probadas, ${res.auto_registered_count} espejos activos registrados.`
         );
       },
       error: () => {
-        this.toast.error('No fue posible completar el descubrimiento automático de contingencias.');
+        this.toast.error('No fue posible completar la búsqueda automática de contingencias.');
       }
     });
   }
 
-  onRunDryRun(): void {
-    const sid = this.selectedSourceId();
-    this.dryRunning.set(true);
-    this.dryRunResult.set(null);
-    this.store
-      .dryRunSource(sid, {
-        entrypoint: this.formEntrypoint || undefined,
-        seeds: this.formSeeds().length ? this.formSeeds() : undefined,
-        allowed_extensions: this.formExtensions(),
-        excluded_path_keywords: this.formExcludedKeywords(),
-        allowed_hosts: this.formAllowedHosts().length ? this.formAllowedHosts() : undefined,
-        rate_limit_seconds: this.formRateLimit,
-        ignore_robots_txt: this.formIgnoreRobots,
-        max_pages: 3,
-        max_resources: 25
-      })
-      .subscribe({
-        next: (res) => {
-          this.dryRunning.set(false);
-          this.dryRunResult.set(res);
-          this.toast.info(
-            `Dry-Run completado en ${this.formatMs(res.elapsed_ms)}`,
-            `${res.total_resources_detected} recursos detectados sin mutar el catálogo.`
-          );
-        },
-        error: (err) => {
-          this.dryRunning.set(false);
-          this.toast.error(
-            'Error al ejecutar Dry-Run',
-            err?.error?.detail || 'Verifique la URL de entrada y los parámetros.'
-          );
-        }
-      });
+  formatHealthLabel(status?: string): string {
+    if (status === 'ACTIVE') return 'Lista Blanca';
+    if (status === 'WARNING') return 'Con Incidencia';
+    if (status === 'SUSPENDED') return 'Suspendida';
+    return status || 'Operativa';
+  }
+
+  formatFreshnessLabel(freshness?: string): string {
+    return freshness === 'HISTORICO_SOLO_LECTURA' ? 'Archivo Histórico' : 'Espejo Activo';
   }
 
   formatOriginType(origin: BackupOriginType): string {
@@ -281,17 +220,17 @@ export class ExternoConfigComponent {
       case 'CONFIGURADA':
         return 'Respaldo Configurado';
       case 'REDIRECCION_PERMANENTE':
-        return 'Redirección 301/308';
+        return 'Redirección Permanente';
       case 'SITEMAP_ALTERNO':
-        return 'Sitemap Alterno';
+        return 'Mapa de Sitio Alterno';
       case 'ESPEJO_INSTITUCIONAL':
         return 'Espejo Institucional';
       case 'RUTA_ESTADISTICA_ALTERNA':
         return 'Ruta Estadística Alterna';
       case 'DATOS_ABIERTOS':
-        return 'Catálogo CKAN / Datos Abiertos';
+        return 'Portal de Datos Abiertos';
       case 'WAYBACK_CDX':
-        return 'Wayback CDX (Solo Histórico)';
+        return 'Archivo Histórico Web';
       default:
         return origin;
     }

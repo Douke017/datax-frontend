@@ -29,7 +29,7 @@
         [disabled]="syncing()"
         (click)="onRefreshFromDatabase()"
       >
-        {{ syncing() ? 'Actualizando...' : 'Actualizar desde BDD' }}
+        {{ syncing() ? 'Actualizando...' : 'Actualizar Catálogo' }}
       </button>
     </div>
   </header>
@@ -206,29 +206,19 @@
     }
   </section>
 
-  <details class="secondary-disclosure">
-    <summary>Opciones técnicas del catálogo (columnas y descarga columnar)</summary>
-    <div class="disclosure-body">
-      <div class="tech-row">
-        <p class="muted-text">
-          Para integraciones automáticas o herramientas de ciencia de datos, también puedes descargar este catálogo en formato comprimido Apache Parquet o consultar la documentación de la API.
-        </p>
-        <a class="btn-secondary btn-sm dl-link" [href]="getExportHref('parquet')" download>
-          Descargar Parquet (.parquet)
-        </a>
-      </div>
-
-      @if (dictionary(); as dict) {
+  @if (dictionary(); as dict) {
+    <details class="secondary-disclosure">
+      <summary>Diccionario de columnas del catálogo</summary>
+      <div class="disclosure-body">
         <div class="dict-list">
           @for (c of dict.columns; track c.column_name) {
             <div class="dict-item">
-              <span class="mono dict-col">{{ c.column_name }}</span>
-              <span class="badge badge-neutral">{{ c.data_type }}</span>
-              <span class="muted-text">{{ c.business_label }} — {{ c.description }}</span>
+              <span class="mono dict-col">{{ columnLabel(c.column_name) }}</span>
+              <span class="muted-text">{{ c.description }}</span>
             </div>
           }
         </div>
-      }
-    </div>
-  </details>
+      </div>
+    </details>
+  }
 </div>

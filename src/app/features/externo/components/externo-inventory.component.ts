@@ -99,9 +99,9 @@ export class ExternoInventoryComponent implements OnInit, OnDestroy {
   private pendingInspectKey: string | null = null;
 
   readonly drawerTabs = computed<DrawerTab[]>(() => [
-    { id: 'meta', label: 'Metadatos HTTP' },
-    { id: 'versions', label: 'Versiones SHA-256', badge: this.resourceVersions().length },
-    { id: 'audit', label: 'Bitácora Auditoría', badge: this.resourceAudit().length }
+    { id: 'meta', label: 'Detalles del Archivo' },
+    { id: 'versions', label: 'Historial de Versiones', badge: this.resourceVersions().length },
+    { id: 'audit', label: 'Bitácora de Cambios', badge: this.resourceAudit().length }
   ]);
 
   readonly filterChips = computed<DataGridFilterChip[]>(() => {
@@ -267,7 +267,7 @@ export class ExternoInventoryComponent implements OnInit, OnDestroy {
           );
           if (toEnqueue.length === 0) {
             this.bulkDispatching.set(false);
-            const msg = `Gatekeeper interceptó ${batchRes.saved_downloads}/${batchRes.total} archivos (${batchRes.elapsed_ms} ms): ya disponibles en custodia o en curso.`;
+            const msg = `Se evitaron ${batchRes.saved_downloads} de ${batchRes.total} descargas (${batchRes.elapsed_ms} ms): los archivos ya están disponibles en custodia o en curso.`;
             this.bulkSummaryMsg.set(msg);
             this.toast.info('Sin descargas redundantes', msg);
             this.selectedKeys.set(new Set());
@@ -292,7 +292,7 @@ export class ExternoInventoryComponent implements OnInit, OnDestroy {
             next: (queued) => {
               const okCount = queued.filter((q) => q !== null).length;
               this.bulkDispatching.set(false);
-              const msg = `Evaluación batch (${batchRes.elapsed_ms} ms): ${batchRes.saved_downloads} evitados por caché/dedup, ${okCount} enviados a cola real de Prospector Interno.`;
+              const msg = `Verificación completada (${batchRes.elapsed_ms} ms): ${batchRes.saved_downloads} ya existían, ${okCount} enviados a la cola de descarga de Prospector Interno.`;
               this.bulkSummaryMsg.set(msg);
               this.toast.success('Envío en lote completado', msg);
               this.selectedKeys.set(new Set());
@@ -306,8 +306,8 @@ export class ExternoInventoryComponent implements OnInit, OnDestroy {
         error: (err) => {
           this.bulkDispatching.set(false);
           this.toast.error(
-            'Error en evaluación Gatekeeper',
-            err?.error?.detail || 'Verifique que Prospector Interno (:8001) esté en línea.'
+            'Error al verificar disponibilidad',
+            err?.error?.detail || 'Verifique que Prospector Interno esté en línea.'
           );
         }
       });

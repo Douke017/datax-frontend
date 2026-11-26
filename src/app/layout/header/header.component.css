@@ -8,15 +8,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 20px;
-  gap: 14px;
-  flex-wrap: wrap;
+  padding: 6px 18px;
+  gap: 12px;
+  flex-wrap: nowrap;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  min-inline-size: 0;
+  flex-shrink: 0;
 }
 
 .brand-badge {
@@ -102,16 +104,18 @@
 .header-right {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  min-inline-size: 0;
+  flex-shrink: 1;
 }
 
 .cmd-trigger {
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-width: 240px;
+  gap: 10px;
+  min-inline-size: 0;
+  inline-size: clamp(175px, 16vw, 235px);
   padding: 5px 10px;
   background: var(--bg-app);
   border: 1px solid var(--border-medium);
@@ -195,11 +199,14 @@
   color: var(--text-main);
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1480px) {
   .brand-subtitle {
     display: none;
   }
-  .cmd-trigger {
-    min-width: 180px;
+}
+
+@media (max-width: 1180px) {
+  .app-header {
+    flex-wrap: wrap;
   }
 }

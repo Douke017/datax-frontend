@@ -49,10 +49,10 @@ export class InternoCuraduriaComponent implements OnInit, OnDestroy {
   readonly columns: DataGridColumn[] = [
     { key: 'source_id', label: 'Fuente', mono: true, width: '105px' },
     { key: 'canonical_url', label: 'Enlace / Archivo' },
-    { key: 'status', label: 'Estado Pipeline', width: '165px' },
+    { key: 'status', label: 'Estado', width: '165px' },
     { key: 'is_downloaded', label: 'Descargado', align: 'center', width: '130px' },
     { key: 'is_processed', label: 'Procesado', align: 'center', width: '130px' },
-    { key: 'sha256_hash', label: 'SHA-256', mono: true, width: '145px' },
+    { key: 'sha256_hash', label: 'Huella', mono: true, width: '145px' },
     { key: 'actions', label: 'Acciones', width: '155px' }
   ];
 
@@ -214,15 +214,15 @@ export class InternoCuraduriaComponent implements OnInit, OnDestroy {
     );
 
     forkJoin(calls).subscribe({
-      next: (results) => {
-        const ok = results.filter(Boolean).length;
-        this.bulkEnqueuing.set(false);
-        this.selectedKeys.set(new Set());
-        this.toast.success(
-          `${ok} enlace(s) enviados al pool real de descargas`,
-          'El avance se reflejará en vivo en el Monitor SSE de Control Previo.'
-        );
-      },
+        next: (results) => {
+          const ok = results.filter(Boolean).length;
+          this.bulkEnqueuing.set(false);
+          this.selectedKeys.set(new Set());
+          this.toast.success(
+            `${ok} enlace(s) enviados a la cola de descargas`,
+            'El avance se reflejará en vivo en Cola de Descargas.'
+          );
+        },
       error: () => {
         this.bulkEnqueuing.set(false);
         this.toast.error('Error al encolar los enlaces seleccionados');
@@ -243,8 +243,8 @@ export class InternoCuraduriaComponent implements OnInit, OnDestroy {
         this.submittingToggle.set(false);
         this.pendingToggle.set(null);
         this.toast.success(
-          'Estado de inventario actualizado (auditado)',
-          'La justificación fue registrada en inventory_status_audit.'
+          'Estado de inventario actualizado',
+          'La justificación fue registrada en la bitácora de auditoría.'
         );
       },
       error: (err) => {
@@ -280,9 +280,11 @@ export class InternoCuraduriaComponent implements OnInit, OnDestroy {
         return 'Catalogado';
       case 'DESCARGA_HISTORICA_LEGACY':
         return 'Histórico Previo';
+      case 'CONSOLIDADO_GOLD':
+        return 'Consolidado';
       case 'DESCARGADO_BRONZE':
       case 'COMPLETED':
-        return 'En Custodia Bruta';
+        return 'En Custodia';
       default:
         return status;
     }

@@ -1,7 +1,7 @@
 <div class="alerts-view">
   <section class="verify-bar" aria-label="Inspección estructural en vivo">
     <div class="verify-left">
-      <label for="verify-src">Verificar estructura DOM / API en vivo:</label>
+      <label for="verify-src">Verificar cambios en un portal ahora:</label>
       <select id="verify-src" class="select-input" [(ngModel)]="selectedSourceToVerify">
         @for (src of store.sources(); track src.source_id) {
           <option [value]="src.source_id">{{ src.source_id.toUpperCase() }} — {{ src.name }}</option>
@@ -25,23 +25,23 @@
         aria-label="Filtrar por severidad"
       >
         <option value="ALL">Todas las severidades</option>
-        <option value="CRITICA">CRÍTICA</option>
-        <option value="ALTA">ALTA</option>
-        <option value="MEDIA">MEDIA</option>
+        <option value="CRITICA">Crítica</option>
+        <option value="ALTA">Alta</option>
+        <option value="MEDIA">Media</option>
       </select>
 
       <select
         class="select-input select-sm"
         [ngModel]="statusFilter()"
         (ngModelChange)="statusFilter.set($event)"
-        aria-label="Filtrar por ciclo de vida"
+        aria-label="Filtrar por estado"
       >
         <option value="ALL">Todos los estados</option>
-        <option value="ABIERTA">ABIERTA</option>
-        <option value="RECONOCIDA">RECONOCIDA</option>
-        <option value="EN_MANTENIMIENTO">EN_MANTENIMIENTO</option>
-        <option value="SILENCIADA">SILENCIADA</option>
-        <option value="RESUELTA">RESUELTA</option>
+        <option value="ABIERTA">Abierta</option>
+        <option value="RECONOCIDA">Reconocida</option>
+        <option value="EN_MANTENIMIENTO">En Mantenimiento</option>
+        <option value="SILENCIADA">Silenciada</option>
+        <option value="RESUELTA">Resuelta</option>
       </select>
     </div>
   </section>
@@ -53,8 +53,8 @@
           <tr>
             <th scope="col">Severidad</th>
             <th scope="col">Estado</th>
-            <th scope="col">Fuente / Código</th>
-            <th scope="col">Diagnóstico y Diff</th>
+            <th scope="col">Fuente / Tipo</th>
+            <th scope="col">Diagnóstico y Cambios</th>
             <th scope="col" class="num-col">Ocurrencias</th>
             <th scope="col">Última Detección</th>
             <th scope="col">Acciones</th>
@@ -81,7 +81,7 @@
                   [class.badge-info]="alrt.status === 'EN_MANTENIMIENTO'"
                   [class.badge-success]="alrt.status === 'RESUELTA' || alrt.resolved"
                 >
-                  {{ alrt.status || (alrt.resolved ? 'RESUELTA' : 'ABIERTA') }}
+                  {{ formatAlertStatus(alrt.status, alrt.resolved) }}
                 </span>
               </td>
               <td>
@@ -95,10 +95,10 @@
                 @if (alrt.structural_diff; as diff) {
                   <div class="diff-pills mono">
                     @if (diff.added_selectors.length > 0) {
-                      <span class="diff-add">+{{ diff.added_selectors.length }} selectores</span>
+                      <span class="diff-add">+{{ diff.added_selectors.length }} elementos</span>
                     }
                     @if (diff.removed_selectors.length > 0) {
-                      <span class="diff-rem">-{{ diff.removed_selectors.length }} selectores</span>
+                      <span class="diff-rem">-{{ diff.removed_selectors.length }} elementos</span>
                     }
                     @if (diff.changed_fields.length > 0) {
                       <span class="diff-chg">~{{ diff.changed_fields.length }} campos</span>
@@ -111,14 +111,14 @@
               <td (click)="$event.stopPropagation()">
                 <div class="row-btns">
                   <button type="button" class="btn-primary btn-sm" (click)="openAlertDrawer(alrt)">
-                    Diff y Gestión
+                    Ver Detalle
                   </button>
                   <button
                     type="button"
                     class="btn-secondary btn-sm"
                     (click)="onOpenReport(alrt.source_id)"
                   >
-                    Taiga MD
+                    Exportar Informe
                   </button>
                 </div>
               </td>
@@ -136,26 +136,26 @@
   </section>
 
   @if (store.activeTechnicalReport(); as rep) {
-    <section class="report-card" aria-label="Informe Técnico para Taiga">
+    <section class="report-card" aria-label="Informe de Mantenimiento">
       <header class="rep-header">
         <div>
-          <h3>Informe Técnico de Mantenimiento — {{ rep.source_id.toUpperCase() }}</h3>
-          <p class="mono rep-sub">{{ rep.report_id }} · {{ rep.alert_code }} ({{ rep.severity }})</p>
+          <h3>Informe de Mantenimiento — {{ rep.source_id.toUpperCase() }}</h3>
+          <p class="mono rep-sub">{{ rep.report_id }} · {{ formatAlertType(rep.alert_code) }} ({{ rep.severity }})</p>
         </div>
         <div class="row-btns">
           <button
             type="button"
             class="btn-secondary btn-sm"
-            (click)="toast.copyToClipboard(rep.taiga_markdown, 'Informe Markdown Taiga')"
+            (click)="toast.copyToClipboard(rep.taiga_markdown, 'Informe de mantenimiento')"
           >
-            Copiar Markdown
+            Copiar Informe
           </button>
           <button
             type="button"
             class="btn-secondary btn-sm"
             (click)="downloadMarkdownReport(rep.source_id, rep.report_id, rep.taiga_markdown)"
           >
-            Descargar .md
+            Descargar Informe (.md)
           </button>
           <button type="button" class="btn-ghost btn-sm" (click)="store.clearTechnicalReport()">
             Cerrar
@@ -166,12 +166,13 @@
     </section>
   }
 
-  <section class="channels-section" aria-label="Canales de notificación push">
+  <section class="channels-section" aria-label="Canales de notificación externa opcionales">
     <div class="channels-header">
       <div>
-        <h3>Canales de Notificación Push (Webhook, Slack, Teams, SMTP, Taiga)</h3>
+        <h3>Canales de Notificación Externa (Opcional)</h3>
         <p class="muted-text">
-          Los secretos se resuelven por nombre de variable de entorno; nunca se almacenan credenciales planas.
+          Actualmente las alertas se consultan en esta consola y pueden exportarse como informe.
+          Si más adelante desea reenviar alertas automáticamente a correo, Slack, Microsoft Teams o un enlace externo, configúrelo aquí.
         </p>
       </div>
     </div>
@@ -181,19 +182,20 @@
         type="text"
         class="text-input"
         [(ngModel)]="channelName"
-        placeholder="Nombre del canal (ej. Alertas Ingeniería Slack)"
+        placeholder="Nombre del canal"
+        aria-label="Nombre del canal de notificación"
       />
-      <select class="select-input" [(ngModel)]="channelType">
-        <option value="WEBHOOK">Webhook JSON (HMAC)</option>
-        <option value="SLACK">Slack Incoming Webhook</option>
+      <select class="select-input" [(ngModel)]="channelType" aria-label="Tipo de canal">
+        <option value="SMTP">Correo electrónico (SMTP)</option>
+        <option value="SLACK">Slack</option>
         <option value="TEAMS">Microsoft Teams</option>
-        <option value="SMTP">Correo SMTP</option>
-        <option value="TAIGA">API Taiga</option>
+        <option value="WEBHOOK">Enlace HTTP externo (Webhook)</option>
+        <option value="TAIGA">Taiga</option>
       </select>
-      <select class="select-input" [(ngModel)]="channelMinSeverity">
-        <option value="MEDIA">Desde MEDIA</option>
-        <option value="ALTA">Desde ALTA</option>
-        <option value="CRITICA">Solo CRÍTICA</option>
+      <select class="select-input" [(ngModel)]="channelMinSeverity" aria-label="Severidad mínima">
+        <option value="MEDIA">Desde Media</option>
+        <option value="ALTA">Desde Alta</option>
+        <option value="CRITICA">Solo Crítica</option>
       </select>
 
       @if (channelType === 'SMTP') {
@@ -201,13 +203,15 @@
           type="text"
           class="text-input mono"
           [(ngModel)]="channelSmtpHost"
-          placeholder="Host SMTP (smtp.empresa.bo)"
+          placeholder="Servidor de correo (smtp.empresa.bo)"
+          aria-label="Servidor SMTP"
         />
         <input
           type="text"
           class="text-input mono"
           [(ngModel)]="channelSmtpRecipients"
-          placeholder="Destinatarios separados por coma"
+          placeholder="Correos destinatarios (separados por coma)"
+          aria-label="Destinatarios"
         />
       } @else {
         <input
@@ -215,12 +219,14 @@
           class="text-input mono"
           [(ngModel)]="channelEndpointUrl"
           placeholder="URL de destino (https://...)"
+          aria-label="URL de destino"
         />
         <input
           type="text"
           class="text-input mono"
           [(ngModel)]="channelSecretEnvVar"
-          placeholder="Variable env secreto (ej. DATAX_WEBHOOK_SECRET)"
+          placeholder="Variable de clave secreta (opcional)"
+          aria-label="Variable de clave secreta"
         />
       }
 
@@ -238,7 +244,7 @@
       @for (ch of store.alertChannels(); track ch.channel_id) {
         <article class="channel-item">
           <div class="ch-main">
-            <span class="badge badge-info">{{ ch.channel_type }}</span>
+            <span class="badge badge-info">{{ formatChannelType(ch.channel_type) }}</span>
             <strong>{{ ch.name }}</strong>
             <span class="badge badge-neutral">>= {{ ch.min_severity }}</span>
             <span class="mono ch-target">{{ ch.endpoint_url || ch.smtp_host || '—' }}</span>
@@ -250,7 +256,7 @@
               [disabled]="testingChannelId() === ch.channel_id"
               (click)="onTestChannel(ch.channel_id!)"
             >
-              {{ testingChannelId() === ch.channel_id ? 'Enviando...' : 'Probar Canal' }}
+              {{ testingChannelId() === ch.channel_id ? 'Enviando...' : 'Enviar Prueba' }}
             </button>
             <button
               type="button"
@@ -262,7 +268,7 @@
           </div>
         </article>
       } @empty {
-        <p class="muted-text">No hay canales push registrados todavía.</p>
+        <p class="muted-text">No hay canales externos conectados. Las alertas permanecen disponibles en esta consola.</p>
       }
     </div>
   </section>
@@ -272,7 +278,7 @@
   [open]="selectedAlert() !== null"
   [title]="selectedAlert() ? selectedAlert()!.source_name : ''"
   [subtitle]="selectedAlert() ? formatAlertType(selectedAlert()!.alert_code) : ''"
-  [badge]="selectedAlert() ? selectedAlert()!.alert_code : ''"
+  [badge]="selectedAlert() ? formatAlertStatus(selectedAlert()!.status, selectedAlert()!.resolved) : ''"
   size="lg"
   [tabs]="drawerTabs()"
   [activeTab]="drawerTab()"
@@ -345,7 +351,7 @@
             </ul>
           </div>
         } @else {
-          <p class="muted-text">Sin diff de selectores adicional registrado para esta incidencia.</p>
+          <p class="muted-text">Sin cambios adicionales de selectores registrados para esta incidencia.</p>
         }
       </div>
     } @else if (drawerTab() === 'lifecycle') {
@@ -355,15 +361,15 @@
           <input id="lc-assignee" type="text" class="text-input" [(ngModel)]="assigneeInput" placeholder="Ej: ing.datos" />
         </div>
         <div class="lc-field">
-          <label for="lc-ticket">URL de Ticket (Taiga / Jira)</label>
-          <input id="lc-ticket" type="url" class="text-input mono" [(ngModel)]="ticketUrlInput" placeholder="https://taiga.local/project/issue/..." />
+          <label for="lc-ticket">Enlace de seguimiento (opcional)</label>
+          <input id="lc-ticket" type="url" class="text-input mono" [(ngModel)]="ticketUrlInput" placeholder="https://..." />
         </div>
         <div class="lc-field">
           <label for="lc-note">Nota de seguimiento o resolución</label>
           <textarea id="lc-note" rows="3" class="text-input" [(ngModel)]="resolutionNoteInput"></textarea>
         </div>
         <div class="lc-field">
-          <label for="lc-mute">Horas de silenciamiento (para estado SILENCIADA)</label>
+          <label for="lc-mute">Horas de silenciamiento</label>
           <input id="lc-mute" type="number" min="1" max="720" class="text-input mono" [(ngModel)]="muteHours" />
         </div>
 
@@ -384,7 +390,7 @@
       </div>
     } @else {
       @if ((alrt.delivery_logs || []).length === 0) {
-        <p class="muted-text">No hay despachos push registrados aún para esta alerta.</p>
+        <p class="muted-text">No hay envíos externos registrados aún para esta alerta.</p>
       } @else {
         <div class="delivery-list">
           @for (dl of alrt.delivery_logs || []; track dl.attempted_at + dl.channel_id) {

@@ -95,8 +95,8 @@
       <div>
         <h2 class="panel-title">Sincronización y Transferencia por Lotes (Externo → Interno)</h2>
         <p class="panel-desc">
-          Simule el plan priorizado o ejecute la transferencia en bruto con validación previa de duplicidad,
-          registro en cola de descargas activas, persistencia en el inventario relacional y notificación de estado a Prospector Externo.
+          Ejecute la transferencia directa de archivos pendientes con validación previa de duplicidad,
+          registro en la cola de descargas activas, persistencia en inventario y actualización de estado en Prospector Externo.
         </p>
       </div>
 
@@ -110,26 +110,18 @@
             (change)="onBatchSizeChange($event)"
             [disabled]="store.syncing()"
           >
-            <option [value]="5">5 archivos</option>
-            <option [value]="10">10 archivos</option>
-            <option [value]="25">25 archivos</option>
-            <option [value]="50">50 archivos</option>
+            @for (size of batchSizeOptions; track size) {
+              <option [value]="size" [selected]="store.batchSize() === size">
+                {{ size }} archivos
+              </option>
+            }
           </select>
         </div>
 
         <button
           type="button"
-          class="btn-secondary-sync"
-          (click)="onExecuteSync(false)"
-          [disabled]="store.syncing() || store.reconciling()"
-        >
-          Simular Plan de Sincronización
-        </button>
-
-        <button
-          type="button"
           class="btn-sync-exec"
-          (click)="onExecuteSync(true)"
+          (click)="onExecuteSync()"
           [disabled]="store.syncing() || store.reconciling() || (store.totalNew() === 0 && store.totalModified() === 0)"
         >
           @if (store.syncing()) {
@@ -144,10 +136,8 @@
     @if (store.lastSyncResult(); as syncRes) {
       <div class="sync-result-box">
         <div class="result-top">
-          <span class="result-badge mono">
-            {{ syncRes.is_executed ? 'SINCRONIZACIÓN EJECUTADA' : 'SIMULACIÓN DE PLAN' }}
-          </span>
-          <span class="result-id mono">Plan: {{ syncRes.plan_id }} | Fuente: {{ syncRes.source_id.toUpperCase() }}</span>
+          <span class="result-badge mono">SINCRONIZACIÓN EJECUTADA</span>
+          <span class="result-id mono">Lote: {{ syncRes.plan_id }} | Fuente: {{ syncRes.source_id.toUpperCase() }}</span>
         </div>
         <p class="result-summary">{{ syncRes.summary }}</p>
         <div class="result-stats">
@@ -200,7 +190,7 @@
         <input
           type="text"
           class="search-input mono"
-          placeholder="Filtrar por fuente, clave, URL, formato o periodo..."
+          placeholder="Filtrar por fuente, clave, URL o formato..."
           [value]="store.searchQuery()"
           (input)="onSearchInput($event)"
         />

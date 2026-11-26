@@ -187,9 +187,50 @@ export class ExternoRunsComponent implements OnDestroy {
     };
   }
 
+  formatRunStatus(status?: string): string {
+    switch (status || 'COMPLETED') {
+      case 'COMPLETED':
+        return 'Completada';
+      case 'RUNNING':
+        return 'En curso';
+      case 'FAILED':
+        return 'Con error';
+      case 'CANCELLED':
+        return 'Cancelada';
+      default:
+        return status || 'Completada';
+    }
+  }
+
+  formatStorageStatus(status?: string): string {
+    switch (status) {
+      case 'HEALTHY':
+        return 'Operativo';
+      case 'DEGRADED':
+        return 'Degradado';
+      case 'OFFLINE':
+        return 'Sin conexión';
+      default:
+        return status || 'Operativo';
+    }
+  }
+
+  formatEventName(eventName: string): string {
+    const labels: Record<string, string> = {
+      run_started: 'Corrida iniciada',
+      source_started: 'Portal iniciado',
+      source_completed: 'Portal completado',
+      source_failed: 'Error en portal',
+      run_completed: 'Corrida completada',
+      run_failed: 'Corrida con error',
+      run_cancelled: 'Corrida cancelada'
+    };
+    return labels[eventName] || eventName;
+  }
+
   formatEventData(data: Record<string, unknown>): string {
     return Object.entries(data || {})
-      .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+      .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
       .join(' · ');
   }
 }

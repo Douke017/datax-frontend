@@ -21,7 +21,7 @@
     <div class="trigger-right">
       @if (store.activeRunId(); as activeId) {
         <span class="badge" [class.badge-info]="sseConnected()" [class.badge-neutral]="!sseConnected()">
-          {{ sseConnected() ? 'SSE EN VIVO: ' + activeId : 'ÚLTIMA: ' + activeId }}
+          {{ sseConnected() ? 'EN VIVO: ' + activeId : 'ÚLTIMA: ' + activeId }}
         </span>
         <button
           type="button"
@@ -39,16 +39,16 @@
   </section>
 
   @if (liveEvents().length > 0) {
-    <section class="sse-card" aria-label="Stream de progreso SSE">
+    <section class="sse-card" aria-label="Progreso en tiempo real">
       <header class="sse-head">
-        <h3>Progreso en Tiempo Real (SSE)</h3>
-        <button type="button" class="btn-ghost btn-sm" (click)="liveEvents.set([])">Limpiar log</button>
+        <h3>Progreso en Tiempo Real</h3>
+        <button type="button" class="btn-ghost btn-sm" (click)="liveEvents.set([])">Limpiar registro</button>
       </header>
       <ul class="sse-log mono">
         @for (ev of liveEvents(); track ev.timestamp + ev.event + $index) {
           <li>
             <span class="sse-time">{{ ev.timestamp.slice(11, 19) }}</span>
-            <span class="badge badge-info">{{ ev.event }}</span>
+            <span class="badge badge-info">{{ formatEventName(ev.event) }}</span>
             <span class="sse-data">{{ formatEventData(ev.data) }}</span>
           </li>
         }
@@ -87,7 +87,7 @@
                     [class.badge-warning]="run.status === 'CANCELLED' || run.status === 'RUNNING'"
                     [class.badge-danger]="run.status === 'FAILED'"
                   >
-                    {{ run.status || 'COMPLETED' }}
+                    {{ formatRunStatus(run.status) }}
                   </span>
                 </td>
                 <td class="mono">{{ formatDate(run.started_at) }}</td>
@@ -101,7 +101,7 @@
                       class="btn-secondary btn-sm"
                       (click)="connectRunStream(run.run_id)"
                     >
-                      Stream
+                      Ver en vivo
                     </button>
                     @if (run.status === 'RUNNING') {
                       <button
@@ -130,7 +130,7 @@
       @if (store.storageStatus(); as st) {
         <dl class="st-kv mono tabular-nums">
           <div class="st-row">
-            <dt>Estado Motor</dt>
+            <dt>Estado del Servicio</dt>
             <dd>
               <span
                 class="badge"
@@ -138,13 +138,13 @@
                 [class.badge-warning]="st.status === 'DEGRADED'"
                 [class.badge-danger]="st.status === 'OFFLINE'"
               >
-                {{ st.status }}
+                {{ formatStorageStatus(st.status) }}
               </span>
             </dd>
           </div>
           <div class="st-row">
-            <dt>Motor Activo</dt>
-            <dd>{{ st.database_type }} ({{ st.mongo_database }})</dd>
+            <dt>Almacenamiento</dt>
+            <dd>Base documental activa</dd>
           </div>
           <div class="st-row">
             <dt>Fuentes / Recursos</dt>

@@ -181,9 +181,15 @@
 .cov-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: 8px 12px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+.cov-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
 }
 
 .cov-grid strong {

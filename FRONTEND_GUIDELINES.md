@@ -1,20 +1,22 @@
-# Guía Oficial de Diseño, Arquitectura y Experiencia de Usuario v2.0 (Frontend Guidelines)
+# Guía Oficial de Diseño, Arquitectura y Experiencia de Usuario v2.1 (Frontend Guidelines)
 
 > **DATAX — Plataforma de Prospección e Ingeniería de Datos en Bruto**  
-> *Versión 2.0 — Estándar Obligatorio para Ciencia e Ingeniería de Datos (Angular 22)*
+> *Versión 2.1 — Alineada estrictamente con `UI_CONSTRAINTS.md` y `/home/douke017/Datax/CONSTRAINTS.md` (Angular 22)*
 
 ---
 
 ## 1. Audiencia Real y Principio Rector
 
 ### 1.1 Audiencia Objetivo
-La consola web DATAX es una herramienta operativa de ingeniería de datos utilizada por:
-- **Científicos de Datos**: Buscan archivos en bruto y columnas en el catálogo, verifican preexistencia/reutilización en el Gatekeeper, inspeccionan esquemas y muestras crudas sin bajar archivos masivos, ejecutan consultas SQL `SELECT` de solo lectura y extraen insumos en formato binario original, `Parquet`, `CSV` o `JSONL` para Python (`polars`, `pandas`, `duckdb`), R y Jupyter.
-- **Ingenieros de Datos / Operadores**: Gestionan la exploración web abierta, simulan políticas (`Dry-Run`), supervisan resiliencia/contingencias, atienden alertas estructurales con diff de selectores y monitorean colas reales de descarga.
+La consola web DATAX es una herramienta operativa de producción utilizada por:
+- **Analistas y Científicos de Datos**: Buscan portales y archivos en el catálogo, verifican disponibilidad antes de descargar, consultan el historial real de descargas y robots, y exportan catálogos y archivos directamente en formato original, **Excel (`.xlsx`)** o **CSV**.
+- **Operadores de Prospección**: Gestionan la exploración de fuentes web, configuran parámetros y URLs de respaldo, atienden alertas ante cambios en portales y supervisan la cola real de descargas y la conciliación entre Prospector Externo e Interno.
 
-### 1.2 Principio Rector: Datos en Bruto, Precisión Técnica y Cero Humo
-- **Cero framing financiero/BI prematuro**: No disfrazar conceptos técnicos reales como "cierre contable" ni mostrar dashboards de indicadores financieros (`ROA`, `ROE`, `mora`, formateo forzado en `Bs.`) cuando el equipo trabaja exclusivamente sobre datos en bruto.
-- **Terminología técnica precisa en 100% español profesional**: Usar nombres claros y honestos de ingeniería de datos (`Parquet`, `SHA-256`, `SQL solo lectura`, `Custodia en Bruto`, `Control Previo`, `Cola de Descargas`, `Respaldos de Contingencia`, `Diff Estructural`), evitando spanglish descuidado, metatextos de IA (`"Objetivo 1"`, `"HUI-12"`, `"El agente ha determinado..."`) y emojis Unicode.
+### 1.2 Principio Rector: Operación Real, Español Claro y Cero Controles Simulados
+- **Cero simulaciones o `Dry-Run` en UI de producción**: Prohibidos los botones o modos de simulación (`"Simular Plan de Sincronización"`, `"Probar Extracción (Dry-Run)"`, `"DRY_RUN"`, `"Evaluar Lote (DRY_RUN)"`). Ver `UI_CONSTRAINTS.md` §1.
+- **Cero framing financiero/BI prematuro**: No disfrazar activos en bruto como reportes contables ni imponer métricas financieras (`ROA`, `ROE`, `mora`, `Bs.`).
+- **100% español operativo claro**: Prohibido exponer jerga interna de infraestructura (`SKIP LOCKED`, `SSE`, `BFS`, `CKAN`, `HMAC`, `ETag`, `Entrypoint`, `Seeds`, `Failover`, `Workflow`, `Diff`, `Bronze`, `Gold`), enums sin traducir (`ACTIVE`, `WEEKLY`, `COMPLETED`, `MANUAL_FILE`, `CONSOLIDADO_GOLD`), rutas de contenedor (`/app/data/...`), vistas previas `YAML` o paneles de código `Python / R / DuckDB / Power Query` en la UI operativa.
+- **Cero metatextos de IA y cero emojis Unicode**: Nunca mostrar `"Objetivo 1..5"`, `"HUI-*"`, ni emojis en la interfaz.
 
 ---
 
@@ -44,20 +46,20 @@ Prohibido el inlining masivo de templates o estilos. Todo componente en `fronten
 Toda tabla operativa (Catálogo Externo, Inventario de Enlaces, Custodia Bruta, Cola de Descargas, Alertas, Resultados SQL) DEBE cumplir:
 - **Paginación, ordenamiento y filtrado server-side** (nunca cargar miles de filas al navegador para paginar en memoria).
 - **Filtros sincronizados en los query params de la URL** con chips removibles para compartir vistas filtradas por enlace.
-- **Selección múltiple con barra contextual de acciones en lote** (ej. *"Validar y Encolar en Interno"*, *"Exportar Manifiesto JSONL/Parquet"*).
-- **Alineación numérica tabular (`font-variant-numeric: tabular-nums`)** y tipografía monoespaciada para bytes, latencias (`ms`), fechas ISO, códigos HTTP y firmas SHA-256.
-- **Copiado en 1 clic** (URL, SHA-256, `resource_key`, snippets Python/R/cURL) con confirmación mediante toast no intrusivo.
+- **Selección múltiple con barra contextual de acciones en lote** (ej. *"Verificar y Encolar Descarga"*, *"Exportar CSV / Excel"*).
+- **Alineación numérica tabular (`font-variant-numeric: tabular-nums`)** y tipografía monoespaciada para tamaños, tiempos (`ms`), fechas, códigos HTTP y firmas de integridad.
+- **Copiado en 1 clic** (URL, código de robot o huella de archivo) con confirmación mediante toast no intrusivo.
 
 ### 3.3 Paneles Laterales de Inspección (*Slide-over Drawers*)
-- Hacer clic en cualquier fila abre un Drawer lateral con pestañas técnicas (**Metadatos**, **Esquema y Muestra Cruda de 20 filas**, **Historial de Versiones SHA-256**, **Linaje**, **Diff Estructural** o **Snippets de Código**).
+- Hacer clic en cualquier fila abre un panel lateral con pestañas operativas (**Metadatos**, **Vista previa de datos**, **Historial de versiones**, **Trazabilidad** o **Detalle de cambios**).
 - Cerrable con tecla `Escape` o botón explícito sin destruir la posición de scroll ni los filtros de la tabla subyacente.
 
 ### 3.4 Formularios, Flujo Natural y Controles Honestos
 - **Cero barras `fixed` o `sticky` inferiores** que tapen inputs o scroll; las acciones de guardado viven en un `<footer>` de flujo natural (`position: static`).
-- **Cero editores de texto libre en YAML/JSON crudo**: controles tipados e interactivos (chips, listas con validación y reordenamiento de prioridad); si existe vista previa declarativa, es plegable y estrictamente de solo lectura.
-- **Cero controles simulados o de demostración**: prohibidos los "Escenarios rápidos de verificación", el registro manual de estados falsos en la cola de descargas y los `<select>` o switches que alteren estado productivo sin máquina de estados o diálogo accesible de justificación obligatoria.
+- **Cero editores ni vistas previas de YAML/JSON crudo**: solo controles tipados e interactivos (chips, listas con validación y reordenamiento de prioridad).
+- **Cero controles simulados, `Dry-Run` o de demostración**: prohibidos los botones de simulación (`Simular Plan de Sincronización`, `Probar Extracción (Dry-Run)`, `Evaluar Lote (DRY_RUN)`), escenarios de demo y cambios de estado sin acción real auditable.
 - **Cero `window.alert()` / `window.confirm()`**: usar diálogos modales accesibles y notificaciones toast no intrusivas.
-- **Estados honestos y tiempo real**: streams **SSE** para corridas y cola de descargas, **skeleton loaders** durante carga, estados vacíos accionables y estados de error explícitos con código HTTP y botón *"Reintentar"*.
+- **Estados honestos y actualización en vivo**: actualización en tiempo real de corridas y cola de descargas, **skeleton loaders** durante carga, estados vacíos accionables y estados de error explícitos con botón *"Reintentar"*.
 
 ---
 

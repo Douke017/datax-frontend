@@ -9,8 +9,8 @@
       </div>
       <h1 class="module-title">Exploración Web Abierta, Extracción Dirigida y Resiliencia de Fuentes</h1>
       <p class="module-desc">
-        Descubrimiento de fuentes públicas con validación TLS X.509, catálogo versionado de archivos en bruto,
-        respaldos de contingencia con failover automático, trazabilidad auditable y alertas tempranas con diff estructural.
+        Descubrimiento de fuentes públicas, catálogo versionado de archivos en bruto,
+        respaldos de contingencia automáticos, trazabilidad auditable y alertas ante cambios en portales.
       </p>
     </div>
 
@@ -71,7 +71,6 @@
       (click)="setTab('config')"
     >
       <span class="tab-label">Parámetros y Contingencia</span>
-      <span class="tab-badge">Dry-Run</span>
     </button>
 
     <button
@@ -92,7 +91,7 @@
       [class.active]="activeTab() === 'runs'"
       (click)="setTab('runs')"
     >
-      <span class="tab-label">Corridas SSE y Respaldos</span>
+      <span class="tab-label">Corridas y Respaldos</span>
       <span class="tab-badge tabular-nums">{{ formatInt(store.runs().length) }}</span>
     </button>
   </nav>

@@ -13,6 +13,7 @@ import { formatIntegerBo } from '../../shared/utils/format.utils';
 export class BridgeViewComponent implements OnInit {
   readonly store = inject(BridgeStore);
   readonly formatInt = formatIntegerBo;
+  readonly batchSizeOptions = [5, 10, 25, 50];
 
   ngOnInit(): void {
     if (this.store.sources().length === 0) {
@@ -39,8 +40,8 @@ export class BridgeViewComponent implements OnInit {
     this.store.setBatchSize(parseInt(target.value, 10) || 10);
   }
 
-  onExecuteSync(executeDownloads: boolean): void {
-    this.store.executeSyncPlan({ executeDownloads });
+  onExecuteSync(): void {
+    this.store.executeSyncPlan({ executeDownloads: true });
   }
 
   onSearchInput(event: Event): void {

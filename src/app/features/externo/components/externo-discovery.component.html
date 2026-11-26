@@ -4,8 +4,8 @@
       <div>
         <h2>Exploración Automatizada en Web Abierta</h2>
         <p>
-          Consulta proveedores externos configurables (metabuscador, catálogos CKAN, exploración BFS acotada),
-          verifica certificados TLS X.509 en vivo y expone archivos de muestra antes de incorporar fuentes al catálogo.
+          Consulta buscadores y portales públicos de datos abiertos, verifica conectividad y certificados en vivo
+          y muestra archivos de ejemplo antes de incorporar fuentes al catálogo.
         </p>
       </div>
       <label class="toggle-inline">
@@ -26,7 +26,7 @@
           type="text"
           class="text-input"
           [(ngModel)]="queryText"
-          placeholder="Ej: estadísticas series temporales datos abiertos csv parquet"
+          placeholder="Ej: estadísticas series temporales datos abiertos excel csv"
         />
       </div>
 
@@ -102,15 +102,15 @@
     <div class="options-bar">
       <label class="toggle-inline">
         <input type="checkbox" [(ngModel)]="liveProbe" />
-        <span>Verificación HTTP y TLS X.509 en vivo</span>
+        <span>Verificar conectividad y certificado en vivo</span>
       </label>
       <label class="toggle-inline">
         <input type="checkbox" [(ngModel)]="enableExternalProviders" />
-        <span>Activar proveedores externos (CKAN / Metabuscador)</span>
+        <span>Consultar buscadores y portales de datos abiertos</span>
       </label>
       <label class="toggle-inline">
         <input type="checkbox" [(ngModel)]="enableBfsExpansion" />
-        <span>Expansión BFS acotada</span>
+        <span>Explorar enlaces relacionados</span>
       </label>
       <label class="toggle-inline">
         <input type="checkbox" [(ngModel)]="trustedDomainsOnly" />
@@ -292,7 +292,7 @@
       <div class="modal-body">
         <p class="modal-url mono">{{ cand.entrypoint }}</p>
 
-        <label class="m-label" for="prom-id">Identificador único (source_id)</label>
+        <label class="m-label" for="prom-id">Código único de la fuente</label>
         <input
           id="prom-id"
           type="text"
@@ -316,9 +316,9 @@
           <div>
             <label class="m-label" for="prom-cat">Frecuencia de rastreo</label>
             <select id="prom-cat" class="select-input" [(ngModel)]="promoteCategory" name="cat">
-              <option value="DAILY">DIARIA (DAILY)</option>
-              <option value="WEEKLY">SEMANAL (WEEKLY)</option>
-              <option value="MONTHLY">MENSUAL (MONTHLY)</option>
+              <option value="DAILY">Diaria</option>
+              <option value="WEEKLY">Semanal</option>
+              <option value="MONTHLY">Mensual</option>
             </select>
           </div>
           <div>
